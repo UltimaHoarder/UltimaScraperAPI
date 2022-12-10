@@ -158,7 +158,7 @@ class Settings(object):
         proxies: list[str] = [],
         cert: str = "",
         random_string: str = "",
-        api_key: str = "",
+        tui:dict[str, bool] = {}
     ):
         class webhooks_settings:
             def __init__(self, option: dict[str, Any] = {}) -> None:
@@ -207,6 +207,13 @@ class Settings(object):
                 self.delete_empty_directories = option.get(
                     "delete_empty_directories", False
                 )
+        class tui_settings:
+            def __init__(self, option: dict[str, bool] = {}) -> None:
+                self.active = option.get("active",False)
+                self.host = option.get("host","localhost")
+                self.port = option.get("port",2112)
+                self.api_key = option.get("api_key",uuid.uuid1().hex)
+                
 
         self.auto_site_choice = auto_site_choice
         self.export_type = export_type
@@ -223,7 +230,7 @@ class Settings(object):
         self.proxies = proxies
         self.cert = cert
         self.random_string = random_string if random_string else uuid.uuid1().hex
-        self.api_key = api_key if api_key else uuid.uuid1().hex
+        self.tui = tui_settings(tui)
 
 
 class Config(object):

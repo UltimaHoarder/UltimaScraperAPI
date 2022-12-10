@@ -27,6 +27,9 @@ sphinx-autoapi = "^2.0.0"
 sphinx-rtd-theme = "^1.1.1"
 mypy = "^0.991"
 
+[project.urls]
+Homepage = "https://github.com/DIGITALCRIMINALS/UltimaScraperAPI"
+
 [build-system]
 requires = ["poetry-core"]
 build-backend = "poetry.core.masonry.api"
