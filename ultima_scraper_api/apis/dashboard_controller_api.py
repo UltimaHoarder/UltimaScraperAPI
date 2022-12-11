@@ -2,21 +2,27 @@ import asyncio
 from typing import Any
 
 import orjson
-from ultima_scraper_api.apis.background_tasks import BackgroundTask
+import websockets
 from websockets.legacy.client import WebSocketClientProtocol
 
 import ultima_scraper_api.apis.fansly.classes as fansly_classes
 import ultima_scraper_api.apis.onlyfans.classes as onlyfans_classes
-import websockets
+from ultima_scraper_api.apis.background_tasks import BackgroundTask
 
 user_types = (
     onlyfans_classes.user_model.create_user | fansly_classes.user_model.create_user
 )
 
+from ultima_scraper_api.classes.make_settings import Config
+
 
 class DashboardControllerAPI:
-    def __init__(self) -> None:
-        self.listener_args = (self.handler, "localhost", 2112)
+    def __init__(self, config: Config) -> None:
+        self.listener_args = (
+            self.handler,
+            config.settings.tui.host,
+            config.settings.tui.port,
+        )
         self.CONNECTIONS: dict[str, WebSocketClientProtocol] = {}
         self.background_task = BackgroundTask()
         self.background_task.create_background_task(self.start_websocket)
