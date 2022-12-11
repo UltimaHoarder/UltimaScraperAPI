@@ -1,13 +1,8 @@
-from __future__ import annotations
-
 import copy
 import math
 from itertools import chain
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Literal, Optional, Union
-
-if TYPE_CHECKING:
-    from ultima_scraper_api.apis.onlyfans.classes.auth_model import create_auth
+from typing import Any, Literal, Optional, Union
 
 
 class auth_details:
@@ -30,7 +25,10 @@ class auth_details:
     def export(self):
         new_dict = copy.copy(self.__dict__)
         cookie = self.cookie.convert()
-        new_dict["cookie"] = cookie
+        results = [
+            x for x in cookie.replace(" ", "").split(";") if x and x.split("=")[1]
+        ]
+        new_dict["cookie"] = cookie if results else ""
         return new_dict
 
 
@@ -73,7 +71,8 @@ class cookie_parser:
         self.auth_hash = new_dict.get("auth_hash", "")
         self.auth_uniq_ = new_dict.get("auth_uniq_", "")
         self.auth_uid_ = new_dict.get("auth_uid_", "")
-        self.aws_waf_token = new_dict.get("aws-waf-token","")
+        self.aws_waf_token = new_dict.get("aws-waf-token", "")
+
     def format(self):
         """
         Typically used for adding cookies to requests
