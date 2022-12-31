@@ -1,25 +1,27 @@
 import copy
-from sys import exit
 import os
 from pathlib import Path
+from sys import exit
 from typing import Any, Literal
-from ultima_scraper_api.classes.make_settings import SiteSettings
 
-from ultima_scraper_api.classes.prepare_metadata import format_attributes, prepare_reformat
+from ultima_scraper_api.classes.make_settings import SiteSettings
+from ultima_scraper_api.classes.prepare_metadata import (
+    format_attributes,
+    prepare_reformat,
+)
 
 
 class DirectoryManager:
     def __init__(
         self,
         site_settings: SiteSettings,
-        profile_directory: Path = Path(),
-        metadata_directory: Path = Path(),
-        download_directory: Path = Path(),
+        root_metadata_directory: Path = Path(),
+        root_download_directory: Path = Path(),
     ) -> None:
         self.root_directory = Path()
-        self.root_metadata_directory = Path(metadata_directory)
-        self.root_download_directory = Path(download_directory)
-        self.profile = self.ProfileDirectories(Path(profile_directory))
+        self.root_metadata_directory = Path(root_metadata_directory)
+        self.root_download_directory = Path(root_download_directory)
+        # self.profile = self.ProfileDirectories(Path(profile_directory))
         self.user = self.UserDirectories()
         formats = FormatTypes(site_settings)
         string, status = formats.check_rules()
@@ -28,18 +30,18 @@ class DirectoryManager:
             exit(0)
         self.formats = formats
         pass
+
     def create_directories(self):
-        self.profile.create_directories()
+        # self.profile.create_directories()
         self.root_metadata_directory.mkdir(exist_ok=True)
         self.root_download_directory.mkdir(exist_ok=True)
-        
 
-    class ProfileDirectories:
-        def __init__(self, root_directory: Path) -> None:
-            self.root_directory = Path(root_directory)
-            self.metadata_directory = self.root_directory.joinpath("Metadata")
-        def create_directories(self):
-            self.root_directory.mkdir(exist_ok=True)
+    # class ProfileDirectories:
+    #     def __init__(self, root_directory: Path) -> None:
+    #         self.root_directory = Path(root_directory)
+    #         self.metadata_directory = self.root_directory.joinpath("Metadata")
+    #     def create_directories(self):
+    #         self.root_directory.mkdir(exist_ok=True)
 
     class UserDirectories:
         def __init__(self) -> None:

@@ -547,26 +547,6 @@ class create_user(StreamlinedUser):
                     print
         return final_results
 
-    def create_directory_manager(self):
-        from ultima_scraper_api.classes.prepare_directories import DirectoryManager
-
-        api = self.get_api()
-        base_directory_manager = api.base_directory_manager
-        profile_directory = base_directory_manager.profile.root_directory.joinpath(
-            self.username
-        )
-
-        metadata_directory = base_directory_manager.root_metadata_directory
-        download_directory = base_directory_manager.root_download_directory
-        self.directory_manager = DirectoryManager(
-            api.get_site_settings(),
-            profile_directory,
-            metadata_directory,
-            download_directory,
-        )
-        self.file_manager.directory_manager = self.directory_manager
-        return self.directory_manager
-
     async def if_scraped(self):
         status = False
         for key, value in self.scraped.__dict__.items():

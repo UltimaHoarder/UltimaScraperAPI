@@ -152,10 +152,10 @@ class create_auth(create_user):
                     print("Auth 404'ed")
                 continue
             else:
-                print(
-                    f"Welcome {' | '.join([x for x in [self.name, self.username] if x])}"
-                )
-                self.create_directory_manager()
+                # print(
+                #     f"Welcome {' | '.join([x for x in [self.name, self.username] if x])}"
+                # )
+                await self.create_directory_manager(user=False)
                 break
         return self
 

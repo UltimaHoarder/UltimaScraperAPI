@@ -877,11 +877,10 @@ async def move_to_old(
 
 
 async def format_directories(
-    directory_manager: DirectoryManager,
     subscription: user_types,
 ) -> DirectoryManager:
     from ultima_scraper_api.classes.prepare_metadata import prepare_reformat
-
+    directory_manager = subscription.directory_manager
     authed = subscription.get_authed()
     api = authed.api
     site_settings = authed.api.get_site_settings()

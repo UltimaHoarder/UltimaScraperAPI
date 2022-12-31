@@ -153,7 +153,7 @@ class create_auth(create_user):
                 # print(
                 #     f"Welcome {' | '.join([x for x in [self.name, self.username] if x])}"
                 # )
-                self.create_directory_manager()
+                await self.create_directory_manager(user=False)
                 break
         if not self.active:
             user = await self.get_user(auth_id)

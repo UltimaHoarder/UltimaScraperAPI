@@ -89,3 +89,29 @@ class StreamlinedUser():
         return self.__authed.session_manager
     def get_api(self):
         return self.__authed.api
+    async def create_directory_manager(self, user:bool):
+        from ultima_scraper_api.classes.prepare_directories import DirectoryManager
+        from ultima_scraper_api.classes.prepare_metadata import prepare_reformat
+
+        api = self.get_api()
+        base_directory_manager = api.base_directory_manager
+        # profile_directory = base_directory_manager.profile.root_directory.joinpath(
+        #     self.username
+        # )
+        self.directory_manager = DirectoryManager(
+            api.get_site_settings(),
+            base_directory_manager.root_metadata_directory,
+            base_directory_manager.root_download_directory,
+        )
+        self.file_manager.directory_manager = self.directory_manager
+        if user:
+            option = {"site_name":self.get_api().site_name,"profile_username":self.get_authed().username, "model_username":self.username, "directory":self.directory_manager.root_download_directory}
+            pr_rt_rd = prepare_reformat(option)
+            f_d_p = await pr_rt_rd.remove_non_unique(self.directory_manager,"file_directory_format")
+            f_d_p.mkdir(parents=True,exist_ok=True)
+            option["directory"] = self.directory_manager.root_metadata_directory
+            pr_rt_rm = prepare_reformat(option)
+            f_d_p_2 = await pr_rt_rm.remove_non_unique(self.directory_manager,"metadata_directory_format")
+            f_d_p_2.mkdir(parents=True,exist_ok=True)
+            pass
+        return self.directory_manager

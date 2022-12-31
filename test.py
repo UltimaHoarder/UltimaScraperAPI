@@ -1,5 +1,6 @@
-import ultima_scraper_api
 import asyncio
+
+import ultima_scraper_api
 
 
 async def main():
