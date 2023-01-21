@@ -586,8 +586,9 @@ async def process_profiles(
     api: OnlyFans.start | Fansly.start,
     global_settings: make_settings.Settings,
 ):
+    from ultima_scraper_api.storage_managers.filesystem_manager import FilesystemManager
     site_name = api.site_name
-    profile_directories = global_settings.profile_directories
+    profile_directories = [FilesystemManager().profiles_directory]
     for profile_directory in profile_directories:
         pd_s = profile_directory.joinpath(site_name)
         pd_s.mkdir(parents=True, exist_ok=True)

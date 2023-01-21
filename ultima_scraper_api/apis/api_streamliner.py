@@ -44,9 +44,6 @@ class StreamlinedAPI:
         site_settings = self.get_site_settings()
         from ultima_scraper_api.helpers import main_helper
 
-        _profile_root_directory = main_helper.check_space(
-            global_settings.profile_directories
-        )
         root_metadata_directory = main_helper.check_space(
             site_settings.metadata_directories
         )

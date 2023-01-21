@@ -1,4 +1,5 @@
 from __future__ import annotations
+
 import copy
 import uuid as uuid
 from pathlib import Path
@@ -22,6 +23,9 @@ def fix(config: dict[str, Any] = {})->dict[str, Any]:
             )
             input()
         current_version = info["version"]
+
+        settings = config.get("settings")
+        settings.pop('profile_directories', None)
     return config
 
 
@@ -145,7 +149,6 @@ class Settings(object):
     def __init__(
         self,
         auto_site_choice: str = "",
-        profile_directories: list[str] = [".profiles"],
         export_type: str = "json",
         max_threads: int = -1,
         min_drive_space: int = 0,
@@ -217,7 +220,6 @@ class Settings(object):
 
         self.auto_site_choice = auto_site_choice
         self.export_type = export_type
-        self.profile_directories = [Path(x) for x in profile_directories]
         self.max_threads = max_threads
         self.min_drive_space = min_drive_space
         self.helpers = helpers_settings(helpers)
@@ -275,14 +277,11 @@ class Config(object):
 
     def export(self)->Config:
         base = copy.deepcopy(self)
-        base.settings.__dict__["profile_directories"] = [
-            str(x) for x in base.settings.profile_directories
-        ]
         for name in site_names:
             SS = base.supported.get_settings(site_name=name)
             for key, value in SS.__dict__.items():
                 match key:
-                    case "profile_directories" | "download_directories" | "metadata_directories":
+                    case "download_directories" | "metadata_directories":
                         items: list[Path] = value
                         new_list = [x.as_posix() for x in items]
                         SS.__dict__[key] = new_list
