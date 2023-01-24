@@ -450,8 +450,8 @@ class OptionsFormat:
         final_string = f"Choose {options_type.capitalize()}: 0 = All"
         if isinstance(self.auto_choice, str):
             self.auto_choice = [x for x in self.auto_choice.split(",") if x]
-        elif isinstance(self.auto_choice, list):
-            self.auto_choice = [x for x in self.auto_choice if x]
+        elif isinstance(self.auto_choice,int):
+            self.auto_choice = [x for x in str(self.auto_choice).split(",") if x]
 
         match options_type:
             case "sites":
