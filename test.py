@@ -16,7 +16,12 @@ async def main():
 
     api = ultima_scraper_api.select_api("OnlyFans")
     authed = await authenticate(api)
-    _posts = await get_post(authed)
+    posts = await get_post(authed)
+    if posts:
+        for post in posts:
+            author = await post.get_author()
+            print(f"User: {author.username}\nContent: {post.text}")
+            break
 
 
 asyncio.run(main())
