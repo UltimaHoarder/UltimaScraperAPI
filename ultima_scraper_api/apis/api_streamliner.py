@@ -1,12 +1,15 @@
 from __future__ import annotations
 
 from multiprocessing.pool import Pool
-from ultima_scraper_api.classes.make_settings import Config
 
-from ultima_scraper_api.apis.fansly import classes as fansly_classes
-from ultima_scraper_api.apis.onlyfans import classes as onlyfans_classes
 from ultima_scraper_api.apis import api_helper
 from ultima_scraper_api.apis.dashboard_controller_api import DashboardControllerAPI
+from ultima_scraper_api.apis.fansly import classes as fansly_classes
+from ultima_scraper_api.apis.onlyfans import classes as onlyfans_classes
+from ultima_scraper_api.classes.make_settings import Config
+from ultima_scraper_api.managers.storage_managers.filesystem_manager import (
+    FilesystemManager,
+)
 
 auth_types = (
     onlyfans_classes.auth_model.create_auth | fansly_classes.auth_model.create_auth
@@ -33,6 +36,7 @@ class StreamlinedAPI:
         dashboard_controller_api: Optional[DashboardControllerAPI] = None,
     ) -> None:
         from ultima_scraper_api.classes.prepare_directories import DirectoryManager
+        from ultima_scraper_api.managers.job_manager.job_manager import JobManager
 
         self.api = api
         self.dashboard_controller_api = dashboard_controller_api
@@ -40,7 +44,6 @@ class StreamlinedAPI:
         self.config = config
         self.lists = None
         self.pool: Pool = api_helper.multiprocessing()
-        global_settings = self.get_global_settings()
         site_settings = self.get_site_settings()
         from ultima_scraper_api.helpers import main_helper
 
@@ -55,6 +58,8 @@ class StreamlinedAPI:
             root_metadata_directory,
             root_download_directory,
         )
+        self.job_manager = JobManager()
+        self.filesystem_manager = FilesystemManager()
 
     def has_active_auths(self):
         return bool([x for x in self.api.auths if x.active])

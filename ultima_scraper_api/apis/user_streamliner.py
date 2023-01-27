@@ -1,9 +1,12 @@
 
 from __future__ import annotations
+
 import copy
 from typing import TYPE_CHECKING, Any
+
 import dill
-import ultima_scraper_api
+from ultima_scraper_api.managers.job_manager.jobs.custom_job import CustomJob
+
 if TYPE_CHECKING:
     import ultima_scraper_api.apis.fansly.classes as fansly_classes
     import ultima_scraper_api.apis.onlyfans.classes as onlyfans_classes
@@ -44,17 +47,10 @@ class Job:
 
 class StreamlinedUser():
     def __init__(self,authed:auth_types) -> None:
-        site_settings = authed.api.get_site_settings()
         self.__authed = authed
-        scrape_jobs = [
-            Job(f"scrape.{k}")
-            for k, v in site_settings.jobs.scrape.__dict__.items()
-            if v
-        ]
-        jobs = scrape_jobs
-        if scrape_jobs:
-            jobs.append(Job("download"))
-        self.jobs = jobs
+        self.jobs:list[CustomJob] = []
+        self.job_whitelist:list[int|str] = []
+        self.scrape_whitelist:list[int|str] = []
     def get_authed(self):
         return self.__authed
         
@@ -83,6 +79,7 @@ class StreamlinedUser():
         delattr(old, "file_manager")
         delattr(old, "temp_scraped")
         delattr(old, "scraped")
+        old.jobs = [x.convert_to_dill()[1] for x in old.jobs]
         data_string: bytes = dill.dumps(old)  # type: ignore
         return data_string
     def get_session_manager(self):

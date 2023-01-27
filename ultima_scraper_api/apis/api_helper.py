@@ -265,7 +265,6 @@ class session_manager:
         self,
         download_item: template_media_table,
         session: ClientSession,
-        current_task: JobTask,
         subscription: user_types,
     ):
         onlyfans_extras, _fansly_extras = load_extras()
@@ -287,7 +286,7 @@ class session_manager:
             if response and response.status != 200:
                 if response.content_length:
                     pass
-                    current_task.max=-response.content_length
+                    # current_task.max=-response.content_length
                 api_type = download_item.__module__.split(".")[-1]
                 post_id = download_item.post_id
                 new_result = None

@@ -143,6 +143,20 @@ class SiteSettings:
                 case _:
                     pass
         return new_options
+    def get_available_jobs(self,value:str):
+        job_category = getattr(self.jobs,value.lower())
+        valid = {x[0]:x[1] for x in job_category.__dict__.items() if x[1]}
+        return valid
+    
+    def check_if_user_in_auto(self,value:str):
+        auto_model_choice = self.auto_model_choice
+        if isinstance(auto_model_choice, (list, tuple)):
+            if any(map(lambda x: x == value, auto_model_choice)):
+                return True
+        elif auto_model_choice == value or auto_model_choice is True:
+            return True
+        else:
+            return False
 
 
 class Settings(object):

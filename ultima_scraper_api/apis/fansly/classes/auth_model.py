@@ -280,10 +280,13 @@ class create_auth(create_user):
         return final_followings
 
     async def get_subscription(
-        self,
-        identifier: int | str = "",
+        self, identifier: int | str = "", custom_list: list[create_user] = []
     ) -> create_user | None:
-        subscriptions = await self.get_subscriptions(refresh=False)
+        subscriptions = (
+            await self.get_subscriptions(refresh=False)
+            if not custom_list
+            else custom_list
+        )
         valid = None
         for subscription in subscriptions:
             if identifier == subscription.username or identifier == subscription.id:
@@ -350,57 +353,56 @@ class create_auth(create_user):
 
     async def get_chats(
         self,
-        links: Optional[list] = None,
-        limit=100,
-        offset=0,
-        refresh=True,
-        inside_loop=False,
-    ) -> list:
-        api_type = "chats"
-        if not self.active:
-            return []
-        if not refresh:
-            result = handle_refresh(self, api_type)
-            if result:
-                return result
+        links: Optional[list[str]] = None,
+        limit: int = 1,
+        offset: int = 0,
+        refresh: bool = True,
+        inside_loop: bool = False,
+    ) -> list[dict[str, Any]]:
+        result, status = await api_helper.default_data(self, refresh)
+        if status:
+            return result
         if links is None:
             links = []
-        api_count = self.chatMessagesCount
-        if api_count and not links:
-            link = endpoint_links(
-                identifier=self.id, global_limit=limit, global_offset=offset
-            ).list_chats
-            ceil = math.ceil(api_count / limit)
-            numbers = list(range(ceil))
-            for num in numbers:
-                num = num * limit
-                link = link.replace(f"limit={limit}", f"limit={limit}")
-                new_link = link.replace("offset=0", f"offset={num}")
-                links.append(new_link)
-        multiplier = getattr(self.session_manager.pool, "_processes")
+        multiplier = self.session_manager.max_threads
         if links:
             link = links[-1]
         else:
             link = endpoint_links(
                 identifier=self.id, global_limit=limit, global_offset=offset
             ).list_chats
-        links2 = api_helper.calculate_the_unpredictable(link, limit, multiplier)
+        links_2 = api_helper.calculate_the_unpredictable(link, limit, multiplier)
         if not inside_loop:
-            links += links2
+            links += links_2
         else:
-            links = links2
+            links = links_2
         results = await self.session_manager.async_requests(links)
-        has_more = results[-1]["hasMore"]
-        final_results = [x["list"] for x in results]
-        final_results = list(chain.from_iterable(final_results))
+        has_more = results[-1]["response"]["data"]
+        final_results = api_helper.merge_dictionaries(results)["response"]
+        aggregationData = final_results["aggregationData"]
+        for result in final_results["data"]:
+            for account in aggregationData["accounts"]:
+                if result["partnerAccountId"] == account["id"]:
+                    result["withUser"] = create_user(account, self)
+            for group in aggregationData["groups"]:
+                found_user = [x for x in group["users"] if x["userId"]==result["partnerAccountId"]]
+                last_message = group.get("lastMessage")
+                if found_user and last_message:
+                    result["lastMessage"] = create_message(
+                        last_message, result["withUser"]
+                    )
 
         if has_more:
             results2 = await self.get_chats(
-                links=[links[-1]], limit=limit, offset=limit + offset, inside_loop=True
+                links=[links[-1]],
+                limit=limit,
+                offset=limit + offset,
+                inside_loop=True,
             )
             final_results.extend(results2)
-
-        final_results.sort(key=lambda x: x["withUser"]["id"], reverse=True)
+        if not inside_loop:
+            final_results = final_results["data"]
+            final_results.sort(key=lambda x: x["withUser"].id, reverse=True)
         self.chats = final_results
         return final_results
 
@@ -452,10 +454,10 @@ class create_auth(create_user):
     ) -> list[create_message | create_post]:
         return []
 
-    async def resolve_user(self,post_id:int|None=None):
+    async def resolve_user(self, post_id: int | None = None):
         user = None
         if post_id:
             post = await self.get_post(post_id)
-            if not isinstance(post,ErrorDetails):
+            if not isinstance(post, ErrorDetails):
                 user = post.author
         return user

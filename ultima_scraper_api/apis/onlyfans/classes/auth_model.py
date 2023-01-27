@@ -8,6 +8,7 @@ from itertools import chain, product
 from multiprocessing.pool import Pool
 from typing import TYPE_CHECKING, Any, Dict, Optional, Union
 
+from dateutil.relativedelta import relativedelta
 from ultima_scraper_api.apis import api_helper
 from ultima_scraper_api.apis.onlyfans.classes.extras import (
     ErrorDetails,
@@ -18,16 +19,14 @@ from ultima_scraper_api.apis.onlyfans.classes.extras import (
 from ultima_scraper_api.apis.onlyfans.classes.message_model import create_message
 from ultima_scraper_api.apis.onlyfans.classes.post_model import create_post
 from ultima_scraper_api.apis.onlyfans.classes.user_model import create_user
-from dateutil.relativedelta import relativedelta
-from user_agent import generate_user_agent
 from ultima_scraper_api.apis.user_streamliner import StreamlinedUser
-
+from user_agent import generate_user_agent
 
 if TYPE_CHECKING:
     from ultima_scraper_api.apis.onlyfans.onlyfans import start
 
 # auth_model.py handles functions that only relate to the authenticated user
-
+# We can create a auth_streamliner that has a parent class of create_user instead
 
 class create_auth(create_user):
     def __init__(
@@ -248,8 +247,9 @@ class create_auth(create_user):
     async def get_subscription(
         self,
         identifier: int | str = "",
+        custom_list:list[create_user]=[]
     ) -> create_user | None:
-        subscriptions = await self.get_subscriptions(refresh=False)
+        subscriptions = await self.get_subscriptions(refresh=False) if not custom_list else custom_list
         valid = None
         for subscription in subscriptions:
             if identifier == subscription.username or identifier == subscription.id:
@@ -365,18 +365,6 @@ class create_auth(create_user):
             return result
         if links is None:
             links = []
-        api_count = self.chatMessagesCount
-        if api_count and not links:
-            link = endpoint_links(
-                identifier=self.id, global_limit=limit, global_offset=offset
-            ).list_chats
-            ceil = math.ceil(api_count / limit)
-            numbers = list(range(ceil))
-            for num in numbers:
-                num = num * limit
-                link = link.replace(f"limit={limit}", f"limit={limit}")
-                new_link = link.replace("offset=0", f"offset={num}")
-                links.append(new_link)
         multiplier = self.session_manager.max_threads
         if links:
             link = links[-1]
@@ -385,12 +373,11 @@ class create_auth(create_user):
                 identifier=self.id, global_limit=limit, global_offset=offset
             ).list_chats
         links_2 = api_helper.calculate_the_unpredictable(link, limit, multiplier)
-        final_links = links
         if not inside_loop:
-            final_links += links_2
+            links += links_2
         else:
-            final_links = links_2
-        results = await self.session_manager.async_requests(final_links)
+            links = links_2
+        results = await self.session_manager.async_requests(links)
         has_more = results[-1]["hasMore"]
         final_results = [x["list"] for x in results]
         final_results = list(chain.from_iterable(final_results))
@@ -402,7 +389,7 @@ class create_auth(create_user):
 
         if has_more:
             results2 = await self.get_chats(
-                links=[final_links[-1]],
+                links=[links[-1]],
                 limit=limit,
                 offset=limit + offset,
                 inside_loop=True,

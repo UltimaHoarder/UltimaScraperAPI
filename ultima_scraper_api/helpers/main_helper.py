@@ -246,13 +246,15 @@ async def async_downloads(
             total_size = sum([x.size for x in download_list if x.id])
             tasks.clear()
             if download_list:
-                current_task = job.get_current_task()
-                current_task.max = total_size
+                # ASSIGN TOTAL DOWNLOAD SIZE TO JOBS (SOMEHOW)
+                # current_task = job.get_current_task()
+                # current_task.max = total_size
+                pass
 
             async def process_download(download_item: template_media_table):
                 while True:
                     result = await session_m.download_content(
-                        download_item, session, current_task, subscription
+                        download_item, session, subscription
                     )
                     if result:
                         response, download_item = result.values()
@@ -260,9 +262,7 @@ async def async_downloads(
                             download_path = os.path.join(
                                 download_item.directory, download_item.filename
                             )
-                            status_code = await write_data(
-                                response, download_path, current_task.advance
-                            )
+                            status_code = await write_data(response, download_path)
                             if not status_code:
                                 pass
                             elif status_code == 1:
@@ -272,7 +272,9 @@ async def async_downloads(
                                 #     progress_bar.tasks[0].total - download_item.size
                                 # )
                                 # progress_bar.update(0, total=total_size)
-                                current_task.max = -download_item.size
+
+                                # ASSIGN TOTAL DOWNLOAD SIZE TO JOBS (SOMEHOW)
+                                # current_task.max = -download_item.size
                                 break
                             timestamp = download_item.created_at.timestamp()
                             await format_image(
@@ -450,8 +452,8 @@ class OptionsFormat:
         final_string = f"Choose {options_type.capitalize()}: 0 = All"
         if isinstance(self.auto_choice, str):
             self.auto_choice = [x for x in self.auto_choice.split(",") if x]
-        elif isinstance(self.auto_choice,int):
-            self.auto_choice = [x for x in str(self.auto_choice).split(",") if x]
+        elif isinstance(self.auto_choice, list):
+            self.auto_choice = [x for x in self.auto_choice if x]
 
         match options_type:
             case "sites":
@@ -586,7 +588,10 @@ async def process_profiles(
     api: OnlyFans.start | Fansly.start,
     global_settings: make_settings.Settings,
 ):
-    from ultima_scraper_api.storage_managers.filesystem_manager import FilesystemManager
+    from ultima_scraper_api.managers.storage_managers.filesystem_manager import (
+        FilesystemManager,
+    )
+
     site_name = api.site_name
     profile_directories = [FilesystemManager().profiles_directory]
     for profile_directory in profile_directories:
@@ -881,6 +886,7 @@ async def format_directories(
     subscription: user_types,
 ) -> DirectoryManager:
     from ultima_scraper_api.classes.prepare_metadata import prepare_reformat
+
     directory_manager = subscription.directory_manager
     authed = subscription.get_authed()
     api = authed.api

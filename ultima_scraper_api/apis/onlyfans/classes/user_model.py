@@ -340,10 +340,15 @@ class create_user(StreamlinedUser):
         if links:
             link = links[-1]
         else:
-            link = endpoint_links(
-                identifier=self.id, global_limit=limit, global_offset=offset
-            ).message_api
-            links.append(link)
+            if offset==0:
+                link = endpoint_links(
+                    identifier=self.id, global_limit=1, global_offset=offset
+                ).message_api
+                offset+=1
+                links.append(link)
+                link = endpoint_links(
+                    identifier=self.id, global_limit=limit, global_offset=offset
+                ).message_api
         links2 = api_helper.calculate_the_unpredictable(link, limit, multiplier)
         if not inside_loop:
             links += links2
