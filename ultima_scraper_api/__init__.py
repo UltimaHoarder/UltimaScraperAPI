@@ -14,6 +14,9 @@ auth_types = (
 user_types = (
     onlyfans_classes.user_model.create_user | fansly_classes.user_model.create_user
 )
+post_types = (
+    onlyfans_classes.post_model.create_post | fansly_classes.post_model.create_post
+)
 message_types = (
     onlyfans_classes.message_model.create_message
     | fansly_classes.message_model.create_message
@@ -41,13 +44,15 @@ def select_api(option: str, config: Config = Config()):
 
 
 def load_classes(name: str | None = None):
-    default_values = auth_types, user_types, message_types, error_types
+    default_values = auth_types, user_types, post_types, message_types, error_types
     fill_values = [object] * (len(default_values) - 1)
     match name:
         case "auth":
             return (auth_types, *fill_values)
         case "user":
             return (Any, user_types, Any, Any)
+        case "post":
+            return (Any, Any, post_types, Any)
         case "message":
             return (Any, Any, message_types, Any)
         case "error":

@@ -11,8 +11,7 @@ async def main():
     async def get_post(authed: ultima_scraper_api.auth_types):
         user = await authed.get_user("onlyfans")
         if isinstance(user, ultima_scraper_api.user_types):
-            posts = await user.get_posts()
-            return posts
+            return await user.get_posts()
 
     api = ultima_scraper_api.select_api("OnlyFans")
     authed = await authenticate(api)
