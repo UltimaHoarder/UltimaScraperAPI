@@ -13,7 +13,7 @@ site_names: Tuple[site_name_literals, ...] = get_args(site_name_literals)
 current_version = None
 
 
-def fix(config: dict[str, Any] = {})->dict[str, Any]:
+def fix(config: dict[str, Any] = {}) -> dict[str, Any]:
     global current_version
     if config:
         info = config.get("info", {})
@@ -25,7 +25,8 @@ def fix(config: dict[str, Any] = {})->dict[str, Any]:
         current_version = info["version"]
 
         settings = config.get("settings")
-        settings.pop('profile_directories', None)
+        if settings:
+            settings.pop("profile_directories", None)
     return config
 
 
@@ -69,7 +70,7 @@ class SiteSettings:
         self.jobs = jobs(option.get("jobs", {}))
         self.download_directories = [
             Path(directory)
-            for directory in option.get("download_directories", [".sites"])
+            for directory in option.get("download_directories", ["__user_data__/sites"])
         ]
         self.file_directory_format = Path(
             option.get(
@@ -80,7 +81,7 @@ class SiteSettings:
         self.filename_format = Path(option.get("filename_format", "{filename}.{ext}"))
         self.metadata_directories = [
             Path(directory)
-            for directory in option.get("metadata_directories", [".sites"])
+            for directory in option.get("metadata_directories", ["__user_data__/sites"])
         ]
         self.metadata_directory_format = Path(
             option.get(
@@ -143,12 +144,13 @@ class SiteSettings:
                 case _:
                     pass
         return new_options
-    def get_available_jobs(self,value:str):
-        job_category = getattr(self.jobs,value.lower())
-        valid = {x[0]:x[1] for x in job_category.__dict__.items() if x[1]}
+
+    def get_available_jobs(self, value: str):
+        job_category = getattr(self.jobs, value.lower())
+        valid = {x[0]: x[1] for x in job_category.__dict__.items() if x[1]}
         return valid
-    
-    def check_if_user_in_auto(self,value:str):
+
+    def check_if_user_in_auto(self, value: str):
         auto_model_choice = self.auto_model_choice
         if isinstance(auto_model_choice, (list, tuple)):
             if any(map(lambda x: x == value, auto_model_choice)):
@@ -175,7 +177,7 @@ class Settings(object):
         proxies: list[str] = [],
         cert: str = "",
         random_string: str = "",
-        tui:dict[str, bool] = {}
+        tui: dict[str, bool] = {},
     ):
         class webhooks_settings:
             def __init__(self, option: dict[str, Any] = {}) -> None:
@@ -224,13 +226,13 @@ class Settings(object):
                 self.delete_empty_directories = option.get(
                     "delete_empty_directories", False
                 )
+
         class tui_settings:
             def __init__(self, option: dict[str, bool] = {}) -> None:
-                self.active = option.get("active",False)
-                self.host = option.get("host","localhost")
-                self.port = option.get("port",2112)
-                self.api_key = option.get("api_key",uuid.uuid1().hex)
-                
+                self.active = option.get("active", False)
+                self.host = option.get("host", "localhost")
+                self.port = option.get("port", 2112)
+                self.api_key = option.get("api_key", uuid.uuid1().hex)
 
         self.auto_site_choice = auto_site_choice
         self.export_type = export_type
@@ -289,7 +291,7 @@ class Config(object):
         self.settings = Settings(**settings)
         self.supported = Supported(**supported)
 
-    def export(self)->Config:
+    def export(self) -> Config:
         base = copy.deepcopy(self)
         for name in site_names:
             SS = base.supported.get_settings(site_name=name)
