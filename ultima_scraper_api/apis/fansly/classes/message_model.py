@@ -48,7 +48,7 @@ class create_message:
                 case 1:
                     final_media_ids.append(attachment_content_id)
                 case 2:
-                    for bundle in extra["accountMediaBundles"]:
+                    for bundle in extra.get("accountMediaBundles",[]):
                         if bundle["id"] == attachment_content_id:
                             final_media_ids.extend(bundle["accountMediaIds"])
                 case 32001:
