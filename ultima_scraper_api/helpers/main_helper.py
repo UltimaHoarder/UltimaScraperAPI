@@ -19,9 +19,6 @@ from typing import TYPE_CHECKING, Any, BinaryIO, Literal, Optional, Union
 
 import orjson
 import requests
-import ultima_scraper_api
-import ultima_scraper_api.classes.make_settings as make_settings
-import ultima_scraper_api.classes.prepare_webhooks as prepare_webhooks
 from aiofiles import os as async_os
 from aiohttp.client import ClientSession
 from aiohttp.client_exceptions import (
@@ -34,6 +31,10 @@ from aiohttp.client_reqrep import ClientResponse
 from aiohttp_socks.connector import ProxyConnector
 from bs4 import BeautifulSoup
 from mergedeep import Strategy, merge
+
+import ultima_scraper_api
+import ultima_scraper_api.classes.make_settings as make_settings
+import ultima_scraper_api.classes.prepare_webhooks as prepare_webhooks
 from ultima_scraper_api.apis import api_helper
 from ultima_scraper_api.apis.dashboard_controller_api import DashboardControllerAPI
 from ultima_scraper_api.apis.fansly import fansly as Fansly
@@ -455,11 +456,14 @@ class OptionsFormat:
 
         if isinstance(self.auto_choice, str):
             self.auto_choice = [x for x in self.auto_choice.split(",") if x]
-            self.auto_choice = True if any(x in ["0", "all"] for x in self.auto_choice) else self.auto_choice
+            self.auto_choice = (
+                True
+                if any(x in ["0", "all"] for x in self.auto_choice)
+                else self.auto_choice
+            )
 
         if isinstance(self.auto_choice, list):
             self.auto_choice = [x for x in self.auto_choice if x]
-
 
         match options_type:
             case "sites":
@@ -599,12 +603,13 @@ async def process_profiles(
     )
 
     site_name = api.site_name
-    profile_directories = [FilesystemManager().profiles_directory]
+    filesystem_manager = FilesystemManager()
+    profile_directories = [filesystem_manager.profiles_directory]
     for profile_directory in profile_directories:
         pd_s = profile_directory.joinpath(site_name)
         pd_s.mkdir(parents=True, exist_ok=True)
         temp_users = pd_s.iterdir()
-        temp_users = remove_mandatory_files(temp_users)
+        temp_users = filesystem_manager.remove_mandatory_files(temp_users)
         for user_profile in temp_users:
             user_auth_filepath = user_profile.joinpath("auth.json")
             datas: dict[str, Any] = {}
@@ -733,14 +738,6 @@ def grouper(n, iterable, fillvalue: Optional[Union[str, int]] = None):
             grouped.append(group)
         final_grouped = grouped
     return final_grouped
-
-
-def remove_mandatory_files(files, keep=[]):
-    matches = ["desktop.ini", ".DS_Store", ".DS_store", "@eaDir"]
-    folders = [x for x in files if x not in matches]
-    if keep:
-        folders = [x for x in files if x in keep]
-    return folders
 
 
 def metadata_fixer(directory):
