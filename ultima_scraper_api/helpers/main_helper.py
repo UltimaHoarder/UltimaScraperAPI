@@ -450,10 +450,16 @@ class OptionsFormat:
     async def formatter(self):
         options_type = self.options_type
         final_string = f"Choose {options_type.capitalize()}: 0 = All"
+        if type(self.auto_choice) == int:
+            self.auto_choice = str(self.auto_choice)
+
         if isinstance(self.auto_choice, str):
             self.auto_choice = [x for x in self.auto_choice.split(",") if x]
-        elif isinstance(self.auto_choice, list):
+            self.auto_choice = True if any(x in ["0", "all"] for x in self.auto_choice) else self.auto_choice
+
+        if isinstance(self.auto_choice, list):
             self.auto_choice = [x for x in self.auto_choice if x]
+
 
         match options_type:
             case "sites":
