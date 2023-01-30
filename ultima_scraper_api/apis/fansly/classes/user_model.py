@@ -249,7 +249,6 @@ class create_user(StreamlinedUser):
             status = True
         return status
 
-
     async def get_stories(
         self, refresh: bool = True, limit: int = 100, offset: int = 0
     ) -> list[create_story]:
@@ -261,7 +260,9 @@ class create_user(StreamlinedUser):
                 identifier=self.id, global_limit=limit, global_offset=offset
             ).stories_api
         ]
-        results = await api_helper.scrape_endpoint_links(link, self.session_manager)
+        results = await api_helper.scrape_endpoint_links(
+            link, self.get_session_manager()
+        )
         results = [create_story(x) for x in results]
         self.temp_scraped.Stories = results
         return results
@@ -566,7 +567,6 @@ class create_user(StreamlinedUser):
                 case _:
                     print
         return final_results
-
 
     async def if_scraped(self):
         status = False

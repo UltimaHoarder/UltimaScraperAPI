@@ -28,6 +28,7 @@ if TYPE_CHECKING:
 # auth_model.py handles functions that only relate to the authenticated user
 # We can create a auth_streamliner that has a parent class of create_user instead
 
+
 class create_auth(create_user):
     def __init__(
         self,
@@ -56,6 +57,7 @@ class create_auth(create_user):
         self.active: bool = False
         self.errors: list[ErrorDetails] = []
         self.extras: dict[str, Any] = {}
+        self.blacklist: list[str] = []
 
     class _session_manager(api_helper.session_manager):
         def __init__(
@@ -104,7 +106,7 @@ class create_auth(create_user):
 
         while self.auth_attempt < max_attempts + 1:
             await self.process_auth()
-            self.auth_attempt+=1
+            self.auth_attempt += 1
 
             async def resolve_auth(auth: create_auth):
                 if self.errors:
@@ -211,6 +213,22 @@ class create_auth(create_user):
         self.lists = results
         return results
 
+    async def get_blacklist(self, local_blacklists: list[str]):
+        bl_ids: list[str] = []
+        remote_blacklists = await self.get_lists()
+        if remote_blacklists:
+            for remote_blacklist in remote_blacklists:
+                for local_blacklist in local_blacklists:
+                    if remote_blacklist["name"] == local_blacklist:
+                        list_users = remote_blacklist["users"]
+                        if remote_blacklist["usersCount"] > 2:
+                            list_id = remote_blacklist["id"]
+                            list_users = await self.get_lists_users(list_id)
+                        if list_users:
+                            users = list_users
+                            bl_ids = [x["username"] for x in users]
+        return bl_ids
+
     async def get_user(
         self, identifier: Union[str, int]
     ) -> Union[create_user, ErrorDetails]:
@@ -245,11 +263,13 @@ class create_auth(create_user):
         return results
 
     async def get_subscription(
-        self,
-        identifier: int | str = "",
-        custom_list:list[create_user]=[]
+        self, identifier: int | str = "", custom_list: list[create_user] = []
     ) -> create_user | None:
-        subscriptions = await self.get_subscriptions(refresh=False) if not custom_list else custom_list
+        subscriptions = (
+            await self.get_subscriptions(refresh=False)
+            if not custom_list
+            else custom_list
+        )
         valid = None
         for subscription in subscriptions:
             if identifier == subscription.username or identifier == subscription.id:
@@ -474,10 +494,10 @@ class create_auth(create_user):
             self.paid_content = final_results
         return final_results
 
-    async def resolve_user(self,post_id:int|None=None):
+    async def resolve_user(self, post_id: int | None = None):
         user = None
         if post_id:
             post = await self.get_post(post_id)
-            if not isinstance(post,ErrorDetails):
+            if not isinstance(post, ErrorDetails):
                 user = post.author
         return user

@@ -56,6 +56,7 @@ class create_auth(create_user):
         self.active: bool = False
         self.errors: list[ErrorDetails] = []
         self.extras: dict[str, Any] = {}
+        self.blacklist: list[str] = []
 
     class _session_manager(api_helper.session_manager):
         def __init__(
@@ -209,6 +210,23 @@ class create_auth(create_user):
         results = await self.session_manager.json_request(link)
         self.lists = results
         return results
+
+    async def get_blacklist(self, blacklists: list[str]):
+        bl_ids: list[str] = []
+        return bl_ids
+        remote_blacklists = await self.get_lists()
+        if remote_blacklists:
+            for remote_blacklist in remote_blacklists:
+                for blacklist in blacklists:
+                    if remote_blacklist["name"] == blacklist:
+                        list_users = remote_blacklist["users"]
+                        if remote_blacklist["usersCount"] > 2:
+                            list_id = remote_blacklist["id"]
+                            list_users = await self.get_lists_users(list_id)
+                        if list_users:
+                            users = list_users
+                            bl_ids = [x["username"] for x in users]
+        return bl_ids
 
     async def get_user(self, identifier: int | str) -> Union[create_user, ErrorDetails]:
         link = endpoint_links().list_users([identifier])
@@ -385,7 +403,11 @@ class create_auth(create_user):
                 if result["partnerAccountId"] == account["id"]:
                     result["withUser"] = create_user(account, self)
             for group in aggregationData["groups"]:
-                found_user = [x for x in group["users"] if x["userId"]==result["partnerAccountId"]]
+                found_user = [
+                    x
+                    for x in group["users"]
+                    if x["userId"] == result["partnerAccountId"]
+                ]
                 last_message = group.get("lastMessage")
                 if found_user and last_message:
                     result["lastMessage"] = create_message(
