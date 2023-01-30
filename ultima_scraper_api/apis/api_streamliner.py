@@ -7,9 +7,6 @@ from ultima_scraper_api.apis.dashboard_controller_api import DashboardController
 from ultima_scraper_api.apis.fansly import classes as fansly_classes
 from ultima_scraper_api.apis.onlyfans import classes as onlyfans_classes
 from ultima_scraper_api.classes.make_settings import Config
-from ultima_scraper_api.managers.storage_managers.filesystem_manager import (
-    FilesystemManager,
-)
 
 auth_types = (
     onlyfans_classes.auth_model.create_auth | fansly_classes.auth_model.create_auth
@@ -35,8 +32,10 @@ class StreamlinedAPI:
         config: Config,
         dashboard_controller_api: Optional[DashboardControllerAPI] = None,
     ) -> None:
-        from ultima_scraper_api.classes.prepare_directories import DirectoryManager
         from ultima_scraper_api.managers.job_manager.job_manager import JobManager
+        from ultima_scraper_api.managers.storage_managers.filesystem_manager import (
+            FilesystemManager,
+        )
 
         self.api = api
         self.dashboard_controller_api = dashboard_controller_api
@@ -44,20 +43,7 @@ class StreamlinedAPI:
         self.config = config
         self.lists = None
         self.pool: Pool = api_helper.multiprocessing()
-        site_settings = self.get_site_settings()
-        from ultima_scraper_api.helpers import main_helper
 
-        root_metadata_directory = main_helper.check_space(
-            site_settings.metadata_directories
-        )
-        root_download_directory = main_helper.check_space(
-            site_settings.download_directories
-        )
-        self.base_directory_manager = DirectoryManager(
-            site_settings,
-            root_metadata_directory,
-            root_download_directory,
-        )
         self.job_manager = JobManager()
         self.filesystem_manager = FilesystemManager()
 
