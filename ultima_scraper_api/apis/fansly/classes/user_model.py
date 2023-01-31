@@ -621,7 +621,7 @@ class create_user(StreamlinedUser):
         return final_result
 
     async def get_avatar(self):
-        return self.avatar["locations"][0]["location"]
+        return self.avatar["locations"][0]["location"] if self.header else None
 
     async def get_header(self):
-        return self.header["locations"][0]["location"]
+        return self.header["locations"][0]["location"] if self.header else None
