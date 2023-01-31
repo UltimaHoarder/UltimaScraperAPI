@@ -19,6 +19,9 @@ from typing import TYPE_CHECKING, Any, BinaryIO, Literal, Optional, Union
 
 import orjson
 import requests
+import ultima_scraper_api
+import ultima_scraper_api.classes.make_settings as make_settings
+import ultima_scraper_api.classes.prepare_webhooks as prepare_webhooks
 from aiofiles import os as async_os
 from aiohttp.client import ClientSession
 from aiohttp.client_exceptions import (
@@ -31,10 +34,6 @@ from aiohttp.client_reqrep import ClientResponse
 from aiohttp_socks.connector import ProxyConnector
 from bs4 import BeautifulSoup
 from mergedeep import Strategy, merge
-
-import ultima_scraper_api
-import ultima_scraper_api.classes.make_settings as make_settings
-import ultima_scraper_api.classes.prepare_webhooks as prepare_webhooks
 from ultima_scraper_api.apis import api_helper
 from ultima_scraper_api.apis.dashboard_controller_api import DashboardControllerAPI
 from ultima_scraper_api.apis.fansly import fansly as Fansly
@@ -607,25 +606,22 @@ async def process_profiles(
 
     site_name = api.site_name
     filesystem_manager = FilesystemManager()
-    profile_directories = [filesystem_manager.profiles_directory]
-    for profile_directory in profile_directories:
-        pd_s = profile_directory.joinpath(site_name)
-        pd_s.mkdir(parents=True, exist_ok=True)
-        temp_users = pd_s.iterdir()
-        temp_users = filesystem_manager.remove_mandatory_files(temp_users)
-        for user_profile in temp_users:
-            user_auth_filepath = user_profile.joinpath("auth.json")
-            datas: dict[str, Any] = {}
-            temp_json_auth = import_json(user_auth_filepath)
-            json_auth = temp_json_auth["auth"]
-            if not json_auth.get("active", None):
-                continue
-            json_auth["username"] = user_profile.name
-            auth = api.add_auth(json_auth)
-            auth.session_manager.proxies = global_settings.proxies
-            datas["auth"] = auth.auth_details.export()
-            if datas:
-                export_json(datas, user_auth_filepath)
+    profile_directory = filesystem_manager.profiles_directory.joinpath(site_name)
+    profile_directory.mkdir(parents=True, exist_ok=True)
+    temp_users = list(filter(lambda x: x.is_dir(), profile_directory.iterdir()))
+    temp_users = filesystem_manager.remove_mandatory_files(temp_users)
+    for user_profile in temp_users:
+        user_auth_filepath = user_profile.joinpath("auth.json")
+        temp_json_auth = import_json(user_auth_filepath)
+        json_auth = temp_json_auth.get("auth", {})
+        if not json_auth.get("active", None):
+            continue
+        json_auth["username"] = user_profile.name
+        auth = api.add_auth(json_auth)
+        auth.session_manager.proxies = global_settings.proxies
+        datas = {"auth": auth.auth_details.export()}
+        if datas:
+            export_json(datas, user_auth_filepath)
     return api
 
 
