@@ -9,23 +9,25 @@ from urllib import parse
 import ultima_scraper_api.apis.onlyfans.classes.message_model as message_model
 from ultima_scraper_api.apis import api_helper
 from ultima_scraper_api.apis.onlyfans.classes import post_model
-from ultima_scraper_api.apis.onlyfans.classes.extras import (
-    ErrorDetails,
-    endpoint_links,
-)
+from ultima_scraper_api.apis.onlyfans.classes.extras import ErrorDetails, endpoint_links
 from ultima_scraper_api.apis.onlyfans.classes.hightlight_model import create_highlight
 from ultima_scraper_api.apis.onlyfans.classes.story_model import create_story
 
 if TYPE_CHECKING:
     from ultima_scraper_api.apis.onlyfans.classes.auth_model import create_auth
     from ultima_scraper_api.apis.onlyfans.classes.post_model import create_post
-
-    from ultima_scraper_api.classes.prepare_directories import DirectoryManager, FileManager
+    from ultima_scraper_api.classes.prepare_directories import (
+        DirectoryManager,
+        FileManager,
+    )
 
 
 class create_user:
     def __init__(self, option: dict[str, Any], authed: create_auth) -> None:
-        from ultima_scraper_api.classes.prepare_directories import DirectoryManager, FileManager
+        from ultima_scraper_api.classes.prepare_directories import (
+            DirectoryManager,
+            FileManager,
+        )
 
         self.avatar: Optional[str] = option.get("avatar")
         self.avatarThumbs: Optional[list[str]] = option.get("avatarThumbs")
@@ -279,6 +281,8 @@ class create_user:
             ).list_highlights
             results = await self.get_session_manager().json_request(link)
             results = await api_helper.remove_errors(results)
+            if results:
+                pass
             results = [create_highlight(x) for x in results]
         else:
             link = endpoint_links(

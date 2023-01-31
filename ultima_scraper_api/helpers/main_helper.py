@@ -19,9 +19,6 @@ from typing import TYPE_CHECKING, Any, BinaryIO, Literal, Optional, Union
 
 import orjson
 import requests
-import ultima_scraper_api
-import ultima_scraper_api.classes.make_settings as make_settings
-import ultima_scraper_api.classes.prepare_webhooks as prepare_webhooks
 from aiofiles import os as async_os
 from aiohttp.client import ClientSession
 from aiohttp.client_exceptions import (
@@ -34,6 +31,10 @@ from aiohttp.client_reqrep import ClientResponse
 from aiohttp_socks.connector import ProxyConnector
 from bs4 import BeautifulSoup
 from mergedeep import Strategy, merge
+
+import ultima_scraper_api
+import ultima_scraper_api.classes.make_settings as make_settings
+import ultima_scraper_api.classes.prepare_webhooks as prepare_webhooks
 from ultima_scraper_api.apis import api_helper
 from ultima_scraper_api.apis.dashboard_controller_api import DashboardControllerAPI
 from ultima_scraper_api.apis.fansly import fansly as Fansly
@@ -41,12 +42,12 @@ from ultima_scraper_api.apis.onlyfans import onlyfans as OnlyFans
 from ultima_scraper_api.database.databases.user_data.models.media_table import (
     template_media_table,
 )
-from ultima_scraper_api.managers.storage_managers.filesystem_manager import (
-    FilesystemManager,
-)
 
 if TYPE_CHECKING:
     from ultima_scraper_api.classes.prepare_directories import DirectoryManager
+    from ultima_scraper_api.managers.storage_managers.filesystem_manager import (
+        FilesystemManager,
+    )
 
 auth_types = ultima_scraper_api.auth_types
 user_types = ultima_scraper_api.user_types
@@ -822,7 +823,9 @@ def find_between(s, start, end):
     return x
 
 
-async def delete_empty_directories(directory: Path, filesystem_manager: FilesystemManager):
+async def delete_empty_directories(
+    directory: Path, filesystem_manager: FilesystemManager
+):
     for root, dirnames, _files in os.walk(directory, topdown=False):
         for dirname in dirnames:
             full_path = os.path.realpath(os.path.join(root, dirname))
@@ -834,7 +837,7 @@ async def delete_empty_directories(directory: Path, filesystem_manager: Filesyst
                 contents = filesystem_manager.remove_mandatory_files(content_paths)
                 if not contents:
                     shutil.rmtree(full_path, ignore_errors=True)
-                    
+
     if os.path.exists(directory) and not os.listdir(directory):
         os.rmdir(directory)
 
