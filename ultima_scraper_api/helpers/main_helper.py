@@ -19,6 +19,9 @@ from typing import TYPE_CHECKING, Any, BinaryIO, Literal, Optional, Union
 
 import orjson
 import requests
+import ultima_scraper_api
+import ultima_scraper_api.classes.make_settings as make_settings
+import ultima_scraper_api.classes.prepare_webhooks as prepare_webhooks
 from aiofiles import os as async_os
 from aiohttp.client import ClientSession
 from aiohttp.client_exceptions import (
@@ -31,16 +34,15 @@ from aiohttp.client_reqrep import ClientResponse
 from aiohttp_socks.connector import ProxyConnector
 from bs4 import BeautifulSoup
 from mergedeep import Strategy, merge
-
-import ultima_scraper_api
-import ultima_scraper_api.classes.make_settings as make_settings
-import ultima_scraper_api.classes.prepare_webhooks as prepare_webhooks
 from ultima_scraper_api.apis import api_helper
 from ultima_scraper_api.apis.dashboard_controller_api import DashboardControllerAPI
 from ultima_scraper_api.apis.fansly import fansly as Fansly
 from ultima_scraper_api.apis.onlyfans import onlyfans as OnlyFans
 from ultima_scraper_api.database.databases.user_data.models.media_table import (
     template_media_table,
+)
+from ultima_scraper_api.managers.storage_managers.filesystem_manager import (
+    FilesystemManager,
 )
 
 if TYPE_CHECKING:
@@ -820,23 +822,21 @@ def find_between(s, start, end):
     return x
 
 
-def delete_empty_directories(directory: Path):
-    def start(directory: Path):
-        for root, dirnames, _files in os.walk(directory, topdown=False):
-            for dirname in dirnames:
-                full_path = os.path.realpath(os.path.join(root, dirname))
-                contents = os.listdir(full_path)
+async def delete_empty_directories(directory: Path, filesystem_manager: FilesystemManager):
+    for root, dirnames, _files in os.walk(directory, topdown=False):
+        for dirname in dirnames:
+            full_path = os.path.realpath(os.path.join(root, dirname))
+            contents = os.listdir(full_path)
+            if not contents:
+                shutil.rmtree(full_path, ignore_errors=True)
+            else:
+                content_paths = [Path(full_path, content) for content in contents]
+                contents = filesystem_manager.remove_mandatory_files(content_paths)
                 if not contents:
                     shutil.rmtree(full_path, ignore_errors=True)
-                else:
-                    content_count = len(contents)
-                    if content_count == 1 and "desktop.ini" in contents:
-                        shutil.rmtree(full_path, ignore_errors=True)
-
-    start(directory)
-    if os.path.exists(directory):
-        if not os.listdir(directory):
-            os.rmdir(directory)
+                    
+    if os.path.exists(directory) and not os.listdir(directory):
+        os.rmdir(directory)
 
 
 def module_chooser(domain: str, json_sites: dict[str, Any]):
@@ -863,26 +863,6 @@ def module_chooser(domain: str, json_sites: dict[str, Any]):
         string = f"{domain} not supported"
         site_names = []
     return string, site_names
-
-
-async def move_to_old(
-    folder_directory: str,
-    base_download_directories: list,
-    first_letter: str,
-    model_username: str,
-    source: str,
-):
-    # MOVE TO OLD
-    local_destinations = [
-        os.path.join(x, folder_directory) for x in base_download_directories
-    ]
-    local_destination = check_space(
-        local_destinations, min_size=100, create_directory=True
-    )
-    local_destination = os.path.join(local_destination, first_letter, model_username)
-    print(f"Moving {source} -> {local_destination}")
-    shutil.copytree(source, local_destination, dirs_exist_ok=True)
-    shutil.rmtree(source)
 
 
 async def format_directories(
