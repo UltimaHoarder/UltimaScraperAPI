@@ -283,7 +283,7 @@ class create_auth(create_user):
                     create_user(x, self)
                     for x in temp_followings["response"]
                     for identifier in identifiers
-                    if x["username"] == identifier or x["id"] == identifier
+                    if x["username"].lower() == identifier or x["id"] == identifier
                 ]
             else:
                 final_followings = [
@@ -291,7 +291,7 @@ class create_auth(create_user):
                 ]
             for following in final_followings:
                 if not following.subscribedByData:
-                    new_date = datetime.now() + relativedelta(years=1)
+                    new_date = datetime.now() + relativedelta(years=10)
                     new_date = int(new_date.timestamp() * 1000)
                     following.subscribedByData = {}
                     following.subscribedByData["endsAt"] = new_date
