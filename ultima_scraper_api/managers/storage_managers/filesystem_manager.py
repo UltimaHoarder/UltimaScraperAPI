@@ -1,9 +1,21 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import TYPE_CHECKING, Generator
+from typing import TYPE_CHECKING, Any, Generator
 
 from ultima_scraper_api.classes.prepare_directories import DirectoryManager
+
+from aiohttp.client_reqrep import ClientResponse
+import os
+
+from ultima_scraper_api.helpers.main_helper import open_partial
+
+from aiohttp.client_exceptions import (
+    ClientOSError,
+    ClientPayloadError,
+    ContentTypeError,
+    ServerDisconnectedError,
+)
 
 if TYPE_CHECKING:
     from ultima_scraper_api.apis.fansly.fansly import start as FanslyAPI
@@ -53,3 +65,50 @@ class FilesystemManager:
             root_metadata_directory,
             root_download_directory,
         )
+
+    def trash(self):
+        pass
+
+    async def write_data(
+        self, response: ClientResponse, download_path: Path, callback: Any = None
+    ):
+        status_code = 0
+        if response.status == 200:
+            total_length = 0
+            os.makedirs(os.path.dirname(download_path), exist_ok=True)
+            partial_path: str | None = None
+            try:
+                with open_partial(download_path) as f:
+                    partial_path = f.name
+                    try:
+                        async for data in response.content.iter_chunked(4096):
+                            f.write(data)
+                            length = len(data)
+                            total_length += length
+                            if callback:
+                                callback(length)
+                    except (
+                        ClientPayloadError,
+                        ContentTypeError,
+                        ClientOSError,
+                        ServerDisconnectedError,
+                    ) as _e:
+                        status_code = 1
+            except:
+                if partial_path:
+                    os.unlink(partial_path)
+                raise
+            else:
+                if status_code:
+                    os.unlink(partial_path)
+                else:
+                    try:
+                        os.replace(partial_path, download_path)
+                    except OSError:
+                        pass
+        else:
+            if response.content_length:
+                pass
+                # progress_bar.update_total_size(-response.content_length)
+            status_code = 2
+        return status_code

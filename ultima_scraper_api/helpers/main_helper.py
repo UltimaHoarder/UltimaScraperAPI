@@ -19,21 +19,16 @@ from typing import TYPE_CHECKING, Any, BinaryIO, Literal, Optional, Union
 
 import orjson
 import requests
-import ultima_scraper_api
-import ultima_scraper_api.classes.make_settings as make_settings
-import ultima_scraper_api.classes.prepare_webhooks as prepare_webhooks
 from aiofiles import os as async_os
 from aiohttp.client import ClientSession
-from aiohttp.client_exceptions import (
-    ClientOSError,
-    ClientPayloadError,
-    ContentTypeError,
-    ServerDisconnectedError,
-)
 from aiohttp.client_reqrep import ClientResponse
 from aiohttp_socks.connector import ProxyConnector
 from bs4 import BeautifulSoup
 from mergedeep import Strategy, merge
+
+import ultima_scraper_api
+import ultima_scraper_api.classes.make_settings as make_settings
+import ultima_scraper_api.classes.prepare_webhooks as prepare_webhooks
 from ultima_scraper_api.apis import api_helper
 from ultima_scraper_api.apis.dashboard_controller_api import DashboardControllerAPI
 from ultima_scraper_api.apis.fansly import fansly as Fansly
@@ -182,6 +177,7 @@ async def async_downloads(
 ):
     async def run(download_list: list[template_media_table]):
         session_m = subscription.get_session_manager()
+        filesystem_manager = subscription.get_api().filesystem_manager
         proxies = session_m.proxies
         proxy = (
             session_m.proxies[random.randint(0, len(proxies) - 1)] if proxies else ""
@@ -265,7 +261,9 @@ async def async_downloads(
                             download_path = os.path.join(
                                 download_item.directory, download_item.filename
                             )
-                            status_code = await write_data(response, download_path)
+                            status_code = await filesystem_manager.write_data(
+                                response, download_path
+                            )
                             if not status_code:
                                 pass
                             elif status_code == 1:
@@ -672,7 +670,7 @@ def is_me(user_api):
         return False
 
 
-def open_partial(path: str) -> BinaryIO:
+def open_partial(path: Path) -> BinaryIO:
     prefix, extension = os.path.splitext(path)
     while True:
         partial_path = "{}-{}{}.part".format(prefix, secrets.token_hex(6), extension)
@@ -680,51 +678,6 @@ def open_partial(path: str) -> BinaryIO:
             return open(partial_path, "xb")
         except FileExistsError:
             pass
-
-
-async def write_data(
-    response: ClientResponse, download_path: Path, callback: Any = None
-):
-    status_code = 0
-    if response.status == 200:
-        total_length = 0
-        os.makedirs(os.path.dirname(download_path), exist_ok=True)
-        partial_path: Optional[str] = None
-        try:
-            with open_partial(download_path) as f:
-                partial_path = f.name
-                try:
-                    async for data in response.content.iter_chunked(4096):
-                        f.write(data)
-                        length = len(data)
-                        total_length += length
-                        if callback:
-                            callback(length)
-                except (
-                    ClientPayloadError,
-                    ContentTypeError,
-                    ClientOSError,
-                    ServerDisconnectedError,
-                ) as e:
-                    status_code = 1
-        except:
-            if partial_path:
-                os.unlink(partial_path)
-            raise
-        else:
-            if status_code:
-                os.unlink(partial_path)
-            else:
-                try:
-                    os.replace(partial_path, download_path)
-                except OSError:
-                    pass
-    else:
-        if response.content_length:
-            pass
-            # progress_bar.update_total_size(-response.content_length)
-        status_code = 2
-    return status_code
 
 
 def grouper(n, iterable, fillvalue: Optional[Union[str, int]] = None):
