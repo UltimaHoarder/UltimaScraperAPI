@@ -56,9 +56,9 @@ class create_message:
                 case _:
                     pass
         final_media: list[Any] = []
-        if final_media_ids:
+        if final_media_ids and extra:
             for final_media_id in final_media_ids:
-                for account_media in extra.get("extra",[]):
+                for account_media in extra.get("accountMedia",[]):
                     if account_media["id"] == final_media_id:
                         temp_media = None
                         if "preview" in account_media:
