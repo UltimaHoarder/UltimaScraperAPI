@@ -325,35 +325,25 @@ class create_user(StreamlinedUser):
 
     async def get_messages(
         self,
-        links: Optional[list[str]] = None,
+        links: list[str] = [],
         limit: int = 10,
         offset: int = 0,
+        depth: int = 1,
         refresh: bool = True,
-        inside_loop: bool = False,
     ):
         result, status = await api_helper.default_data(self, refresh)
         if status:
             return result
-        if links is None:
-            links = []
         multiplier = self.get_session_manager().max_threads
-        if links:
-            link = links[-1]
-        else:
-            if offset==0:
-                link = endpoint_links(
-                    identifier=self.id, global_limit=1, global_offset=offset
-                ).message_api
-                offset+=1
-                links.append(link)
-                link = endpoint_links(
-                    identifier=self.id, global_limit=limit, global_offset=offset
-                ).message_api
-        links2 = api_helper.calculate_the_unpredictable(link, limit, multiplier)
-        if not inside_loop:
-            links += links2
-        else:
-            links = links2
+        temp_limit = limit
+        temp_offset = offset
+        link = endpoint_links(
+            identifier=self.id, global_limit=temp_limit, global_offset=temp_offset
+        ).message_api
+        unpredictable_links, new_offset = api_helper.calculate_the_unpredictable(
+            link, offset, limit, multiplier, depth
+        )
+        links = unpredictable_links if depth != 1 else links + unpredictable_links
         results = await self.get_session_manager().async_requests(links)
         results = await api_helper.remove_errors(results)
         final_results = []
@@ -365,17 +355,16 @@ class create_user(StreamlinedUser):
 
             if has_more:
                 results2 = await self.get_messages(
-                    links=[links[-1]],
-                    limit=limit,
-                    offset=limit + offset,
-                    inside_loop=True,
+                    limit=temp_limit,
+                    offset=new_offset,
+                    depth=depth + 1,
                 )
                 final_results.extend(results2)
-            print
-            if not inside_loop:
+            if depth == 1:
                 final_results = [
                     message_model.create_message(x, self) for x in final_results if x
                 ]
+                pass
             else:
                 final_results.sort(key=lambda x: x["fromUser"]["id"], reverse=True)
             self.temp_scraped.Messages = final_results

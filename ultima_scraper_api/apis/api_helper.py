@@ -4,6 +4,7 @@ import asyncio
 import hashlib
 import inspect
 import json
+import math
 import os
 import random
 import re
@@ -30,8 +31,11 @@ from aiohttp.client_exceptions import (
 )
 from aiohttp.client_reqrep import ClientResponse
 from aiohttp_socks import ProxyConnectionError, ProxyConnector, ProxyError
-from ultima_scraper_api.database.databases.user_data.models.media_table import template_media_table
 from mergedeep.mergedeep import Strategy, merge
+from ultima_scraper_api.database.databases.user_data.models.media_table import (
+    template_media_table,
+)
+
 
 def load_classes():
     import ultima_scraper_api.apis.fansly.classes as fansly_classes
@@ -67,7 +71,6 @@ if TYPE_CHECKING:
     ) = load_extras()
     error_details_types = onlyfans_extras.ErrorDetails | fansly_extras.ErrorDetails
 parsed_args = Namespace()
-
 
 
 def chunks(l, n):
@@ -116,7 +119,7 @@ class session_manager:
         self.auth = auth
         self.use_cookies: bool = use_cookies
 
-    async def get_cookies(self,convert:bool=False):
+    async def get_cookies(self, convert: bool = False):
         _onlyfans_classes, fansly_classes = load_classes()
         if isinstance(self.auth, fansly_classes.auth_model.create_auth):
             final_cookies: dict[str, Any] = {}
@@ -133,7 +136,7 @@ class session_manager:
         final_cookies = await self.get_cookies()
         # Had to remove final_cookies and cookies=final_cookies due to it conflicting with headers
         client_session = ClientSession(
-            connector=connector,cookies=final_cookies ,read_timeout=None
+            connector=connector, cookies=final_cookies, read_timeout=None
         )
         return client_session
 
@@ -149,7 +152,7 @@ class session_manager:
         method: str = "GET",
         stream: bool = False,
         json_format: bool = True,
-        payload: dict[str, str | bool] |str= {},
+        payload: dict[str, str | bool] | str = {},
         _handle_error_details: bool = True,
     ) -> Any:
         async with self.semaphore:
@@ -161,7 +164,7 @@ class session_manager:
             headers = await self.session_rules(link)
             headers["accept"] = "application/json, text/plain, */*"
             headers["Connection"] = "keep-alive"
-            if isinstance(payload,str):
+            if isinstance(payload, str):
                 temp_payload = payload.encode()
             else:
                 temp_payload = payload.copy()
@@ -175,7 +178,7 @@ class session_manager:
             elif method == "POST":
                 request_method = session.post
                 headers["content-type"] = "application/json"
-                if isinstance(payload,str):
+                if isinstance(payload, str):
                     temp_payload = payload.encode()
                 else:
                     temp_payload = json.dumps(payload)
@@ -236,7 +239,8 @@ class session_manager:
             if custom_session:
                 await session.close()
             return result
-    async def resolve_error_codes(self,response):
+
+    async def resolve_error_codes(self, response):
         pass
 
     async def async_requests(self, items: list[str]) -> list[dict[str, Any]]:
@@ -323,7 +327,7 @@ class session_manager:
         headers |= self.headers
         if "https://onlyfans.com/api2/v2/" in link:
             dynamic_rules = self.dynamic_rules
-            final_cookies =  await self.get_cookies(True)
+            final_cookies = await self.get_cookies(True)
             headers["app-token"] = dynamic_rules["app_token"]
             headers["cookie"] = final_cookies
             if self.auth.guest:
@@ -448,18 +452,21 @@ async def scrape_endpoint_links(
     return final_media_set
 
 
-def calculate_the_unpredictable(link: str, limit: int, multiplier: int = 1):
-    final_links: list[str] = [link]
-    a = list(range(1, multiplier + 1))
-    for b in a:
+def calculate_the_unpredictable(
+    link: str, offset: int, limit: int = 1, multiplier: int = 1, depth: int = 1
+):
+    final_links: list[str] = []
+    final_offsets = list(range(offset, multiplier * depth * limit, limit))
+    final_calc = 0
+    for temp_offset in final_offsets:
+        final_calc = temp_offset
         parsed_link = urlparse(link)
         q = parsed_link.query.split("&")
-        offset = q[1]
-        old_offset_num = int(re.findall("\\d+", offset)[0])
-        new_offset_num = old_offset_num + (limit * b)
-        new_link = link.replace(offset, f"offset={new_offset_num}")
+        offset_string = [x for x in q if "offset" in x][0]
+        new_link = link.replace(offset_string, f"offset={final_calc}")
         final_links.append(new_link)
-    return final_links
+    final_links = list(reversed(list(reversed(final_links))[:multiplier]))
+    return final_links, final_calc
 
 
 def parse_config_inputs(custom_input: Any) -> list[str]:
@@ -596,10 +603,7 @@ def merge_dictionaries(items: list[dict[str, Any]]):
 async def remove_errors(results: Any):
     final_results: list[Any] = []
     onlyfans_extras, fansly_extras = load_extras()
-    error_details_types = (
-        onlyfans_extras.ErrorDetails
-        | fansly_extras.ErrorDetails
-    )
+    error_details_types = onlyfans_extras.ErrorDetails | fansly_extras.ErrorDetails
     wrapped = False
     if not isinstance(results, list):
         wrapped = True

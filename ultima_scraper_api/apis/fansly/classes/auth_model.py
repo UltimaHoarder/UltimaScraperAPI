@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import asyncio
-import math
 from datetime import datetime
 from itertools import chain, product
 from multiprocessing.pool import Pool
@@ -14,7 +13,6 @@ from ultima_scraper_api.apis.fansly.classes.extras import (
     content_types,
     create_headers,
     endpoint_links,
-    handle_refresh,
 )
 from ultima_scraper_api.apis.fansly.classes.message_model import create_message
 from ultima_scraper_api.apis.fansly.classes.post_model import create_post
@@ -371,58 +369,54 @@ class create_auth(create_user):
 
     async def get_chats(
         self,
-        links: Optional[list[str]] = None,
-        limit: int = 1,
+        links: list[str] = [],
+        limit: int = 25,
         offset: int = 0,
+        depth: int = 1,
         refresh: bool = True,
-        inside_loop: bool = False,
     ) -> list[dict[str, Any]]:
         result, status = await api_helper.default_data(self, refresh)
         if status:
             return result
-        if links is None:
-            links = []
         multiplier = self.session_manager.max_threads
-        if links:
-            link = links[-1]
-        else:
-            link = endpoint_links(
-                identifier=self.id, global_limit=limit, global_offset=offset
-            ).list_chats
-        links_2 = api_helper.calculate_the_unpredictable(link, limit, multiplier)
-        if not inside_loop:
-            links += links_2
-        else:
-            links = links_2
+        temp_limit = limit
+        temp_offset = offset
+        link = endpoint_links(
+            identifier=self.id, global_limit=temp_limit, global_offset=temp_offset
+        ).list_chats
+        unpredictable_links,new_offset = api_helper.calculate_the_unpredictable(
+            link, offset, limit, multiplier, depth
+        )
+        links = unpredictable_links if depth != 1 else links + unpredictable_links
+
         results = await self.session_manager.async_requests(links)
         has_more = results[-1]["response"]["data"]
         final_results = api_helper.merge_dictionaries(results)["response"]
-        aggregationData = final_results["aggregationData"]
-        for result in final_results["data"]:
-            for account in aggregationData["accounts"]:
-                if result["partnerAccountId"] == account["id"]:
-                    result["withUser"] = create_user(account, self)
-            for group in aggregationData["groups"]:
-                found_user = [
-                    x
-                    for x in group["users"]
-                    if x["userId"] == result["partnerAccountId"]
-                ]
-                last_message = group.get("lastMessage")
-                if found_user and last_message:
-                    result["lastMessage"] = create_message(
-                        last_message, result["withUser"]
-                    )
 
         if has_more:
             results2 = await self.get_chats(
-                links=[links[-1]],
-                limit=limit,
-                offset=limit + offset,
-                inside_loop=True,
+                limit=temp_limit,
+                offset=new_offset,
+                depth=depth + 1,
             )
-            final_results.extend(results2)
-        if not inside_loop:
+            final_results = api_helper.merge_dictionaries([final_results,results2])
+        if depth == 1:
+            aggregationData = final_results["aggregationData"]
+            for result in final_results["data"]:
+                for account in aggregationData["accounts"]:
+                    if result["partnerAccountId"] == account["id"]:
+                        result["withUser"] = create_user(account, self)
+                for group in aggregationData["groups"]:
+                    found_user = [
+                        x
+                        for x in group["users"]
+                        if x["userId"] == result["partnerAccountId"]
+                    ]
+                    last_message = group.get("lastMessage")
+                    if found_user and last_message:
+                        result["lastMessage"] = create_message(
+                            last_message, result["withUser"]
+                        )
             final_results = final_results["data"]
             final_results.sort(key=lambda x: x["withUser"].id, reverse=True)
         self.chats = final_results
