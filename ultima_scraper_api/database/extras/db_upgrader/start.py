@@ -1,5 +1,7 @@
-import sys
 import os
+import sys
+
+from ultima_scraper_api.database.db_manager import DBCollection
 
 try:
     if __name__ == "__main__":
@@ -11,15 +13,14 @@ try:
             x = os.path.realpath("")
         sys.path.insert(0, x)
         while True:
-            from ultima_scraper_api.helpers.db_helper import database_collection, run_revisions
+            from ultima_scraper_api.helpers.db_helper import run_revisions
 
-            db_collection = database_collection()
+            db_collection = DBCollection()
             key_list = db_collection.__dict__.items()
             key_list = list(key_list)
             string = f""
             count = 0
             for key, item in key_list:
-                print
                 string += f"{str(count)} = {key} | "
                 count += 1
             print(string)

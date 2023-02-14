@@ -4,10 +4,7 @@ import asyncio
 import hashlib
 import inspect
 import json
-import math
-import os
 import random
-import re
 import string
 import time
 from argparse import Namespace
@@ -32,6 +29,7 @@ from aiohttp.client_exceptions import (
 from aiohttp.client_reqrep import ClientResponse
 from aiohttp_socks import ProxyConnectionError, ProxyConnector, ProxyError
 from mergedeep.mergedeep import Strategy, merge
+
 from ultima_scraper_api.database.databases.user_data.models.media_table import (
     template_media_table,
 )

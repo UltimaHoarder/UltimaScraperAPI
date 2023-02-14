@@ -12,7 +12,6 @@ from alembic.config import Config
 from sqlalchemy.engine.base import Engine
 from sqlalchemy.orm import scoped_session
 from sqlalchemy.orm.session import Session, sessionmaker
-
 from ultima_scraper_api.database.databases.user_data import user_database
 
 
@@ -97,7 +96,7 @@ class DBManager:
                     date_object = postedAt
                 media_id = media.get("media_id", None)
                 result = database_session.query(database.media_table)
-                media_db = result.filter_by(media_id=media_id).first()
+                media_db = result.filter_by(post_id=post_id,media_id=media_id).first()
                 if not media_db:
                     media_db = result.filter_by(
                         filename=media["filename"], created_at=date_object

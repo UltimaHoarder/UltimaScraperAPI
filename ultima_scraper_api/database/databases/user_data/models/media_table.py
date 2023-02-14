@@ -2,18 +2,19 @@
 
 from datetime import datetime
 from typing import cast
+
 import sqlalchemy
 
 
 class template_media_table:
     __tablename__ = "medias"
     id = sqlalchemy.Column(sqlalchemy.Integer, primary_key=True)
-    media_id = sqlalchemy.Column(sqlalchemy.Integer, unique=True)
+    media_id = sqlalchemy.Column(sqlalchemy.Integer)
     post_id = sqlalchemy.Column(sqlalchemy.Integer, nullable=False)
     link = cast(str, sqlalchemy.Column(sqlalchemy.String))
     directory = cast(str, sqlalchemy.Column(sqlalchemy.String))
     filename = cast(str, sqlalchemy.Column(sqlalchemy.String))
-    size = cast(int|None, sqlalchemy.Column(sqlalchemy.Integer, default=0))
+    size = cast(int | None, sqlalchemy.Column(sqlalchemy.Integer, default=0))
     api_type = cast(str, sqlalchemy.Column(sqlalchemy.String))
     media_type = sqlalchemy.Column(sqlalchemy.String)
     preview = sqlalchemy.Column(sqlalchemy.Integer, default=0)
