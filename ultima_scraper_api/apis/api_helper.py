@@ -70,9 +70,19 @@ if TYPE_CHECKING:
 parsed_args = Namespace()
 
 
-def chunks(l, n):
-    final = [l[i * n : (i + 1) * n] for i in range((len(l) + n - 1) // n)]
-    return final
+class CustomPool:
+    def __init__(self, max_threads: int | None = None) -> None:
+        self.max_threads = max_threads
+
+    def __enter__(self):
+        max_threads = calculate_max_threads(self.max_threads)
+        self.pool: Pool = ThreadPool(max_threads)
+        return self.pool
+
+    def __exit__(self, exc_type: Any, exc_val: Any, exc_tb: Any):
+        if self.pool:
+            self.pool.close()
+        pass
 
 
 def multiprocessing(max_threads: Optional[int] = None):
