@@ -45,7 +45,6 @@ class StreamlinedAPI:
         self.pool: Pool = api_helper.multiprocessing()
 
         self.job_manager = JobManager()
-        self.filesystem_manager = FilesystemManager()
 
     def has_active_auths(self):
         return bool([x for x in self.api.auths if x.active])

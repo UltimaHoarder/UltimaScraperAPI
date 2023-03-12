@@ -592,37 +592,6 @@ class OptionsFormat:
         ):
             status = True
         return status
-
-
-async def process_profiles(
-    api: OnlyFans.start | Fansly.start,
-    global_settings: make_settings.Settings,
-):
-    from ultima_scraper_api.managers.storage_managers.filesystem_manager import (
-        FilesystemManager,
-    )
-
-    site_name = api.site_name
-    filesystem_manager = FilesystemManager()
-    profile_directory = filesystem_manager.profiles_directory.joinpath(site_name)
-    profile_directory.mkdir(parents=True, exist_ok=True)
-    temp_users = list(filter(lambda x: x.is_dir(), profile_directory.iterdir()))
-    temp_users = filesystem_manager.remove_mandatory_files(temp_users)
-    for user_profile in temp_users:
-        user_auth_filepath = user_profile.joinpath("auth.json")
-        temp_json_auth = import_json(user_auth_filepath)
-        json_auth = temp_json_auth.get("auth", {})
-        if not json_auth.get("active", None):
-            continue
-        json_auth["username"] = user_profile.name
-        auth = api.add_auth(json_auth)
-        auth.session_manager.proxies = global_settings.proxies
-        datas = {"auth": auth.auth_details.export()}
-        if datas:
-            export_json(datas, user_auth_filepath)
-    return api
-
-
 async def process_webhooks(
     api: OnlyFans.start | Fansly.start,
     category: str,
@@ -772,25 +741,6 @@ def find_between(s, start, end):
     return x
 
 
-async def delete_empty_directories(
-    directory: Path, filesystem_manager: FilesystemManager
-):
-    for root, dirnames, _files in os.walk(directory, topdown=False):
-        for dirname in dirnames:
-            full_path = os.path.realpath(os.path.join(root, dirname))
-            contents = os.listdir(full_path)
-            if not contents:
-                shutil.rmtree(full_path, ignore_errors=True)
-            else:
-                content_paths = [Path(full_path, content) for content in contents]
-                contents = filesystem_manager.remove_mandatory_files(content_paths)
-                if not contents:
-                    shutil.rmtree(full_path, ignore_errors=True)
-
-    if os.path.exists(directory) and not os.listdir(directory):
-        os.rmdir(directory)
-
-
 def module_chooser(domain: str, json_sites: dict[str, Any]):
     string = "Select Site: "
     separator = " | "
@@ -815,96 +765,6 @@ def module_chooser(domain: str, json_sites: dict[str, Any]):
         string = f"{domain} not supported"
         site_names = []
     return string, site_names
-
-
-async def format_directories(
-    subscription: user_types,
-) -> DirectoryManager:
-    from ultima_scraper_api.classes.prepare_metadata import prepare_reformat
-
-    directory_manager = subscription.directory_manager
-    authed = subscription.get_authed()
-    api = authed.api
-    site_settings = authed.api.get_site_settings()
-    if site_settings:
-        authed_username = authed.username
-        subscription_username = subscription.username
-        site_name = authed.api.site_name
-        p_r = prepare_reformat()
-        prepared_metadata_format = await p_r.standard(
-            site_name,
-            authed_username,
-            subscription_username,
-            datetime.today(),
-            site_settings.date_format,
-            site_settings.text_length,
-            directory_manager.root_metadata_directory,
-        )
-        string = await prepared_metadata_format.reformat_2(
-            site_settings.metadata_directory_format
-        )
-        directory_manager.user.metadata_directory = Path(string)
-        prepared_download_format = copy.copy(prepared_metadata_format)
-        prepared_download_format.directory = directory_manager.root_download_directory
-        string = await prepared_download_format.reformat_2(
-            site_settings.file_directory_format
-        )
-        formtatted_root_download_directory = (
-            await prepared_download_format.remove_non_unique(
-                directory_manager, "file_directory_format"
-            )
-        )
-        if isinstance(formtatted_root_download_directory, Path):
-            directory_manager.user.download_directory = (
-                formtatted_root_download_directory
-            )
-        await subscription.file_manager.set_default_files(
-            prepared_metadata_format, prepared_download_format
-        )
-        metadata_filepaths = await subscription.file_manager.find_metadata_files(
-            legacy_files=False
-        )
-        for metadata_filepath in metadata_filepaths:
-            new_m_f = directory_manager.user.metadata_directory.joinpath(
-                metadata_filepath.name
-            )
-            if metadata_filepath != new_m_f:
-                counter = 0
-                while True:
-                    if not new_m_f.exists():
-                        # If there's metadata present already before the directory is created, we'll create it here
-                        directory_manager.user.metadata_directory.mkdir(
-                            exist_ok=True, parents=True
-                        )
-                        shutil.move(metadata_filepath, new_m_f)
-                        break
-                    else:
-                        new_m_f = new_m_f.with_stem(
-                            f"{metadata_filepath.stem}_{counter}"
-                        )
-                        counter += 1
-        await subscription.file_manager.set_default_files(
-            prepared_metadata_format, prepared_download_format
-        )
-        user_metadata_directory = directory_manager.user.metadata_directory
-        _user_download_directory = directory_manager.user.download_directory
-        legacy_metadata_directory = user_metadata_directory
-        directory_manager.user.legacy_metadata_directories.append(
-            legacy_metadata_directory
-        )
-        items = api.ContentTypes().__dict__.items()
-        for api_type, _ in items:
-            legacy_metadata_directory_2 = user_metadata_directory.joinpath(api_type)
-            directory_manager.user.legacy_metadata_directories.append(
-                legacy_metadata_directory_2
-            )
-        legacy_model_directory = directory_manager.root_download_directory.joinpath(
-            site_name, subscription_username
-        )
-        directory_manager.user.legacy_download_directories.append(
-            legacy_model_directory
-        )
-    return directory_manager
 
 
 async def replace_path(old_string: str, new_string: str, path: Path):
