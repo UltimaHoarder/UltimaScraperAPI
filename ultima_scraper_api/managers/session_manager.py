@@ -71,8 +71,26 @@ class SessionManager:
             final_cookies = self.auth.auth_details.cookie.format()
         return final_cookies
 
-    def create_client_session(self):
+    def test_proxies(self, proxies: list[str] = []):
+
+        final_proxies: list[str] = []
+        proxies = proxies if proxies else self.proxies
+        for proxy in proxies:
+            url = "https://checkip.amazonaws.com"
+            temp_proxies = {"https": proxy}
+            try:
+                resp = requests.get(url, proxies=temp_proxies)
+                ip = resp.text
+                ip = ip.strip()
+                final_proxies.append(proxy)
+            except Exception as _e:
+                continue
+        return final_proxies
+
+    def create_client_session(self, test_proxies: bool = True):
         limit = 0
+        if test_proxies:
+            self.proxies = self.test_proxies()
         proxies = [
             ProxyInfo(*python_socks.parse_proxy_url(proxy)) for proxy in self.proxies  # type: ignore
         ]
