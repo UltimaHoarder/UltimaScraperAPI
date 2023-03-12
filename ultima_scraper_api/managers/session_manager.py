@@ -89,8 +89,10 @@ class SessionManager:
 
     def create_client_session(self, test_proxies: bool = True):
         limit = 0
-        if test_proxies:
+        if test_proxies and self.proxies:
             self.proxies = self.test_proxies()
+            if not self.proxies:
+                raise Exception("Unable to create session due to invalid proxies")
         proxies = [
             ProxyInfo(*python_socks.parse_proxy_url(proxy)) for proxy in self.proxies  # type: ignore
         ]
