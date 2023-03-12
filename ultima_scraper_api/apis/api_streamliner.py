@@ -42,7 +42,7 @@ class StreamlinedAPI:
         self.max_threads = config.settings.max_threads
         self.config = config
         self.lists = None
-        self.pool: Pool = api_helper.multiprocessing()
+        self.pool = api_helper.CustomPool()
 
         self.job_manager = JobManager()
 
@@ -60,8 +60,6 @@ class StreamlinedAPI:
     def get_global_settings(self):
         return self.config.settings
 
-    def close_pools(self):
-        self.pool.close()
+    async def close_pools(self):
         for auth in self.api.auths:
-            if auth.session_manager:
-                auth.session_manager.pool.close()
+            await auth.session_manager.active_session.close()

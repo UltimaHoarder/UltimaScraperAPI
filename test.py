@@ -21,6 +21,7 @@ async def main():
             author = await post.get_author()
             print(f"User: {author.username}\nContent: {post.text}")
             break
+    await api.close_pools()
 
 
 asyncio.run(main())
