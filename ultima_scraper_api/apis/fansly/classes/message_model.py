@@ -23,7 +23,7 @@ class create_message:
         self.previews: list[dict[str, Any]] = option.get("previews", [])
         self.isTip: Optional[bool] = option.get("isTip")
         self.isReportedByMe: Optional[bool] = option.get("isReportedByMe")
-        self.fromUser = user
+        self.fromUser = user.get_authed().find_user_by_identifier(option["senderId"])[0]
         self.isFromQueue: Optional[bool] = option.get("isFromQueue")
         self.queueId: Optional[int] = option.get("queueId")
         self.canUnsendQueue: Optional[bool] = option.get("canUnsendQueue")

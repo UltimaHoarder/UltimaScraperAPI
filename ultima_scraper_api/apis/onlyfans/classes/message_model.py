@@ -22,11 +22,7 @@ class create_message:
         self.previews: list[dict[str, Any]] = option.get("previews", [])
         self.isTip: Optional[bool] = option.get("isTip")
         self.isReportedByMe: Optional[bool] = option.get("isReportedByMe")
-        self.fromUser = (
-            user
-            if user.id == option["fromUser"]["id"]
-            else user_model.create_user(option["fromUser"], user.get_authed())
-        )
+        self.fromUser = user.get_authed().find_user_by_identifier(option["fromUser"]["id"])[0]
         self.isFromQueue: Optional[bool] = option.get("isFromQueue")
         self.queueId: Optional[int] = option.get("queueId")
         self.canUnsendQueue: Optional[bool] = option.get("canUnsendQueue")

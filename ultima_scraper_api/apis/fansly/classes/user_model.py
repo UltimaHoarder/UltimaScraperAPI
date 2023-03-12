@@ -396,6 +396,7 @@ class create_user(StreamlinedUser):
                 )
                 final_results.extend(results2)
             print
+            # Need to actually add the correct ID to the sender
             if not inside_loop:
                 final_results = [
                     message_model.create_message(x, self, extras)
