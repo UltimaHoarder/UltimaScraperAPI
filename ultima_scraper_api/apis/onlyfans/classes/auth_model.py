@@ -19,7 +19,7 @@ from ultima_scraper_api.apis.onlyfans.classes.extras import (
 from ultima_scraper_api.apis.onlyfans.classes.message_model import create_message
 from ultima_scraper_api.apis.onlyfans.classes.post_model import create_post
 from ultima_scraper_api.apis.onlyfans.classes.user_model import create_user
-from user_agent import generate_user_agent
+from ultima_scraper_api.managers.session_manager import SessionManager
 
 if TYPE_CHECKING:
     from ultima_scraper_api.apis.onlyfans.onlyfans import start
@@ -54,11 +54,12 @@ class create_auth(create_user):
         self.auth_attempt = 0
         self.guest = False
         self.active: bool = False
+        self.session_manager = self._SessionManager(self, max_threads=max_threads)
         self.errors: list[ErrorDetails] = []
         self.extras: dict[str, Any] = {}
         self.blacklist: list[str] = []
 
-    class _session_manager(api_helper.session_manager):
+    class _SessionManager(SessionManager):
         def __init__(
             self,
             auth: create_auth,
@@ -67,7 +68,7 @@ class create_auth(create_user):
             max_threads: int = -1,
             use_cookies: bool = True,
         ) -> None:
-            api_helper.session_manager.__init__(
+            SessionManager.__init__(
                 self, auth, headers, proxies, max_threads, use_cookies
             )
 

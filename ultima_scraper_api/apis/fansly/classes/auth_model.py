@@ -17,6 +17,7 @@ from ultima_scraper_api.apis.fansly.classes.extras import (
 from ultima_scraper_api.apis.fansly.classes.message_model import create_message
 from ultima_scraper_api.apis.fansly.classes.post_model import create_post
 from ultima_scraper_api.apis.fansly.classes.user_model import create_user
+from ultima_scraper_api.managers.session_manager import SessionManager
 
 if TYPE_CHECKING:
     from ultima_scraper_api.apis.fansly.fansly import start
@@ -44,9 +45,7 @@ class create_auth(create_user):
         self.archived_stories = {}
         self.mass_messages = []
         self.paid_content: list[create_message | create_post] = []
-        temp_pool = pool if pool else api_helper.multiprocessing()
-        self.pool = temp_pool
-        self.session_manager = self._session_manager(
+        self.session_manager = self._SessionManager(
             self, max_threads=max_threads, use_cookies=False
         )
         self.auth_details = auth_details()
@@ -56,7 +55,7 @@ class create_auth(create_user):
         self.extras: dict[str, Any] = {}
         self.blacklist: list[str] = []
 
-    class _session_manager(api_helper.session_manager):
+    class _SessionManager(SessionManager):
         def __init__(
             self,
             auth: create_auth,
@@ -65,7 +64,7 @@ class create_auth(create_user):
             max_threads: int = -1,
             use_cookies: bool = True,
         ) -> None:
-            api_helper.session_manager.__init__(
+            SessionManager.__init__(
                 self, auth, headers, proxies, max_threads, use_cookies
             )
 
