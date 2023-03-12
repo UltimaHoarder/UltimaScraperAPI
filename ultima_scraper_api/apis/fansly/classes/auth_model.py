@@ -3,8 +3,10 @@ from __future__ import annotations
 import asyncio
 from datetime import datetime
 from itertools import chain, product
-from multiprocessing.pool import Pool
-from typing import TYPE_CHECKING, Any, Dict, List, Optional, Union
+from typing import TYPE_CHECKING, Any, Dict, Optional, Union
+
+from dateutil.relativedelta import relativedelta
+from user_agent import generate_user_agent
 
 from ultima_scraper_api.apis import api_helper
 from ultima_scraper_api.apis.fansly.classes.extras import (
@@ -20,21 +22,19 @@ from ultima_scraper_api.apis.fansly.classes.user_model import create_user
 from ultima_scraper_api.managers.session_manager import SessionManager
 
 if TYPE_CHECKING:
-    from ultima_scraper_api.apis.fansly.fansly import start
-
-from dateutil.relativedelta import relativedelta
-from user_agent import generate_user_agent
+    from ultima_scraper_api.apis.fansly.fansly import FanslyAPI
 
 
 class create_auth(create_user):
     def __init__(
         self,
-        api: start,
+        api: FanslyAPI,
         option: dict[str, Any] = {},
-        pool: Optional[Pool] = None,
         max_threads: int = -1,
+        auth_details: auth_details = auth_details(),
     ) -> None:
         self.api = api
+        self.users: set[create_user] = set()
         create_user.__init__(self, option, self)
         if not self.username:
             self.username = f"u{self.id}"
@@ -45,12 +45,13 @@ class create_auth(create_user):
         self.archived_stories = {}
         self.mass_messages = []
         self.paid_content: list[create_message | create_post] = []
+        self.auth_details = auth_details
+        self.auth_attempt = 0
+        self.guest = False
+        self.active: bool = False
         self.session_manager = self._SessionManager(
             self, max_threads=max_threads, use_cookies=False
         )
-        self.auth_details = auth_details()
-        self.guest = False
-        self.active: bool = False
         self.errors: list[ErrorDetails] = []
         self.extras: dict[str, Any] = {}
         self.blacklist: list[str] = []
@@ -68,6 +69,9 @@ class create_auth(create_user):
                 self, auth, headers, proxies, max_threads, use_cookies
             )
 
+    def get_pool(self):
+        return self.api.pool
+
     async def convert_to_user(self):
         user = await self.get_user(self.username)
         for k, _v in user.__dict__.items():
@@ -84,7 +88,6 @@ class create_auth(create_user):
                 setattr(self, key, value)
 
     async def login(self, max_attempts: int = 10, guest: bool = False):
-        auth_version = "(V1)"
         auth_items = self.auth_details
         if not auth_items:
             return self
@@ -92,20 +95,16 @@ class create_auth(create_user):
             auth_items.user_agent = generate_user_agent()
         link = endpoint_links().customer
         user_agent = auth_items.user_agent
-        # expected string error is fixed by auth_id
         dynamic_rules = self.session_manager.dynamic_rules
-        a: List[Any] = [dynamic_rules, user_agent, link]
+        a: list[Any] = [dynamic_rules, user_agent, link]
         self.session_manager.headers = create_headers(*a)
         if guest:
-            print("Guest Authentication")
+            self.guest = True
             return self
 
-        count = 1
-        while count < max_attempts + 1:
-            string = f"Auth {auth_version} Attempt {count}/{max_attempts}"
-            print(string)
-            await self.get_authed()
-            count += 1
+        while self.auth_attempt < max_attempts + 1:
+            await self.process_auth()
+            self.auth_attempt += 1
 
             async def resolve_auth(auth: create_auth):
                 if self.errors:
@@ -132,7 +131,7 @@ class create_auth(create_user):
                                     print("Success")
                                     auth.active = False
                                     auth.errors.remove(error)
-                                    await self.get_authed()
+                                    await self.process_auth()
                                     break
 
             await resolve_auth(self)
@@ -150,14 +149,14 @@ class create_auth(create_user):
                     print("Auth 404'ed")
                 continue
             else:
-                # print(
-                #     f"Welcome {' | '.join([x for x in [self.name, self.username] if x])}"
-                # )
-                await self.create_directory_manager(user=False)
                 break
+        if not self.active:
+            user = await self.get_user(self.id)
+            if isinstance(user, create_user):
+                self.update(user.__dict__)
         return self
 
-    async def get_authed(self):
+    async def process_auth(self):
         if not self.active:
             link = endpoint_links().settings
             response = await self.session_manager.json_request(link)
@@ -224,6 +223,16 @@ class create_auth(create_user):
                             users = list_users
                             bl_ids = [x["username"] for x in users]
         return bl_ids
+
+    async def match_identifiers(self, identifiers: list[int | str]):
+        if self.id in identifiers or self.username in identifiers:
+            return True
+        else:
+            return False
+
+    def find_user_by_identifier(self, identifier: int | str):
+        user = [x for x in self.users if x.id == identifier or x.username == identifier]
+        return user
 
     async def get_user(self, identifier: int | str) -> Union[create_user, ErrorDetails]:
         link = endpoint_links().list_users([identifier])
@@ -348,9 +357,9 @@ class create_auth(create_user):
                     valid_subscriptions.append(subscription)
                 return valid_subscriptions
 
-            pool = self.pool
-            tasks = pool.starmap(multi, product(subscriptions))
-            results += await asyncio.gather(*tasks)
+            with self.get_pool() as pool:
+                tasks = pool.starmap(multi, product(subscriptions))
+                results += await asyncio.gather(*tasks)
         else:
             for identifier in identifiers:
                 results_2 = await self.get_user(identifier)
@@ -383,12 +392,13 @@ class create_auth(create_user):
         link = endpoint_links(
             identifier=self.id, global_limit=temp_limit, global_offset=temp_offset
         ).list_chats
-        unpredictable_links,new_offset = api_helper.calculate_the_unpredictable(
+        unpredictable_links, new_offset = api_helper.calculate_the_unpredictable(
             link, offset, limit, multiplier, depth
         )
         links = unpredictable_links if depth != 1 else links + unpredictable_links
 
-        results = await self.session_manager.async_requests(links)
+        results = await self.session_manager.bulk_requests(links)
+        results = [await x.json() for x in results if x]
         has_more = results[-1]["response"]["data"]
         final_results = api_helper.merge_dictionaries(results)["response"]
 
@@ -398,7 +408,7 @@ class create_auth(create_user):
                 offset=new_offset,
                 depth=depth + 1,
             )
-            final_results = api_helper.merge_dictionaries([final_results,results2])
+            final_results = api_helper.merge_dictionaries([final_results, results2])
         if depth == 1:
             aggregationData = final_results["aggregationData"]
             for result in final_results["data"]:

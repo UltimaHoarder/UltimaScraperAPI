@@ -7,8 +7,8 @@ from ultima_scraper_api.apis.onlyfans.classes.user_model import create_user
 from ultima_scraper_api.classes.make_settings import Config
 
 
-class start(StreamlinedAPI):
-    def __init__(self, config: Config=Config()) -> None:
+class OnlyFansAPI(StreamlinedAPI):
+    def __init__(self, config: Config = Config()) -> None:
         self.site_name: Literal["OnlyFans"] = "OnlyFans"
         StreamlinedAPI.__init__(self, self, config)
         self.auths: list[create_auth] = []
@@ -27,10 +27,10 @@ class start(StreamlinedAPI):
         Returns:
             create_auth: [Auth object]
         """
-        auth = create_auth(self, pool=self.pool, max_threads=self.max_threads)
-        if only_active and not auth_json.get("active"):
-            return auth
         temp_auth_details = auth_details(auth_json).upgrade_legacy(auth_json)
+        auth = create_auth(self, max_threads=self.max_threads,auth_details=temp_auth_details)
+        if only_active and not auth.auth_details.active:
+            return auth
         auth.auth_details = temp_auth_details
         auth.extras["settings"] = self.config
         self.auths.append(auth)
@@ -82,7 +82,7 @@ class start(StreamlinedAPI):
 
         async def get_keys(self):
             return [item[0] for item in self]
-        
+
         async def response_type_to_key(self, value):
             result = [x[0] for x in self if x[0].lower() == f"{value}s"]
             if result:

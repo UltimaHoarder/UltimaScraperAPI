@@ -5,10 +5,11 @@ import math
 from asyncio.tasks import Task
 from datetime import datetime
 from itertools import chain, product
-from multiprocessing.pool import Pool
 from typing import TYPE_CHECKING, Any, Dict, Optional, Union
 
 from dateutil.relativedelta import relativedelta
+from user_agent import generate_user_agent
+
 from ultima_scraper_api.apis import api_helper
 from ultima_scraper_api.apis.onlyfans.classes.extras import (
     ErrorDetails,
@@ -22,7 +23,7 @@ from ultima_scraper_api.apis.onlyfans.classes.user_model import create_user
 from ultima_scraper_api.managers.session_manager import SessionManager
 
 if TYPE_CHECKING:
-    from ultima_scraper_api.apis.onlyfans.onlyfans import start
+    from ultima_scraper_api.apis.onlyfans.onlyfans import OnlyFansAPI
 
 # auth_model.py handles functions that only relate to the authenticated user
 # We can create a auth_streamliner that has a parent class of create_user instead
@@ -31,12 +32,13 @@ if TYPE_CHECKING:
 class create_auth(create_user):
     def __init__(
         self,
-        api: start,
+        api: OnlyFansAPI,
         option: dict[str, Any] = {},
-        pool: Optional[Pool] = None,
         max_threads: int = -1,
+        auth_details: auth_details = auth_details(),
     ) -> None:
         self.api = api
+        self.users: set[create_user] = set()
         create_user.__init__(self, option, self)
         if not self.username:
             self.username = f"u{self.id}"
@@ -47,10 +49,7 @@ class create_auth(create_user):
         self.archived_stories = {}
         self.mass_messages = []
         self.paid_content: list[create_message | create_post] = []
-        temp_pool = pool if pool else api_helper.multiprocessing()
-        self.pool = temp_pool
-        self.session_manager = self._session_manager(self, max_threads=max_threads)
-        self.auth_details = auth_details()
+        self.auth_details = auth_details
         self.auth_attempt = 0
         self.guest = False
         self.active: bool = False
@@ -72,6 +71,9 @@ class create_auth(create_user):
                 self, auth, headers, proxies, max_threads, use_cookies
             )
 
+    def get_pool(self):
+        return self.api.pool
+
     async def convert_to_user(self):
         user = await self.get_user(self.username)
         for k, _v in user.__dict__.items():
@@ -92,7 +94,7 @@ class create_auth(create_user):
             return self
         if guest and auth_items:
             auth_items.cookie.auth_id = "0"
-            auth_items.user_agent = str(generate_user_agent())
+            auth_items.user_agent = generate_user_agent()
         link = endpoint_links().customer
         user_agent = auth_items.user_agent
         auth_id = str(auth_items.cookie.auth_id)
@@ -151,10 +153,6 @@ class create_auth(create_user):
                     print("Auth 404'ed")
                 continue
             else:
-                # print(
-                #     f"Welcome {' | '.join([x for x in [self.name, self.username] if x])}"
-                # )
-                await self.create_directory_manager(user=False)
                 break
         if not self.active:
             user = await self.get_user(auth_id)
@@ -229,17 +227,29 @@ class create_auth(create_user):
                             bl_ids = [x["username"] for x in users]
         return bl_ids
 
-    async def get_user(
-        self, identifier: Union[str, int]
-    ) -> Union[create_user, ErrorDetails]:
-        link = endpoint_links(identifier).users
-        response = await self.session_manager.json_request(link)
-        if not isinstance(response, ErrorDetails):
-            if not response:
-                print
-            response["session_manager"] = self.session_manager
-            response = create_user(response, self)
-        return response
+    async def match_identifiers(self, identifiers: list[int | str]):
+        if self.id in identifiers or self.username in identifiers:
+            return True
+        else:
+            return False
+
+    def find_user_by_identifier(self, identifier: int | str):
+        user = [x for x in self.users if x.id == identifier or x.username == identifier]
+        return user
+
+    async def get_user(self, identifier: int | str) -> Union[create_user, ErrorDetails]:
+        valid_user = self.find_user_by_identifier(identifier)
+        if valid_user:
+            return valid_user[0]
+        else:
+            link = endpoint_links(identifier).users
+            response = await self.session_manager.json_request(link)
+            if not isinstance(response, ErrorDetails):
+                if not response:
+                    print
+                response["session_manager"] = self.session_manager
+                response = create_user(response, self)
+            return response
 
     async def get_lists_users(
         self,
@@ -348,11 +358,11 @@ class create_auth(create_user):
                 subscription.subscribedByData["expiredAt"] = new_date.isoformat()
                 subscriptions = [subscription]
                 results.append(subscriptions)
-            pool = self.pool
-            tasks = pool.starmap(multi, product(offset_array))
-            results2 = await asyncio.gather(*tasks)
-            results2 = list(filter(None, results2))
-            results.extend(results2)
+            with self.get_pool() as pool:
+                tasks = pool.starmap(multi, product(offset_array))
+                results2 = await asyncio.gather(*tasks)
+                results2 = list(filter(None, results2))
+                results.extend(results2)
         else:
             for identifier in identifiers:
                 if self.id == identifier or self.username == identifier:
@@ -394,8 +404,8 @@ class create_auth(create_user):
             link, offset, limit, multiplier, depth
         )
         links = unpredictable_links if depth != 1 else links + unpredictable_links
-
-        results = await self.session_manager.async_requests(links)
+        results = await self.session_manager.bulk_requests(links)
+        results = [await x.json() for x in results if x]
         has_more = results[-1]["hasMore"]
         final_results = [x["list"] for x in results]
         final_results = list(chain.from_iterable(final_results))
@@ -484,7 +494,6 @@ class create_auth(create_user):
                     if final_result["responseType"] == "message":
                         user = create_user(final_result["fromUser"], self)
                         content = create_message(final_result, user)
-                        print
                     elif final_result["responseType"] == "post":
                         user = create_user(final_result["author"], self)
                         content = create_post(final_result, user)

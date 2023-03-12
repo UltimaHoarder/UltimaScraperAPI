@@ -1,15 +1,9 @@
 import copy
-import os
 from pathlib import Path
-from sys import exit
-from typing import Any, Literal
+from typing import Any
 
 from ultima_scraper_api.classes.make_settings import SiteSettings
-from ultima_scraper_api.classes.prepare_metadata import (
-    format_attributes,
-    prepare_reformat,
-)
-
+from ultima_scraper_api.classes.prepare_metadata import format_attributes
 
 
 class FormatTypes:

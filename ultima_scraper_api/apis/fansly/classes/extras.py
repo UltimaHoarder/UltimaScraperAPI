@@ -1,6 +1,6 @@
 import copy
-from itertools import chain
 import math
+from itertools import chain
 from pathlib import Path
 from typing import Any, Literal, Optional, Union
 
@@ -9,7 +9,7 @@ class auth_details:
     def __init__(self, options: dict[str, Any] = {}) -> None:
         self.username = options.get("username", "")
         self.authorization = options.get("authorization", "")
-        self.user_agent = options.get("user_agent", "")
+        self.user_agent: str = options.get("user_agent", "")
         self.email = options.get("email", "")
         self.password = options.get("password", "")
         self.hashed = options.get("hashed", False)
@@ -109,7 +109,7 @@ class endpoint_links(object):
         global_limit: int = 10,
         global_offset: int = 0,
         sort_order: Literal["asc", "desc"] = "desc",
-        before_id: str = ""
+        before_id: str = "",
     ):
         domain = "https://apiv3.fansly.com"
         api = "/api/v1"
@@ -130,12 +130,16 @@ class endpoint_links(object):
         self.message_api = f"{full_url_path}/message?groupId={identifier}&limit={global_limit}&before={before_id}&order=desc"
         self.search_messages = f"https://onlyfans.com/api2/v2/chats/{identifier}?limit=10&offset=0&filter=&order=activity&query={text}"
         self.mass_messages_api = f"https://onlyfans.com/api2/v2/messages/queue/stats?limit=100&offset=0&format=infinite"
-        self.stories_api = f"https://onlyfans.com/api2/v2/users/{identifier}/stories?limit=100&offset=0&order=desc"
+        self.stories_api = (
+            f"{full_url_path}/mediastoriesnew?accountId={identifier}&ngsw-bypass=true"
+        )
         self.list_highlights = f"https://onlyfans.com/api2/v2/users/{identifier}/stories/highlights?limit=100&offset=0&order=desc"
         self.highlight = f"https://onlyfans.com/api2/v2/stories/highlights/{identifier}"
         self.list_posts_api = self.list_posts(identifier)
         self.post_api = f"{full_url_path}/timeline/{identifier}?before={global_offset}"
-        self.collections_api = f"{full_url_path}/uservault/albums?accountId={identifier}"
+        self.collections_api = (
+            f"{full_url_path}/uservault/albums?accountId={identifier}"
+        )
         self.collection_api = f"{full_url_path}/uservault/album/content?albumId={identifier}&before={global_offset}&after=0&limit={global_limit}"
         self.archived_posts = f"https://onlyfans.com/api2/v2/users/{identifier}/posts/archived?limit={global_limit}&offset={global_offset}&order=publish_date_desc"
         self.archived_stories = f"https://onlyfans.com/api2/v2/stories/archive/?limit=100&offset=0&order=publish_date_desc"

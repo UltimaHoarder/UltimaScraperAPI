@@ -2,11 +2,11 @@ from typing import Any
 
 import ultima_scraper_api.apis.fansly.classes as fansly_classes
 import ultima_scraper_api.apis.onlyfans.classes as onlyfans_classes
-from ultima_scraper_api.apis.fansly.fansly import start as FYStart
-from ultima_scraper_api.apis.onlyfans.onlyfans import start as OFStart
+from ultima_scraper_api.apis.fansly.fansly import FanslyAPI
+from ultima_scraper_api.apis.onlyfans.onlyfans import OnlyFansAPI
 from ultima_scraper_api.classes.make_settings import Config
 
-api_types = OFStart | FYStart
+api_types = OnlyFansAPI | FanslyAPI
 
 auth_types = (
     onlyfans_classes.auth_model.create_auth | fansly_classes.auth_model.create_auth
@@ -36,9 +36,9 @@ def select_api(option: str, config: Config = Config()):
     """
     match option.lower():
         case "onlyfans":
-            return OFStart(config)
+            return OnlyFansAPI(config)
         case "fansly":
-            return FYStart(config)
+            return FanslyAPI(config)
         case _:
             raise Exception(f"{option} API is invalid")
 

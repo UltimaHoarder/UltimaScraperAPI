@@ -1,72 +1,23 @@
 from __future__ import annotations
 
-import asyncio
-import hashlib
 import inspect
-import json
-import random
-import string
-import time
 from argparse import Namespace
 from itertools import chain
 from multiprocessing import cpu_count
 from multiprocessing.dummy import Pool as ThreadPool
 from multiprocessing.pool import Pool
-from random import randint
 from typing import TYPE_CHECKING, Any, Optional
 from urllib.parse import urlparse
 
-import python_socks
-import requests
-from aiohttp import ClientSession
-from aiohttp.client_exceptions import (
-    ClientConnectorError,
-    ClientOSError,
-    ClientPayloadError,
-    ContentTypeError,
-    ServerDisconnectedError,
-)
-from aiohttp.client_reqrep import ClientResponse
-from aiohttp_socks import ProxyConnectionError, ProxyConnector, ProxyError
-from mergedeep.mergedeep import Strategy, merge
+from mergedeep.mergedeep import Strategy, merge  # type: ignore
 
 import ultima_scraper_api
 from ultima_scraper_api.managers.session_manager import SessionManager
 
-
-def load_classes():
-    import ultima_scraper_api.apis.fansly.classes as fansly_classes
-    import ultima_scraper_api.apis.onlyfans.classes as onlyfans_classes
-
-    return onlyfans_classes, fansly_classes
-
-
-def load_classes2():
-    onlyfans_classes, fansly_classes = load_classes()
-    auth_types = (
-        onlyfans_classes.auth_model.create_auth | fansly_classes.auth_model.create_auth
-    )
-    user_types = (
-        onlyfans_classes.user_model.create_user | fansly_classes.user_model.create_user
-    )
-    return auth_types, user_types
-
-
-def load_extras():
-    onlyfans_classes, fansly_classes = load_classes()
-    return onlyfans_classes.extras, fansly_classes.extras
-
-
 if TYPE_CHECKING:
-    from ultima_scraper_api.apis.onlyfans.classes.user_model import JobTask
-
-    onlyfans_classes, fansly_classes = load_classes()
-    auth_types, user_types = load_classes2()
-    (
-        onlyfans_extras,
-        fansly_extras,
-    ) = load_extras()
-    error_details_types = onlyfans_extras.ErrorDetails | fansly_extras.ErrorDetails
+    auth_types = ultima_scraper_api.auth_types
+    user_types = ultima_scraper_api.user_types
+    error_types = ultima_scraper_api.error_types
 parsed_args = Namespace()
 
 
@@ -98,24 +49,6 @@ def calculate_max_threads(max_threads: Optional[int] = None):
     if max_threads < 1 or max_threads >= max_threads2:
         max_threads = max_threads2
     return max_threads
-
-
-async def test_proxies(proxies: list[str]):
-    final_proxies: list[str] = []
-    for proxy in proxies:
-        connector = ProxyConnector.from_url(proxy) if proxy else None
-        async with ClientSession(connector=connector) as session:
-            link = "https://checkip.amazonaws.com"
-            try:
-                response = await session.get(link)
-                ip = await response.text()
-                ip = ip.strip()
-                print("Session IP: " + ip + "\n")
-                final_proxies.append(proxy)
-            except python_socks._errors.ProxyConnectionError | python_socks._errors.ProxyError as e:
-                print(f"Proxy Not Set: {proxy}\n")
-                continue
-    return final_proxies
 
 
 def restore_missing_data(master_set2: list[str], media_set, split_by):
@@ -205,10 +138,7 @@ def parse_config_inputs(custom_input: Any) -> list[str]:
 
 
 async def handle_error_details(
-    item: error_details_types
-    | dict[str, Any]
-    | list[dict[str, Any]]
-    | list[error_details_types],
+    item: error_types | dict[str, Any] | list[dict[str, Any]] | list[error_types],
     remove_errors_status: bool = False,
     api_type: Optional[auth_types] = None,
 ):
@@ -263,7 +193,8 @@ async def default_data(
     status: bool = False
     result: list[Any] = []
     function_that_called = inspect.stack()[1].function
-    auth_types, _user_types = load_classes2()
+    auth_types = ultima_scraper_api.auth_types
+
     if isinstance(api, auth_types):
         # create_auth class
         auth = api
@@ -330,16 +261,15 @@ def merge_dictionaries(items: list[dict[str, Any]]):
 
 
 async def remove_errors(results: Any):
+    error_types = ultima_scraper_api.error_types
     final_results: list[Any] = []
-    onlyfans_extras, fansly_extras = load_extras()
-    error_details_types = onlyfans_extras.ErrorDetails | fansly_extras.ErrorDetails
     wrapped = False
     if not isinstance(results, list):
         wrapped = True
         final_results.append(results)
     else:
         final_results = results
-    final_results = [x for x in final_results if not isinstance(x, error_details_types)]
+    final_results = [x for x in final_results if not isinstance(x, error_types)]
     if wrapped and final_results:
         final_results = final_results[0]
     return final_results

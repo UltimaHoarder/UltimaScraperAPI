@@ -1,7 +1,6 @@
 from __future__ import annotations
 
-from multiprocessing.pool import Pool
-
+import ultima_scraper_api
 from ultima_scraper_api.apis import api_helper
 from ultima_scraper_api.apis.dashboard_controller_api import DashboardControllerAPI
 from ultima_scraper_api.apis.fansly import classes as fansly_classes
@@ -15,14 +14,10 @@ user_types = (
     onlyfans_classes.user_model.create_user | fansly_classes.user_model.create_user
 )
 error_types = onlyfans_classes.extras.ErrorDetails | fansly_classes.extras.ErrorDetails
-
-from typing import TYPE_CHECKING, Optional
+from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from ultima_scraper_api.apis.fansly.fansly import start as FanslyAPI
-    from ultima_scraper_api.apis.onlyfans.onlyfans import start as OnlyFansAPI
-
-    api_types = OnlyFansAPI | FanslyAPI
+    api_types = ultima_scraper_api.api_types
 
 
 class StreamlinedAPI:
@@ -30,12 +25,9 @@ class StreamlinedAPI:
         self,
         api: api_types,
         config: Config,
-        dashboard_controller_api: Optional[DashboardControllerAPI] = None,
+        dashboard_controller_api: DashboardControllerAPI | None = None,
     ) -> None:
         from ultima_scraper_api.managers.job_manager.job_manager import JobManager
-        from ultima_scraper_api.managers.storage_managers.filesystem_manager import (
-            FilesystemManager,
-        )
 
         self.api = api
         self.dashboard_controller_api = dashboard_controller_api

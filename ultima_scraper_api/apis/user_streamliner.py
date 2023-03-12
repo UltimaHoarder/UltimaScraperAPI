@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import copy
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING
 
 import dill
 
@@ -93,4 +93,3 @@ class StreamlinedUser:
 
     def get_api(self):
         return self.__authed.api
-

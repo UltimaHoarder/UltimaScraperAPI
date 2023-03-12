@@ -8,6 +8,9 @@ from itertools import chain, product
 from multiprocessing.pool import Pool
 from typing import TYPE_CHECKING, Any, Dict, Optional, Union
 
+from dateutil.relativedelta import relativedelta
+from user_agent import generate_user_agent
+
 from ultima_scraper_api.apis import api_helper
 from ultima_scraper_api.apis.onlyfans.classes.extras import (
     ErrorDetails,
@@ -18,20 +21,17 @@ from ultima_scraper_api.apis.onlyfans.classes.extras import (
 from ultima_scraper_api.apis.onlyfans.classes.message_model import create_message
 from ultima_scraper_api.apis.onlyfans.classes.post_model import create_post
 from ultima_scraper_api.apis.onlyfans.classes.user_model import create_user
-from dateutil.relativedelta import relativedelta
-from user_agent import generate_user_agent
-
+from ultima_scraper_api.managers.session_manager import SessionManager
 
 if TYPE_CHECKING:
-    from ultima_scraper_api.apis.onlyfans.onlyfans import start
+    from ultima_scraper_api.apis.onlyfans.onlyfans import OnlyFansAPI
 
 
 class create_auth(create_user):
     def __init__(
         self,
-        api: start,
+        api: OnlyFansAPI,
         option: dict[str, Any] = {},
-        pool: Optional[Pool] = None,
         max_threads: int = -1,
     ) -> None:
         self.api = api
@@ -46,15 +46,14 @@ class create_auth(create_user):
         self.mass_messages = []
         self.paid_content: list[create_message | create_post] = []
         temp_pool = pool if pool else api_helper.multiprocessing()
-        self.pool = temp_pool
-        self.session_manager = self._session_manager(self, max_threads=max_threads)
+        self.session_manager = self._SessionManager(self, max_threads=max_threads)
         self.auth_details = auth_details()
         self.guest = False
         self.active: bool = False
         self.errors: list[ErrorDetails] = []
         self.extras: dict[str, Any] = {}
 
-    class _session_manager(api_helper.session_manager):
+    class _SessionManager(SessionManager):
         def __init__(
             self,
             auth: create_auth,
@@ -63,7 +62,7 @@ class create_auth(create_user):
             max_threads: int = -1,
             use_cookies: bool = True,
         ) -> None:
-            api_helper.session_manager.__init__(
+            SessionManager.__init__(
                 self, auth, headers, proxies, max_threads, use_cookies
             )
 
@@ -150,10 +149,6 @@ class create_auth(create_user):
                     print("Auth 404'ed")
                 continue
             else:
-                print(
-                    f"Welcome {' | '.join([x for x in [self.name, self.username] if x])}"
-                )
-                self.create_directory_manager()
                 break
         if not self.active:
             user = await self.get_user(auth_id)
@@ -389,7 +384,8 @@ class create_auth(create_user):
             links += links2
         else:
             links = links2
-        results = await self.session_manager.async_requests(links)
+        results = await self.session_manager.bulk_requests(links)
+        results = [await x.json() for x in results if x]
         has_more = results[-1]["hasMore"]
         final_results = [x["list"] for x in results]
         final_results = list(chain.from_iterable(final_results))

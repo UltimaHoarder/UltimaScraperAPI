@@ -4,7 +4,6 @@ from ultima_scraper_api.apis.api_streamliner import StreamlinedAPI
 from ultima_scraper_api.apis.onlyfans.classes.auth_model import create_auth
 from ultima_scraper_api.apis.onlyfans.classes.extras import auth_details, endpoint_links
 from ultima_scraper_api.apis.onlyfans.classes.user_model import create_user
-
 from ultima_scraper_api.classes.make_settings import Config
 
 

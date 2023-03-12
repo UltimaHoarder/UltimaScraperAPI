@@ -4,11 +4,10 @@ from ultima_scraper_api.apis.api_streamliner import StreamlinedAPI
 from ultima_scraper_api.apis.fansly.classes.auth_model import create_auth
 from ultima_scraper_api.apis.fansly.classes.extras import auth_details, endpoint_links
 from ultima_scraper_api.apis.fansly.classes.user_model import create_user
-
 from ultima_scraper_api.classes.make_settings import Config
 
 
-class start(StreamlinedAPI):
+class FanslyAPI(StreamlinedAPI):
     def __init__(self, config: Config) -> None:
         self.site_name: Literal["Fansly"] = "Fansly"
         StreamlinedAPI.__init__(self, self, config)
@@ -28,10 +27,10 @@ class start(StreamlinedAPI):
         Returns:
             create_auth: [Auth object]
         """
-        auth = create_auth(self, pool=self.pool, max_threads=self.max_threads)
-        if only_active and not auth_json.get("active"):
-            return auth
         temp_auth_details = auth_details(auth_json).upgrade_legacy(auth_json)
+        auth = create_auth(self, max_threads=self.max_threads,auth_details=temp_auth_details)
+        if only_active and not auth.auth_details.active:
+            return auth
         auth.auth_details = temp_auth_details
         auth.extras["settings"] = self.config
         self.auths.append(auth)

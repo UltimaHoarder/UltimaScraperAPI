@@ -20,10 +20,6 @@ if TYPE_CHECKING:
 
 class create_user(StreamlinedUser):
     def __init__(self, option: dict[str, Any], authed: create_auth) -> None:
-        from ultima_scraper_api.classes.prepare_directories import (
-            DirectoryManager,
-            FileManager,
-        )
 
         self.avatar: Optional[str] = option.get("avatar")
         self.avatarThumbs: Optional[list[str]] = option.get("avatarThumbs")
@@ -90,6 +86,7 @@ class create_user(StreamlinedUser):
         self.showMediaCount: bool = option.get("showMediaCount")
         self.subscribedByData: Any = option.get("subscribedByData")
         self.subscribedOnData: Any = option.get("subscribedOnData")
+        self.subscribedIsExpiredNow:bool =option.get("subscribedIsExpiredNow")
         self.canPromotion: bool = option.get("canPromotion")
         self.canCreatePromotion: bool = option.get("canCreatePromotion")
         self.canCreateTrial: bool = option.get("canCreateTrial")
@@ -214,11 +211,7 @@ class create_user(StreamlinedUser):
         self.pinnedPostsCount: int = option.get("pinnedPostsCount")
         self.maxPinnedPostsCount: int = option.get("maxPinnedPostsCount")
         # Custom
-        self.directory_manager: DirectoryManager = DirectoryManager(
-            authed.api.get_site_settings()
-        )
-
-        self.file_manager: FileManager = FileManager(self.directory_manager)
+        authed.users.add(self)
         self.scraped = authed.api.ContentTypes()
         self.temp_scraped = authed.api.ContentTypes()
         self.download_info: dict[str, Any] = {}
@@ -226,6 +219,10 @@ class create_user(StreamlinedUser):
         self.__raw__ = option
         StreamlinedUser.__init__(self, authed)
 
+    def __eq__(self, other:Any):
+        return True
+    def __hash__(self) -> int:
+        return hash((self.id))
     def get_link(self):
         link = f"https://onlyfans.com/{self.username}"
         return link
@@ -344,7 +341,8 @@ class create_user(StreamlinedUser):
             link, offset, limit, multiplier, depth
         )
         links = unpredictable_links if depth != 1 else links + unpredictable_links
-        results = await self.get_session_manager().async_requests(links)
+        results = await self.get_session_manager().bulk_requests(links)
+        results = [await x.json() for x in results if x]
         results = await api_helper.remove_errors(results)
         final_results = []
         if isinstance(results, list):
@@ -553,7 +551,11 @@ class create_user(StreamlinedUser):
                 status = True
                 break
         return status
-
+    async def match_identifiers(self, identifiers:list[int|str]):
+        if self.id in identifiers or self.username in identifiers:
+            return True
+        else:
+            return False
     async def find_duplicate_media(self):
         # A user had 10 photos but only 5 were downloaded, this was because some media on OnlyFans have the same filename but an invalid link.
         # Even if the link returns a 404, OnlyFans still counts it as a valid media when providing model statistics.
@@ -576,3 +578,5 @@ class create_user(StreamlinedUser):
 
     async def get_header(self):
         return self.header
+    async def is_subscribed(self):
+        return not self.subscribedIsExpiredNow

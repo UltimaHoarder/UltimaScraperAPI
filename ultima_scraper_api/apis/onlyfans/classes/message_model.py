@@ -2,7 +2,6 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any, Optional
 
-from ultima_scraper_api.apis.onlyfans.classes import user_model
 from ultima_scraper_api.apis.onlyfans.classes.extras import endpoint_links
 
 if TYPE_CHECKING:
@@ -54,7 +53,7 @@ class create_message:
             "unavailablePaymentGates": [],
         }
         link = endpoint_links().pay
-        result = await self.fromUser.session_manager.json_request(
+        result = await self.fromUser.get_session_manager().json_request(
             link, method="POST", payload=x
         )
         return result

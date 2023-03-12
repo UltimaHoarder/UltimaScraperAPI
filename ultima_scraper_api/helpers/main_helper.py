@@ -1,48 +1,28 @@
-from __future__ import annotations
-
-import asyncio
 import copy
 import json
-import math
 import os
 import platform
-import random
 import re
 import secrets
 import shutil
-import string
 import subprocess
-from datetime import datetime
-from itertools import zip_longest
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, BinaryIO, Literal, Optional, Union
+from typing import TYPE_CHECKING, Any, BinaryIO, Literal
 
 import orjson
 import requests
 from aiofiles import os as async_os
-from aiohttp.client import ClientSession
-from aiohttp.client_reqrep import ClientResponse
-from aiohttp_socks.connector import ProxyConnector
 from bs4 import BeautifulSoup
-from mergedeep import Strategy, merge
+from mergedeep import Strategy, merge  # type: ignore
 
 import ultima_scraper_api
 import ultima_scraper_api.classes.make_settings as make_settings
 import ultima_scraper_api.classes.prepare_webhooks as prepare_webhooks
-from ultima_scraper_api.apis import api_helper
-from ultima_scraper_api.apis.dashboard_controller_api import DashboardControllerAPI
-from ultima_scraper_api.apis.fansly import fansly as Fansly
-from ultima_scraper_api.apis.onlyfans import onlyfans as OnlyFans
-from ultima_scraper_api.database.databases.user_data.models.media_table import (
-    template_media_table,
-)
 
 if TYPE_CHECKING:
-    from ultima_scraper_api.classes.prepare_directories import DirectoryManager
-    from ultima_scraper_api.managers.storage_managers.filesystem_manager import (
-        FilesystemManager,
-    )
+    pass
 
+api_types = ultima_scraper_api.api_types
 auth_types = ultima_scraper_api.auth_types
 user_types = ultima_scraper_api.user_types
 
@@ -100,32 +80,6 @@ except ImportError:
             return sdiskusage(total, used, free, round(100 * used / total, round_))
 
 
-def getfrozencwd():
-    import sys
-
-    if getattr(sys, "frozen", False) and hasattr(sys, "_MEIPASS"):
-        return sys._MEIPASS
-    else:
-        return os.getcwd()
-
-
-def parse_links(site_name, input_link):
-    if site_name in {"onlyfans", "fansly"}:
-        username = input_link.rsplit("/", 1)[-1]
-        return username
-
-    if site_name in {"patreon", "fourchan", "bbwchan"}:
-        if "catalog" in input_link:
-            input_link = input_link.split("/")[1]
-            print(input_link)
-            return input_link
-        if input_link[-1:] == "/":
-            input_link = input_link.split("/")[3]
-            return input_link
-        if "4chan.org" not in input_link:
-            return input_link
-
-
 def clean_text(string: str, remove_spaces: bool = False):
     try:
         import lxml as unused_lxml_  # type: ignore
@@ -154,7 +108,7 @@ async def format_media_set(media_set: list[dict[str, Any]]):
     return merged
 
 
-async def format_image(filepath: str, timestamp: float, reformat_media: bool):
+async def format_image(filepath: Path, timestamp: float, reformat_media: bool):
     if reformat_media:
         while True:
             try:
@@ -166,8 +120,8 @@ async def format_image(filepath: str, timestamp: float, reformat_media: bool):
                 os.utime(filepath, (timestamp, timestamp))
                 # print(f"Updated Modification Time {filepath}")
             except Exception as _e:
-                                continue
-                    break
+                continue
+            break
 
 
 def check_space(
@@ -200,41 +154,6 @@ def check_space(
             item = paths[0]
             root = item["path"]
     return root
-
-
-def find_model_directory(username, directories) -> tuple[str, bool]:
-    download_path = ""
-    status = False
-    for directory in directories:
-        download_path = os.path.join(directory, username)
-        if os.path.exists(download_path):
-            status = True
-            break
-    return download_path, status
-
-
-def are_long_paths_enabled():
-    if os_name != "Windows":
-        return True
-
-    ntdll = ctypes.WinDLL("ntdll")
-
-    if not hasattr(ntdll, "RtlAreLongPathsEnabled"):
-        return False
-
-    ntdll.RtlAreLongPathsEnabled.restype = ctypes.c_ubyte
-    ntdll.RtlAreLongPathsEnabled.argtypes = ()
-    return bool(ntdll.RtlAreLongPathsEnabled())
-
-
-def check_for_dupe_file(download_path, content_length):
-    found = False
-    if os.path.isfile(download_path):
-        content_length = int(content_length)
-        local_size = os.path.getsize(download_path)
-        if local_size == content_length:
-            found = True
-    return found
 
 
 def prompt_modified(message: str, path: Path):
@@ -293,7 +212,7 @@ def get_config(config_path: Path) -> tuple[make_settings.Config, bool]:
 
 
 async def process_webhooks(
-    api: OnlyFans.start | Fansly.start,
+    api: api_types,
     category: str,
     category_2: Literal["succeeded", "failed"],
     global_settings: make_settings.Settings,
@@ -328,15 +247,6 @@ async def process_webhooks(
             await send_webhook(
                 auth, webhook_hide_sensitive_info, webhook_links, category, category_2
             )
-        print
-    print
-
-
-def is_me(user_api):
-    if "email" in user_api:
-        return True
-    else:
-        return False
 
 
 def open_partial(path: Path) -> BinaryIO:
@@ -347,49 +257,6 @@ def open_partial(path: Path) -> BinaryIO:
             return open(partial_path, "xb")
         except FileExistsError:
             pass
-
-
-def grouper(n, iterable, fillvalue: Optional[Union[str, int]] = None):
-    args = [iter(iterable)] * n
-    final_grouped = list(zip_longest(fillvalue=fillvalue, *args))
-    if not fillvalue:
-        grouped = []
-        for group in final_grouped:
-            group = [x for x in group if x]
-            grouped.append(group)
-        final_grouped = grouped
-    return final_grouped
-
-
-def metadata_fixer(directory):
-    archive_file = os.path.join(directory, "archive.json")
-    metadata_file = os.path.join(directory, "Metadata")
-    if os.path.exists(archive_file):
-        os.makedirs(metadata_file, exist_ok=True)
-        new = os.path.join(metadata_file, "Archive.json")
-        shutil.move(archive_file, new)
-
-
-def ordinal(n):
-    return "%d%s" % (n, "tsnrhtdd"[(n / 10 % 10 != 1) * (n % 10 < 4) * n % 10 :: 4])
-
-
-def id_generator(size=6, chars=string.ascii_uppercase + string.digits):
-    return "".join(random.choice(chars) for _ in range(size))
-
-
-def humansize(nbytes):
-    i = 0
-    suffixes = ["B", "KB", "MB", "GB", "TB", "PB"]
-    while nbytes >= 1024 and i < len(suffixes) - 1:
-        nbytes /= 1024.0
-        i += 1
-    f = ("%.2f" % nbytes).rstrip("0").rstrip(".")
-    return "%s %s" % (f, suffixes[i])
-
-
-def byteToGigaByte(n):
-    return n / math.pow(10, 9)
 
 
 async def send_webhook(
@@ -431,7 +298,7 @@ async def send_webhook(
                     requests.post(webhook_link, json=message)
 
 
-def find_between(s, start, end):
+def find_between(s: str, start: str, end: str):
     format = f"{start}(.+?){end}"
     x = re.search(format, s)
     if x:

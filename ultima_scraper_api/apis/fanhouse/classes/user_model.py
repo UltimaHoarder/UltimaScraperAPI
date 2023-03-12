@@ -356,7 +356,8 @@ class create_user:
             links += links2
         else:
             links = links2
-        results = await self.get_session_manager().async_requests(links)
+        results = await self.session_manager.bulk_requests(links)
+        results = [await x.json() for x in results if x]
         results = await api_helper.remove_errors(results)
         final_results = []
         if isinstance(results, list):

@@ -10,7 +10,6 @@ from ultima_scraper_api.apis.fansly.classes import collection_model, post_model
 from ultima_scraper_api.apis.fansly.classes.create_story import create_story
 from ultima_scraper_api.apis.fansly.classes.extras import (
     ErrorDetails,
-    content_types,
     endpoint_links,
     handle_refresh,
 )
@@ -28,10 +27,6 @@ class create_user(StreamlinedUser):
         option: dict[str, Any],
         authed: create_auth,
     ) -> None:
-        from ultima_scraper_api.classes.prepare_directories import (
-            DirectoryManager,
-            FileManager,
-        )
 
         self.avatar: Any = option.get("avatar")
         self.avatarThumbs: Any = option.get("avatarThumbs")
@@ -227,11 +222,7 @@ class create_user(StreamlinedUser):
         self.pinnedPostsCount: int = option.get("pinnedPostsCount")
         self.maxPinnedPostsCount: int = option.get("maxPinnedPostsCount")
         # Custom
-        self.directory_manager: DirectoryManager = DirectoryManager(
-            authed.api.get_site_settings()
-        )
-
-        self.file_manager: FileManager = FileManager(self.directory_manager)
+        authed.users.add(self)
         self.scraped = authed.api.ContentTypes()
         self.temp_scraped = authed.api.ContentTypes()
         self.download_info: dict[str, Any] = {}
@@ -239,8 +230,14 @@ class create_user(StreamlinedUser):
         self.__raw__ = option
         StreamlinedUser.__init__(self, authed)
 
+    def __eq__(self, other: Any):
+        return True
+
+    def __hash__(self) -> int:
+        return hash((self.id))
+
     def get_link(self):
-        link = f"https://onlyfans.com/{self.username}"
+        link = f"https://fansly.com/{self.username}"
         return link
 
     def is_me(self) -> bool:
@@ -260,6 +257,7 @@ class create_user(StreamlinedUser):
                 identifier=self.id, global_limit=limit, global_offset=offset
             ).stories_api
         ]
+        return []
         results = await api_helper.scrape_endpoint_links(
             link, self.get_session_manager()
         )
@@ -378,7 +376,8 @@ class create_user(StreamlinedUser):
             ).message_api
             links.append(link)
 
-            results = await self.get_session_manager().async_requests(links)
+            results = await self.get_session_manager().bulk_requests(links)
+            results = [await x.json() for x in results if x]
             results = await api_helper.remove_errors(results)
             results = api_helper.merge_dictionaries(results)
             if not results:
@@ -395,8 +394,6 @@ class create_user(StreamlinedUser):
                     inside_loop=True,
                 )
                 final_results.extend(results2)
-            print
-            # Need to actually add the correct ID to the sender
             if not inside_loop:
                 final_results = [
                     message_model.create_message(x, self, extras)
@@ -582,10 +579,13 @@ class create_user(StreamlinedUser):
                 break
         return status
 
+    async def match_identifiers(self, identifiers: list[int | str]):
+        if self.id in identifiers or self.username in identifiers:
+            return True
+        else:
+            return False
+
     async def find_duplicate_media(self):
-        # A user had 10 photos but only 5 were downloaded, this was because some media on OnlyFans have the same filename but an invalid link.
-        # Even if the link returns a 404, OnlyFans still counts it as a valid media when providing model statistics.
-        # I'll have to create a diagnosis function that checks if any media fails to download and return the reason why.
         for post in self.scraped.Posts:
             for media in post["medias"]:
                 a = [
@@ -626,3 +626,6 @@ class create_user(StreamlinedUser):
 
     async def get_header(self):
         return self.header["locations"][0]["location"] if self.header else None
+
+    async def is_subscribed(self):
+        pass
