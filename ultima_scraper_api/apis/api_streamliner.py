@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import ultima_scraper_api
 from ultima_scraper_api.apis import api_helper
-from ultima_scraper_api.apis.dashboard_controller_api import DashboardControllerAPI
 from ultima_scraper_api.apis.fansly import classes as fansly_classes
 from ultima_scraper_api.apis.onlyfans import classes as onlyfans_classes
 from ultima_scraper_api.classes.make_settings import Config
@@ -25,12 +24,10 @@ class StreamlinedAPI:
         self,
         api: api_types,
         config: Config,
-        dashboard_controller_api: DashboardControllerAPI | None = None,
     ) -> None:
         from ultima_scraper_api.managers.job_manager.job_manager import JobManager
 
         self.api = api
-        self.dashboard_controller_api = dashboard_controller_api
         self.max_threads = config.settings.max_threads
         self.config = config
         self.lists = None
