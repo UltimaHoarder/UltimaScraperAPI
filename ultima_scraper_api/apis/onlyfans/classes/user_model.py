@@ -222,7 +222,10 @@ class create_user(StreamlinedUser):
         StreamlinedUser.__init__(self, authed)
 
     def __eq__(self, other: Any):
-        return True
+        if isinstance(self, create_user):
+            if self.id == other.id:
+                return True
+        return False
 
     def __hash__(self) -> int:
         return hash((self.id))
