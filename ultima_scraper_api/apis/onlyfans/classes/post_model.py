@@ -6,11 +6,14 @@ from ultima_scraper_api.apis import api_helper
 from ultima_scraper_api.apis.onlyfans.classes.extras import endpoint_links
 
 if TYPE_CHECKING:
-    from ultima_scraper_api.apis.onlyfans.classes.user_model import create_auth,create_user
+    from ultima_scraper_api.apis.onlyfans.classes.user_model import (
+        create_auth,
+        create_user,
+    )
 
 
 class create_post:
-    def __init__(self, option: dict[str, Any], user: create_auth|create_user) -> None:
+    def __init__(self, option: dict[str, Any], user: create_auth | create_user) -> None:
         self.responseType: str = option.get("responseType")
         self.id: int = option.get("id")
         self.postedAt: str = option.get("postedAt")
@@ -57,17 +60,13 @@ class create_post:
         return self.author
 
     async def get_comments(self):
-        api_type = "comments"
-        final_results: list[Any] = []
         epl = endpoint_links()
         link = epl.list_comments(self.responseType, self.id)
         links = epl.create_links(link, self.commentsCount)
         if links:
-            results = await api_helper.scrape_endpoint_links(
-                links, self.author.get_session_manager(), api_type
-            )
+            results = await self.author.scrape_manager.bulk_scrape(links)
             self.comments = results
-        return final_results
+        return self.comments
 
     async def favorite(self):
         link = endpoint_links(

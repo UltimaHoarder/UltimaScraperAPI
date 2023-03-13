@@ -15,6 +15,7 @@ from ultima_scraper_api.apis.fansly.classes.extras import (
 )
 from ultima_scraper_api.apis.fansly.classes.hightlight_model import create_highlight
 from ultima_scraper_api.apis.user_streamliner import StreamlinedUser
+from ultima_scraper_api.managers.scrape_manager import ScrapeManager
 
 if TYPE_CHECKING:
     from ultima_scraper_api.apis.fansly.classes.auth_model import create_auth
@@ -227,6 +228,7 @@ class create_user(StreamlinedUser):
         self.temp_scraped = authed.api.ContentTypes()
         self.download_info: dict[str, Any] = {}
         self.duplicate_media = []
+        self.scrape_manager = ScrapeManager(authed.session_manager)
         self.__raw__ = option
         StreamlinedUser.__init__(self, authed)
 
@@ -458,9 +460,7 @@ class create_user(StreamlinedUser):
                 link = link.replace(f"limit={limit}", f"limit={limit}")
                 new_link = link.replace("offset=0", f"offset={num}")
                 links.append(new_link)
-        results = await api_helper.scrape_endpoint_links(
-            links, self.get_session_manager()
-        )
+        results = await self.scrape_manager.bulk_scrape(links)
         final_results = self.finalize_content_set(results)
 
         self.temp_scraped.Archived.Posts = final_results

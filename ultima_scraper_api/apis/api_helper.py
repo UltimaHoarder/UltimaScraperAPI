@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import inspect
 from argparse import Namespace
-from itertools import chain
 from multiprocessing import cpu_count
 from multiprocessing.dummy import Pool as ThreadPool
 from multiprocessing.pool import Pool
@@ -12,7 +11,6 @@ from urllib.parse import urlparse
 from mergedeep.mergedeep import Strategy, merge  # type: ignore
 
 import ultima_scraper_api
-from ultima_scraper_api.managers.session_manager import SessionManager
 
 if TYPE_CHECKING:
     auth_types = ultima_scraper_api.auth_types
@@ -51,69 +49,6 @@ def calculate_max_threads(max_threads: Optional[int] = None):
     return max_threads
 
 
-def restore_missing_data(master_set2: list[str], media_set, split_by):
-    count = 0
-    new_set: set[str] = set()
-    for item in media_set:
-        if not item:
-            link = master_set2[count]
-            offset = int(link.split("?")[-1].split("&")[1].split("=")[1])
-            limit = int(link.split("?")[-1].split("&")[0].split("=")[1])
-            if limit == split_by + 1:
-                break
-            offset2 = offset
-            limit2 = int(limit / split_by) if limit > 1 else 1
-            for item in range(1, split_by + 1):
-                link2 = link.replace("limit=" + str(limit), "limit=" + str(limit2))
-                link2 = link2.replace("offset=" + str(offset), "offset=" + str(offset2))
-                offset2 += limit2
-                new_set.add(link2)
-        count += 1
-    new_set = new_set if new_set else master_set2
-    return list(new_set)
-
-
-async def scrape_endpoint_links(
-    links: list[str], session_manager: SessionManager | None
-):
-    media_set: list[dict[str, str]] = []
-    max_attempts = 100
-    for attempt in list(range(max_attempts)):
-        if not links or not session_manager:
-            continue
-        print("Scrape Attempt: " + str(attempt + 1) + "/" + str(max_attempts))
-        results = await session_manager.bulk_requests(links)
-        results = [await x.json() for x in results if x]
-        not_faulty = [x for x in results if x]
-        faulty = [
-            {"key": k, "value": v, "link": links[k]}
-            for k, v in enumerate(results)
-            if not v
-        ]
-        last_number = len(results) - 1
-        if faulty:
-            positives = [x for x in faulty if x["key"] != last_number]
-            false_positive = [x for x in faulty if x["key"] == last_number]
-            if positives:
-                attempt = attempt if attempt > 1 else attempt + 1
-                num = int(len(faulty) * (100 / attempt))
-                split_by = 2
-                print("Missing " + str(num) + " Posts... Retrying...")
-                links = restore_missing_data(links, results, split_by)
-                media_set.extend(not_faulty)
-            if not positives and false_positive:
-                media_set.extend(not_faulty)
-                break
-        else:
-            media_set.extend(not_faulty)
-            break
-    if media_set and "list" in media_set[0]:
-        final_media_set = list(chain(*[x["list"] for x in media_set]))
-    else:
-        final_media_set = list(chain(*media_set))
-    return final_media_set
-
-
 def calculate_the_unpredictable(
     link: str, offset: int, limit: int = 1, multiplier: int = 1, depth: int = 1
 ):
@@ -146,9 +81,6 @@ async def handle_error_details(
     if isinstance(item, list):
         if remove_errors_status and api_type:
             results = await remove_errors(item)
-    else:
-        # Will move to logging instead of printing later.
-        print(f"Error: {item.__dict__}")
     return results
 
 

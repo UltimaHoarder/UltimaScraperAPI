@@ -12,6 +12,7 @@ from ultima_scraper_api.apis.onlyfans.classes.extras import ErrorDetails, endpoi
 from ultima_scraper_api.apis.onlyfans.classes.hightlight_model import create_highlight
 from ultima_scraper_api.apis.onlyfans.classes.story_model import create_story
 from ultima_scraper_api.apis.user_streamliner import StreamlinedUser
+from ultima_scraper_api.managers.scrape_manager import ScrapeManager
 
 if TYPE_CHECKING:
     from ultima_scraper_api.apis.onlyfans.classes.auth_model import create_auth
@@ -86,7 +87,7 @@ class create_user(StreamlinedUser):
         self.showMediaCount: bool = option.get("showMediaCount")
         self.subscribedByData: Any = option.get("subscribedByData")
         self.subscribedOnData: Any = option.get("subscribedOnData")
-        self.subscribedIsExpiredNow:bool =option.get("subscribedIsExpiredNow")
+        self.subscribedIsExpiredNow: bool = option.get("subscribedIsExpiredNow")
         self.canPromotion: bool = option.get("canPromotion")
         self.canCreatePromotion: bool = option.get("canCreatePromotion")
         self.canCreateTrial: bool = option.get("canCreateTrial")
@@ -216,13 +217,16 @@ class create_user(StreamlinedUser):
         self.temp_scraped = authed.api.ContentTypes()
         self.download_info: dict[str, Any] = {}
         self.duplicate_media = []
+        self.scrape_manager = ScrapeManager(authed.session_manager)
         self.__raw__ = option
         StreamlinedUser.__init__(self, authed)
 
-    def __eq__(self, other:Any):
+    def __eq__(self, other: Any):
         return True
+
     def __hash__(self) -> int:
         return hash((self.id))
+
     def get_link(self):
         link = f"https://onlyfans.com/{self.username}"
         return link
@@ -239,14 +243,13 @@ class create_user(StreamlinedUser):
         result, status = await api_helper.default_data(self, refresh)
         if status:
             return result
-        link = [
+        links = [
             endpoint_links(
                 identifier=self.id, global_limit=limit, global_offset=offset
             ).stories_api
         ]
-        results = await api_helper.scrape_endpoint_links(
-            link, self.get_session_manager()
-        )
+
+        results = await self.scrape_manager.bulk_scrape(links)
         results = [create_story(x) for x in results]
         self.temp_scraped.Stories = results
         return results
@@ -295,9 +298,7 @@ class create_user(StreamlinedUser):
             epl = endpoint_links()
             link = epl.list_posts(self.id)
             links = epl.create_links(link, self.postsCount)
-        results = await api_helper.scrape_endpoint_links(
-            links, self.get_session_manager()
-        )
+        results = await self.scrape_manager.bulk_scrape(links)
         final_results = self.finalize_content_set(results)
         self.temp_scraped.Posts = final_results
         return final_results
@@ -431,9 +432,8 @@ class create_user(StreamlinedUser):
                 link = link.replace(f"limit={limit}", f"limit={limit}")
                 new_link = link.replace("offset=0", f"offset={num}")
                 links.append(new_link)
-        results = await api_helper.scrape_endpoint_links(
-            links, self.get_session_manager()
-        )
+
+        results = await self.scrape_manager.bulk_scrape(links)
         final_results = self.finalize_content_set(results)
 
         self.temp_scraped.Archived.Posts = final_results
@@ -551,11 +551,13 @@ class create_user(StreamlinedUser):
                 status = True
                 break
         return status
-    async def match_identifiers(self, identifiers:list[int|str]):
+
+    async def match_identifiers(self, identifiers: list[int | str]):
         if self.id in identifiers or self.username in identifiers:
             return True
         else:
             return False
+
     async def find_duplicate_media(self):
         # A user had 10 photos but only 5 were downloaded, this was because some media on OnlyFans have the same filename but an invalid link.
         # Even if the link returns a 404, OnlyFans still counts it as a valid media when providing model statistics.
@@ -578,5 +580,6 @@ class create_user(StreamlinedUser):
 
     async def get_header(self):
         return self.header
+
     async def is_subscribed(self):
         return not self.subscribedIsExpiredNow

@@ -50,7 +50,7 @@ class SessionManager:
         self.kill = False
         self.headers = headers
         self.proxies: list[str] = proxies
-        global_settings = auth.get_api().get_global_settings()
+        global_settings = auth.api.get_global_settings()
         dynamic_rules_link = (
             global_settings.dynamic_rules_link if global_settings else ""
         )
@@ -107,7 +107,6 @@ class SessionManager:
         client_session = ClientSession(
             connector=connector,
             cookies=final_cookies,
-            read_timeout=None,
         )
         return client_session
 
@@ -137,8 +136,8 @@ class SessionManager:
             ) as _exception:
                 continue
 
-    async def bulk_requests(self, links: list[str]) -> list[ClientResponse | None]:
-        return await asyncio.gather(*[self.request(link) for link in links])
+    async def bulk_requests(self, urls: list[str]) -> list[ClientResponse | None]:
+        return await asyncio.gather(*[self.request(url) for url in urls])
 
     async def json_request(
         self,

@@ -35,23 +35,21 @@ class create_auth(create_user):
     ) -> None:
         self.api = api
         self.users: set[create_user] = set()
+        self.auth_details = auth_details
+        self.session_manager = self._SessionManager(self, max_threads=max_threads)
         create_user.__init__(self, option, self)
         if not self.username:
             self.username = f"u{self.id}"
-        self.lists = {}
-        self.links = content_types()
+        self.lists = []
+        self.links = api.ContentTypes()
         self.subscriptions: list[create_user] = []
         self.chats = None
         self.archived_stories = {}
         self.mass_messages = []
         self.paid_content: list[create_message | create_post] = []
-        self.auth_details = auth_details
         self.auth_attempt = 0
         self.guest = False
         self.active: bool = False
-        self.session_manager = self._SessionManager(
-            self, max_threads=max_threads, use_cookies=False
-        )
         self.errors: list[ErrorDetails] = []
         self.extras: dict[str, Any] = {}
         self.blacklist: list[str] = []

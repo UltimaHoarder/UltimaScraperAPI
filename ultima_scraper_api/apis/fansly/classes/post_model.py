@@ -5,12 +5,18 @@ from typing import TYPE_CHECKING, Any
 from ultima_scraper_api.apis.fansly.classes.extras import endpoint_links
 
 if TYPE_CHECKING:
-    from ultima_scraper_api.apis.fansly.classes.user_model import create_auth,create_user
+    from ultima_scraper_api.apis.fansly.classes.user_model import (
+        create_auth,
+        create_user,
+    )
 
 
 class create_post:
     def __init__(
-        self, option: dict[str, Any], user: create_auth|create_user, extra: dict[str, Any]
+        self,
+        option: dict[str, Any],
+        user: create_auth | create_user,
+        extra: dict[str, Any],
     ) -> None:
         self.responseType: str = option.get("responseType")
         self.id: int = int(option["id"])
@@ -87,6 +93,15 @@ class create_post:
 
     async def get_author(self):
         return self.author
+
+    async def get_comments(self):
+        epl = endpoint_links()
+        link = epl.list_comments(self.responseType, self.id)
+        links = epl.create_links(link, self.commentsCount)
+        if links:
+            results = await self.author.scrape_manager.bulk_scrape(links)
+            self.comments = results
+        return self.comments
 
     async def favorite(self):
         link = endpoint_links(
