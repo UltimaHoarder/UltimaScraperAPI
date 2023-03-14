@@ -264,26 +264,29 @@ class create_user(StreamlinedUser):
         limit: int = 100,
         offset: int = 0,
         hightlight_id: int | str = "",
-    ) -> Union[list[create_highlight], list[create_story]]:
-        result, status = await api_helper.default_data(self, refresh)
+    ) -> list[create_highlight] | list[create_story]:
+        from ultima_scraper_api import error_types
+
+        default_result, status = await api_helper.default_data(self, refresh)
         if status:
-            return result
+            return default_result
+        final_results = []
         if not identifier:
             identifier = self.id
         if not hightlight_id:
             link = endpoint_links(
                 identifier=identifier, global_limit=limit, global_offset=offset
             ).list_highlights
-            results = await self.get_session_manager().json_request(link)
-            results = await api_helper.remove_errors(results)
-            results = [create_highlight(x) for x in results["list"]]
+            result: dict[str, Any] = await self.get_session_manager().json_request(link)
+            final_results = [create_highlight(x) for x in result.get("list", [])]
         else:
             link = endpoint_links(
                 identifier=hightlight_id, global_limit=limit, global_offset=offset
             ).highlight
-            results = await self.get_session_manager().json_request(link)
-            results = [create_story(x) for x in results["stories"]]
-        return results
+            result = await self.get_session_manager().json_request(link)
+            if not isinstance(result, error_types):
+                final_results = [create_story(x) for x in result["stories"]]
+        return final_results
 
     async def get_posts(
         self,

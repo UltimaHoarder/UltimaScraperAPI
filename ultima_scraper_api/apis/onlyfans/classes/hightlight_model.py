@@ -1,10 +1,12 @@
+from typing import Any
+
+
 class create_highlight:
-    def __init__(self, option={}) -> None:
-        self.id: int = option.get("id")
-        self.userId: int = option.get("userId")
-        self.title: str = option.get("title")
-        self.coverStoryId: int = option.get("coverStoryId")
-        self.cover: str = option.get("cover")
-        self.storiesCount: int = option.get("storiesCount")
-        self.createdAt: str = option.get("createdAt")
-        self.stories: list = option.get("stories")
+    def __init__(self, option: dict[str, Any]) -> None:
+        self.id: int = option["id"]
+        self.userId: int = option["userId"]
+        self.title: str = option["title"]
+        self.coverStoryId: int = option["coverStoryId"]
+        self.cover: str = option["cover"]
+        self.storiesCount: int = option["storiesCount"]
+        self.createdAt: str = option["createdAt"]
