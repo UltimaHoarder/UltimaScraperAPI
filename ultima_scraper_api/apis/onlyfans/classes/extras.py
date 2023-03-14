@@ -8,7 +8,7 @@ from typing import Any, Literal, Optional, Union
 class auth_details:
     def __init__(self, options: dict[str, Any] = {}) -> None:
         self.username = options.get("username", "")
-        self.cookie = cookie_parser(options.get("cookie", ""))
+        self.cookie = cookie_parser(options.get("cookies", "a;"))
         self.x_bc = options.get("x_bc", "")
         self.user_agent: str = options.get("user_agent", "")
         self.email = options.get("email", "")
@@ -64,8 +64,10 @@ class cookie_parser:
         new_dict: dict[str, Any] = {}
         for crumble in options.strip().split(";"):
             if crumble:
-                key, value = crumble.strip().split("=", 1)
-                new_dict[key] = value
+                split_value = crumble.strip().split("=", 1)
+                if len(split_value) >= 2:
+                    key, value = split_value
+                    new_dict[key] = value
         self.auth_id = new_dict.get("auth_id", "")
         self.sess = new_dict.get("sess", "")
         self.auth_hash = new_dict.get("auth_hash", "")
