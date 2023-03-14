@@ -18,6 +18,7 @@ from aiohttp.client_exceptions import (
     ClientConnectorError,
     ClientOSError,
     ClientPayloadError,
+    ClientResponseError,
     ContentTypeError,
     ServerDisconnectedError,
 )
@@ -116,7 +117,6 @@ class SessionManager:
         return proxy
 
     async def request(self, link: str, premade_settings: str = "json"):
-
         while True:
             try:
                 headers = {}
@@ -125,7 +125,10 @@ class SessionManager:
                     headers["accept"] = "application/json, text/plain, */*"
                     headers["Connection"] = "keep-alive"
                 result = await self.active_session.get(link, headers=headers)
+                result.raise_for_status()
                 return result
+            except ClientResponseError as _exception:
+                break
             except (
                 ClientPayloadError,
                 ContentTypeError,
