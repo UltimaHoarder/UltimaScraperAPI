@@ -8,7 +8,7 @@ from typing import Any, Literal, Optional, Union
 class auth_details:
     def __init__(self, options: dict[str, Any] = {}) -> None:
         self.username = options.get("username", "")
-        self.cookie = cookie_parser(options.get("cookies", "a;"))
+        self.cookie = cookie_parser(options.get("cookie", ""))
         self.x_bc = options.get("x_bc", "")
         self.user_agent: str = options.get("user_agent", "")
         self.email = options.get("email", "")
