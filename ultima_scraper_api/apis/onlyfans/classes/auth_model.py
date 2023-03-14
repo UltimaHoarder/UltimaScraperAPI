@@ -245,8 +245,6 @@ class create_auth(create_user):
             link = endpoint_links(identifier).users
             response = await self.session_manager.json_request(link)
             if not isinstance(response, ErrorDetails):
-                if not response:
-                    print
                 response["session_manager"] = self.session_manager
                 response = create_user(response, self)
             return response
