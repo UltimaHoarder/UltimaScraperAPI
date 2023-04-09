@@ -14,6 +14,9 @@ auth_types = (
 user_types = (
     onlyfans_classes.user_model.create_user | fansly_classes.user_model.create_user
 )
+story_types = (
+    onlyfans_classes.story_model.create_story | fansly_classes.story_model.create_story
+)
 post_types = (
     onlyfans_classes.post_model.create_post | fansly_classes.post_model.create_post
 )
@@ -21,6 +24,7 @@ message_types = (
     onlyfans_classes.message_model.create_message
     | fansly_classes.message_model.create_message
 )
+content_types = story_types|post_types|message_types
 error_types = onlyfans_classes.extras.ErrorDetails | fansly_classes.extras.ErrorDetails
 
 
