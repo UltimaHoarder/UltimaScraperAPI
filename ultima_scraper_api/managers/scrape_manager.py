@@ -10,6 +10,7 @@ class ScrapeManager:
     def __init__(self, session_manager: SessionManager) -> None:
         self.session_manager = session_manager
         self.handle_errors = True
+        self.scraped = session_manager.auth.api.ContentTypes()
 
     async def bulk_scrape(self, urls: list[str]):
         result = await asyncio.gather(
@@ -46,3 +47,6 @@ class ScrapeManager:
             if self.handle_errors:
                 return await handle_error_details(result)
         return json_res
+
+    def set_scraped(self, name: str, scraped: list[Any]):
+        setattr(self.scraped, name, scraped)
