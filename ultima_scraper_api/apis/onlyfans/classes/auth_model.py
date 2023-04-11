@@ -12,6 +12,7 @@ from user_agent import generate_user_agent
 
 from ultima_scraper_api.apis import api_helper
 from ultima_scraper_api.apis.onlyfans.classes.extras import (
+    AuthDetails,
     ErrorDetails,
     auth_details,
     create_headers,
@@ -35,7 +36,7 @@ class create_auth(create_user):
         api: OnlyFansAPI,
         option: dict[str, Any] = {},
         max_threads: int = -1,
-        auth_details: auth_details = auth_details(),
+        auth_details: AuthDetails = AuthDetails(),
     ) -> None:
         self.api = api
         self.users: set[create_user] = set()

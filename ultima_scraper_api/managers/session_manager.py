@@ -239,7 +239,7 @@ class SessionManager:
         headers: dict[str, Any] = {}
         headers |= self.headers
         if "https://onlyfans.com/api2/v2/" in link and isinstance(
-            self.auth.auth_details, onlyfans_classes.extras.auth_details
+            self.auth.auth_details, onlyfans_classes.extras.AuthDetails
         ):
             dynamic_rules = self.dynamic_rules
             final_cookies = self.auth.auth_details.cookie.convert()
@@ -253,7 +253,7 @@ class SessionManager:
             headers2 = self.create_signed_headers(link)
             headers |= headers2
         elif "https://apiv3.fansly.com" in link and isinstance(
-            self.auth.auth_details, fansly_classes.extras.auth_details
+            self.auth.auth_details, fansly_classes.extras.AuthDetails
         ):
             headers["authorization"] = self.auth.auth_details.authorization
         return headers

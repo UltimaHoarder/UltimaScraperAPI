@@ -5,17 +5,17 @@ from pathlib import Path
 from typing import Any, Literal, Optional, Union
 
 
-class auth_details:
-    def __init__(self, options: dict[str, Any] = {}) -> None:
-        self.username = options.get("username", "")
-        self.cookie = cookie_parser(options.get("cookie", ""))
-        self.x_bc = options.get("x_bc", "")
-        self.user_agent: str = options.get("user_agent", "")
-        self.email = options.get("email", "")
-        self.password = options.get("password", "")
-        self.hashed = options.get("hashed", False)
-        self.support_2fa = options.get("support_2fa", True)
-        self.active = options.get("active", True)
+class AuthDetails:
+    def __init__(self, username:str="", cookie:str="", x_bc:str="",user_agent:str="",email:str="", password:str="", hashed:bool=False,support_2fa:bool=True, active:bool=True) -> None:
+        self.username = username
+        self.cookie = cookie_parser(cookie)
+        self.x_bc = x_bc
+        self.user_agent = user_agent
+        self.email = email
+        self.password = password
+        self.hashed = hashed
+        self.support_2fa = support_2fa
+        self.active = active
 
     def upgrade_legacy(self, options: dict[str, Any]):
         if "cookie" not in options:
@@ -47,7 +47,7 @@ class legacy_auth_details:
         self.support_2fa = option.get("support_2fa", True)
         self.active = option.get("active", True)
 
-    def upgrade(self, new_auth_details: auth_details):
+    def upgrade(self, new_auth_details: AuthDetails):
         new_dict = ""
         for key, value in self.__dict__.items():
             value = value if value != None else ""
