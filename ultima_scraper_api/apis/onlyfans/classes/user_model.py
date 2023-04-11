@@ -213,8 +213,6 @@ class create_user(StreamlinedUser):
         self.maxPinnedPostsCount: int = option.get("maxPinnedPostsCount")
         # Custom
         authed.users.add(self)
-        self.scraped = authed.api.ContentTypes()
-        self.temp_scraped = authed.api.ContentTypes()
         self.download_info: dict[str, Any] = {}
         self.duplicate_media = []
         self.scrape_manager = ScrapeManager(authed.session_manager)
@@ -253,9 +251,9 @@ class create_user(StreamlinedUser):
         ]
 
         results = await self.scrape_manager.bulk_scrape(links)
-        results = [create_story(x) for x in results]
-        self.temp_scraped.Stories = results
-        return results
+        final_results = [create_story(x, self) for x in results]
+        self.scrape_manager.scraped.Stories = final_results
+        return final_results
 
     async def get_highlights(
         self,
@@ -278,14 +276,14 @@ class create_user(StreamlinedUser):
                 identifier=identifier, global_limit=limit, global_offset=offset
             ).list_highlights
             result: dict[str, Any] = await self.get_session_manager().json_request(link)
-            final_results = [create_highlight(x) for x in result.get("list", [])]
+            final_results = [create_highlight(x, self) for x in result.get("list", [])]
         else:
             link = endpoint_links(
                 identifier=hightlight_id, global_limit=limit, global_offset=offset
             ).highlight
             result = await self.get_session_manager().json_request(link)
             if not isinstance(result, error_types):
-                final_results = [create_story(x) for x in result["stories"]]
+                final_results = [create_story(x, self) for x in result["stories"]]
         return final_results
 
     async def get_posts(
@@ -306,7 +304,7 @@ class create_user(StreamlinedUser):
             links = epl.create_links(link, self.postsCount)
         results = await self.scrape_manager.bulk_scrape(links)
         final_results = self.finalize_content_set(results)
-        self.temp_scraped.Posts = final_results
+        self.scrape_manager.scraped.Posts = final_results
         return final_results
 
     async def get_post(
@@ -348,8 +346,7 @@ class create_user(StreamlinedUser):
             link, offset, limit, multiplier, depth
         )
         links = unpredictable_links if depth != 1 else links + unpredictable_links
-        results = await self.get_session_manager().bulk_requests(links)
-        results = [await x.json() for x in results if x]
+        results = await self.get_session_manager().bulk_json_requests(links)
         results = await api_helper.remove_errors(results)
         final_results = []
         if isinstance(results, list):
@@ -372,7 +369,7 @@ class create_user(StreamlinedUser):
                 pass
             else:
                 final_results.sort(key=lambda x: x["fromUser"]["id"], reverse=True)
-            self.temp_scraped.Messages = final_results
+            self.scrape_manager.scraped.Messages = final_results
         return final_results
 
     async def get_message_by_id(
@@ -411,7 +408,7 @@ class create_user(StreamlinedUser):
         link = endpoint_links(global_limit=limit, global_offset=offset).archived_stories
         results = await self.get_session_manager().json_request(link)
         results = await api_helper.remove_errors(results)
-        results = [create_story(x) for x in results]
+        results = [create_story(x, self) for x in results]
         return results
 
     async def get_archived_posts(
@@ -442,7 +439,7 @@ class create_user(StreamlinedUser):
         results = await self.scrape_manager.bulk_scrape(links)
         final_results = self.finalize_content_set(results)
 
-        self.temp_scraped.Archived.Posts = final_results
+        self.scrape_manager.scraped.Posts.extend(final_results)
         return final_results
 
     async def search_chat(
@@ -528,8 +525,6 @@ class create_user(StreamlinedUser):
             )
         return result
 
-    def set_scraped(self, name: str, scraped: list[Any]):
-        setattr(self.scraped, name, scraped)
 
     def finalize_content_set(self, results: list[dict[str, Any]] | list[str]):
         final_results: list[create_post] = []

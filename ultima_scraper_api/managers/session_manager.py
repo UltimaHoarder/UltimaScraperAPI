@@ -18,6 +18,7 @@ from aiohttp.client_exceptions import (
     ClientConnectorError,
     ClientOSError,
     ClientPayloadError,
+    ClientResponseError,
     ContentTypeError,
     ServerDisconnectedError,
 )
@@ -47,6 +48,7 @@ class SessionManager:
         max_threads = api_helper.calculate_max_threads(max_threads)
         self.semaphore = asyncio.BoundedSemaphore(max_threads)
         self.max_threads = max_threads
+        self.max_attempts = 10
         self.kill = False
         self.headers = headers
         self.proxies: list[str] = proxies
@@ -60,6 +62,13 @@ class SessionManager:
         self.auth = auth
         self.use_cookies: bool = use_cookies
         self.active_session = self.create_client_session()
+        self.request_count = 0
+        # self.last_request_time: float | None = None
+        # self.rate_limit_wait_minutes = 6
+        self.rate_limit_check = False
+        self.is_rate_limited = None
+        self.time2sleep = 0
+        asyncio.create_task(self.check_rate_limit())
 
     def get_cookies(self):
 
@@ -115,31 +124,120 @@ class SessionManager:
         proxy = self.proxies[randint(0, len(proxies) - 1)] if proxies else ""
         return proxy
 
-    async def request(self, link: str, premade_settings: str = "json"):
+    # async def limit_rate(self):
+    #     if self.auth.api.site_name == "OnlyFans":
+    #         # [OF] 1,000 requests every 5 minutes
+    #         # Can batch  =< 5,000 amount of requests, but will get rate limited and throw 429 error
+    #         MAX_REQUEST_LIMIT = 900  # 900 instead of 1,000 to be safe
+    #         rate_limit_wait_minutes = self.rate_limit_wait_minutes
+    #         RATE_LIMIT_WAIT_TIME = 60 * rate_limit_wait_minutes
+    #         if self.request_count >= MAX_REQUEST_LIMIT:
+    #             # Wait until 5 minutes have elapsed since last request
+    #             if self.last_request_time is not None:
+    #                 elapsed_time = time.time() - self.last_request_time
+    #                 if elapsed_time < RATE_LIMIT_WAIT_TIME:
+    #                     time2sleep = RATE_LIMIT_WAIT_TIME - elapsed_time
+    #                     print(time2sleep)
+    #                     await asyncio.sleep(time2sleep)
+    #             # Reset counter and timer
+    #             self.request_count = 0
+    #             self.last_request_time = None
+    #         self.request_count += 1
+    #         if self.last_request_time is None:
+    #             self.last_request_time = time.time()
+
+    async def check_rate_limit(self):
+        lock = asyncio.Lock()
         while True:
-            try:
-                headers = {}
-                if premade_settings == "json":
-                    headers = await self.session_rules(link)
-                    headers["accept"] = "application/json, text/plain, */*"
-                    headers["Connection"] = "keep-alive"
-                result = await self.active_session.get(link, headers=headers)
-                result.raise_for_status()
-                return result
-            except (
+            rate_limit_count = 1
+            while self.rate_limit_check:
+                async with lock:
+                    try:
+                        url = "https://onlyfans.com/api2/v2/init"
+                        headers = await self.session_rules(url)
+                        headers["accept"] = "application/json, text/plain, */*"
+                        headers["Connection"] = "keep-alive"
+
+                        result = await self.active_session.get(url, headers=headers)
+                        result.raise_for_status()
+                        self.rate_limit_check = False
+                        self.is_rate_limited = None
+                        break
+                    except ClientResponseError as _e:
+                        if _e.status == 429:
+                            # Still rate limited, wait 5 seconds and retry
+                            self.is_rate_limited = True
+                            rate_limit_count += 1
+                    except Exception as _e:
+                        pass
+                await asyncio.sleep(self.time2sleep)
+            await asyncio.sleep(5)
+
+    async def request(self, url: str, premade_settings: str = "json"):
+        while True:
+            if self.rate_limit_check:
+                await asyncio.sleep(5)
+                continue
+            exception_template = (
                 ClientPayloadError,
                 ContentTypeError,
                 ClientOSError,
                 ServerDisconnectedError,
                 ProxyConnectionError,
                 ConnectionResetError,
-            ) as _exception:
+                asyncio.TimeoutError,
+            )
+            headers = {}
+            if premade_settings == "json":
+                headers = await self.session_rules(url)
+                headers["accept"] = "application/json, text/plain, */*"
+                headers["Connection"] = "keep-alive"
+            # await self.limit_rate()
+            try:
+                result = await self.active_session.get(url, headers=headers)
+            except exception_template as _e:
                 continue
+            except Exception as _e:
+                continue
+            try:
+                result.raise_for_status()
+                return result
+            except exception_template as _e:
+                # Can retry
+                continue
+            except ClientResponseError as _e:
+                match _e.status:
+                    case 403:
+                        return result
+                    case 429:
+                        if self.is_rate_limited is None:
+                            self.rate_limit_check = True
+                        continue
+                    case 500:
+                        continue
+                    case 503:
+                        continue
+                    case 504:
+                        continue
+                    case _:
+                        raise Exception(
+                            f"Infinite Loop Detected for unhandled status error: {_e.status}"
+                        )
+            except Exception as _e:
+                pass
 
     async def bulk_requests(self, urls: list[str]) -> list[ClientResponse | None]:
         return await asyncio.gather(*[self.request(url) for url in urls])
 
-    async def json_request(
+    async def json_request(self, url: str):
+        response = await self.request(url)
+        json_resp = await response.json()
+        return json_resp
+
+    async def bulk_json_requests(self, urls: list[str]):
+        return await asyncio.gather(*[self.json_request(url) for url in urls])
+
+    async def json_request_2(
         self,
         link: str,
         session: ClientSession | None = None,
@@ -225,6 +323,8 @@ class SessionManager:
                     ConnectionResetError,
                 ) as _exception:
                     continue
+                except Exception as _exception:
+                    pass
             if custom_session:
                 await session.close()
             return result
@@ -252,10 +352,13 @@ class SessionManager:
                 )
             headers2 = self.create_signed_headers(link)
             headers |= headers2
+            # t2s does not set for cdn links yet
+            self.time2sleep = 5
         elif "https://apiv3.fansly.com" in link and isinstance(
             self.auth.auth_details, fansly_classes.extras.AuthDetails
         ):
             headers["authorization"] = self.auth.auth_details.authorization
+            self.is_rate_limited = False
         return headers
 
     def create_signed_headers(

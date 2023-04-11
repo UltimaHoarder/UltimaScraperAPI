@@ -14,6 +14,7 @@ class CustomJob:
         self.result = []
         self.done = False
         self.options: list[str] = []
+        self.blacklist:list[str] = []
 
     def add_media_type(self, media_type: str):
         self.media_types.append(media_type)

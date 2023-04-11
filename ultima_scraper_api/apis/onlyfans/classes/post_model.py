@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any
 
-from ultima_scraper_api.apis import api_helper
+from ultima_scraper_api.apis.onlyfans import SiteContent
 from ultima_scraper_api.apis.onlyfans.classes.extras import endpoint_links
 
 if TYPE_CHECKING:
@@ -12,14 +12,13 @@ if TYPE_CHECKING:
     )
 
 
-class create_post:
+class create_post(SiteContent):
     def __init__(self, option: dict[str, Any], user: create_auth | create_user) -> None:
+        SiteContent.__init__(self, option, user)
         self.responseType: str = option.get("responseType")
-        self.id: int = option.get("id")
-        self.postedAt: str = option.get("postedAt")
+        self.createdAt: str = option.get("postedAt")
         self.postedAtPrecise: str = option.get("postedAtPrecise")
         self.expiredAt: Any = option.get("expiredAt")
-        self.author = user
         text: str = option.get("text", "")
         self.text = str(text or "")
         raw_text: str = option.get("rawText", "")
@@ -49,14 +48,13 @@ class create_post:
         self.mentionedUsers: list = option.get("mentionedUsers")
         self.linkedUsers: list = option.get("linkedUsers")
         self.linkedPosts: list = option.get("linkedPosts")
-        self.media: list[dict[str, Any]] = option.get("media", [])
         self.canViewMedia: bool = option.get("canViewMedia")
         self.preview: list[int] = option.get("preview", [])
         self.canPurchase: bool = option.get("canPurchase")
         self.comments: list[Any] = []
         self.__raw__ = option
 
-    async def get_author(self):
+    def get_author(self):
         return self.author
 
     async def get_comments(self):
@@ -79,24 +77,3 @@ class create_post:
         )
         self.isFavorite = True
         return results
-
-    async def link_picker(self, media: dict[str, Any], video_quality: str):
-        link = ""
-        if "source" in media:
-            quality_key = "source"
-            source = media[quality_key]
-            link = source[quality_key]
-            if link:
-                if media["type"] == "video":
-                    qualities = media["videoSources"]
-                    qualities = dict(sorted(qualities.items(), reverse=False))
-                    qualities[quality_key] = source[quality_key]
-                    for quality, quality_link in qualities.items():
-                        video_quality = video_quality.removesuffix("p")
-                        if quality == video_quality:
-                            if quality_link:
-                                link = quality_link
-                                break
-        if "src" in media:
-            link = media["src"]
-        return link

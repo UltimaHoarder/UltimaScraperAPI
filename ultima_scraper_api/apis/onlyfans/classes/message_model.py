@@ -2,16 +2,20 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any, Optional
 
+from ultima_scraper_api.apis.onlyfans import SiteContent
 from ultima_scraper_api.apis.onlyfans.classes.extras import endpoint_links
 
 if TYPE_CHECKING:
     from ultima_scraper_api.apis.onlyfans.classes.user_model import create_user
 
 
-class create_message:
+class create_message(SiteContent):
     def __init__(self, option: dict[str, Any], user: create_user) -> None:
+
+        author = user.get_authed().find_user_by_identifier(option["fromUser"]["id"])[0]
+        SiteContent.__init__(self, option, author)
         self.responseType: Optional[str] = option.get("responseType")
-        self.text: Optional[str] = option.get("text")
+        self.text: str = option.get("text","")
         self.lockedText: Optional[bool] = option.get("lockedText")
         self.isFree: Optional[bool] = option.get("isFree")
         self.price: Optional[float] = option.get("price")
@@ -21,12 +25,10 @@ class create_message:
         self.previews: list[dict[str, Any]] = option.get("previews", [])
         self.isTip: Optional[bool] = option.get("isTip")
         self.isReportedByMe: Optional[bool] = option.get("isReportedByMe")
-        self.fromUser = user.get_authed().find_user_by_identifier(option["fromUser"]["id"])[0]
         self.isFromQueue: Optional[bool] = option.get("isFromQueue")
         self.queueId: Optional[int] = option.get("queueId")
         self.canUnsendQueue: Optional[bool] = option.get("canUnsendQueue")
         self.unsendSecondsQueue: Optional[int] = option.get("unsendSecondsQueue")
-        self.id: Optional[int] = option.get("id")
         self.isOpened: Optional[bool] = option.get("isOpened")
         self.isNew: Optional[bool] = option.get("isNew")
         self.createdAt: Optional[str] = option.get("createdAt")
@@ -37,8 +39,8 @@ class create_message:
         self.canPurchaseReason: Optional[str] = option.get("canPurchaseReason")
         self.canReport: Optional[bool] = option.get("canReport")
 
-    async def get_author(self):
-        return self.fromUser
+    def get_author(self):
+        return self.author
 
     async def buy_message(self):
         """
@@ -53,28 +55,7 @@ class create_message:
             "unavailablePaymentGates": [],
         }
         link = endpoint_links().pay
-        result = await self.fromUser.get_session_manager().json_request(
+        result = await self.author.get_session_manager().json_request(
             link, method="POST", payload=x
         )
         return result
-
-    async def link_picker(self, media: dict[str, Any], video_quality: str):
-        link = ""
-        if "source" in media:
-            quality_key = "source"
-            source = media[quality_key]
-            link = source[quality_key]
-            if link:
-                if media["type"] == "video":
-                    qualities = media["videoSources"]
-                    qualities = dict(sorted(qualities.items(), reverse=False))
-                    qualities[quality_key] = source[quality_key]
-                    for quality, quality_link in qualities.items():
-                        video_quality = video_quality.removesuffix("p")
-                        if quality == video_quality:
-                            if quality_link:
-                                link = quality_link
-                                break
-        if "src" in media:
-            link = media["src"]
-        return link

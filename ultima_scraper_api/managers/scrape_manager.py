@@ -48,5 +48,9 @@ class ScrapeManager:
                 return await handle_error_details(result)
         return json_res
 
+    async def handle_refresh(self, item: Any):
+        abc = getattr(self.session_manager.auth, f"get_{item.responseType}")
+        return abc
+
     def set_scraped(self, name: str, scraped: list[Any]):
         setattr(self.scraped, name, scraped)

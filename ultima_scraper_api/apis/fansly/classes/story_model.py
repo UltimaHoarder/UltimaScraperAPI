@@ -1,9 +1,13 @@
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
+from ultima_scraper_api.apis.fansly import SiteContent
 
-class create_story:
-    def __init__(self, option: dict[str, Any] = {}) -> None:
-        self.id: int = option.get("id")
+if TYPE_CHECKING:
+    from ultima_scraper_api.apis.onlyfans.classes.user_model import create_user
+
+class create_story(SiteContent):
+    def __init__(self, option: dict[str, Any], user: "create_user") -> None:
+        SiteContent.__init__(self, option, user)
         self.userId: int = option.get("userId")
         self.createdAt: str = option.get("createdAt")
         self.expiredAt: str = option.get("expiredAt")

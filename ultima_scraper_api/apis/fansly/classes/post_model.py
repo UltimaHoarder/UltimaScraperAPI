@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any
 
+from ultima_scraper_api.apis.fansly import SiteContent
 from ultima_scraper_api.apis.fansly.classes.extras import endpoint_links
 
 if TYPE_CHECKING:
@@ -11,16 +12,16 @@ if TYPE_CHECKING:
     )
 
 
-class create_post:
+class create_post(SiteContent):
     def __init__(
         self,
         option: dict[str, Any],
         user: create_auth | create_user,
         extra: dict[str, Any],
     ) -> None:
+        SiteContent.__init__(self, option, user)
         self.responseType: str = option.get("responseType")
-        self.id: int = int(option["id"])
-        self.postedAt: str = option.get("createdAt")
+        self.createdAt: str = option.get("createdAt")
         self.postedAtPrecise: str = option.get("postedAtPrecise")
         self.expiredAt: Any = option.get("expiredAt")
         self.author = user
@@ -78,10 +79,11 @@ class create_post:
                         temp_media = None
                         if "preview" in account_media:
                             temp_media = account_media["preview"]
-                            self.previews.append(temp_media)
+                            if not account_media["access"]:
+                                self.preview_ids.append(int(account_media["previewId"]))
+                                self.previews.append(temp_media)
                         if (
                             account_media["media"]["locations"]
-                            or account_media["media"]["variants"]
                         ):
                             temp_media = account_media["media"]
                         if temp_media:
@@ -91,7 +93,7 @@ class create_post:
         self.preview: list[int] = option.get("preview", [])
         self.canPurchase: bool = option.get("canPurchase")
 
-    async def get_author(self):
+    def get_author(self):
         return self.author
 
     async def get_comments(self):

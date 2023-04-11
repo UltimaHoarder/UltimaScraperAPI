@@ -8,13 +8,10 @@ from itertools import chain, product
 from typing import TYPE_CHECKING, Any, Dict, Optional, Union
 
 from dateutil.relativedelta import relativedelta
-from user_agent import generate_user_agent
-
 from ultima_scraper_api.apis import api_helper
 from ultima_scraper_api.apis.onlyfans.classes.extras import (
     AuthDetails,
     ErrorDetails,
-    auth_details,
     create_headers,
     endpoint_links,
 )
@@ -22,6 +19,7 @@ from ultima_scraper_api.apis.onlyfans.classes.message_model import create_messag
 from ultima_scraper_api.apis.onlyfans.classes.post_model import create_post
 from ultima_scraper_api.apis.onlyfans.classes.user_model import create_user
 from ultima_scraper_api.managers.session_manager import SessionManager
+from user_agent import generate_user_agent
 
 if TYPE_CHECKING:
     from ultima_scraper_api.apis.onlyfans.onlyfans import OnlyFansAPI
@@ -164,12 +162,12 @@ class create_auth(create_user):
     async def process_auth(self):
         if not self.active:
             link = endpoint_links().customer
-            response = await self.session_manager.json_request(link)
-            if response:
-                await self.resolve_auth_errors(response)
+            json_resp = await self.session_manager.json_request(link)
+            if json_resp:
+                await self.resolve_auth_errors(json_resp)
                 if not self.errors:
                     self.active = True
-                    self.update(response)
+                    self.update(json_resp)
             else:
                 # 404'ed
                 self.active = False
@@ -208,9 +206,9 @@ class create_auth(create_user):
         if status:
             return result
         link = endpoint_links(global_limit=limit, global_offset=offset).lists
-        results = await self.session_manager.json_request(link)
-        self.lists = results
-        return results
+        json_resp = await self.session_manager.json_request(link)
+        self.lists = json_resp
+        return json_resp
 
     async def get_blacklist(self, local_blacklists: list[str]):
         bl_ids: list[str] = []
@@ -335,7 +333,7 @@ class create_auth(create_user):
                     if isinstance(result, ErrorDetails):
                         continue
                     if not result:
-                        print
+                        pass
                     subscription2: create_user = result
                     for subscription in subscriptions:
                         if subscription["id"] != subscription2.id:
@@ -374,8 +372,6 @@ class create_auth(create_user):
                 if subscription.isBlocked:
                     continue
                 results.append([subscription])
-                print
-            print
         final_results = [x for x in results if x is not None]
         final_results = list(chain(*final_results))
         self.subscriptions = final_results
@@ -403,8 +399,7 @@ class create_auth(create_user):
             link, offset, limit, multiplier, depth
         )
         links = unpredictable_links if depth != 1 else links + unpredictable_links
-        results = await self.session_manager.bulk_requests(links)
-        results = [await x.json() for x in results if x]
+        results = await self.session_manager.bulk_json_requests(links)
         has_more = results[-1]["hasMore"]
         final_results = [x["list"] for x in results]
         final_results = list(chain.from_iterable(final_results))

@@ -72,7 +72,7 @@ class FanslyAPI(StreamlinedAPI):
 
             self.Stories = []
             self.Posts = []
-            self.Archived = ArchivedTypes()
+            # self.Archived = ArchivedTypes()
             self.Chats = []
             self.Messages = []
             self.Highlights = []
@@ -82,15 +82,24 @@ class FanslyAPI(StreamlinedAPI):
             for attr, value in self.__dict__.items():
                 yield attr, value
 
-        async def get_keys(self):
+        def get_keys(self):
             return [item[0] for item in self]
 
-    class Locations:
+    class MediaTypes:
         def __init__(self) -> None:
             self.Images = ["photo", "image"]
             self.Videos = ["video", "stream", "gif"]
             self.Audios = ["audio"]
             self.Texts = ["text"]
 
-        async def get_keys(self):
+        def get_keys(self):
             return [item[0] for item in self.__dict__.items()]
+
+        def find_by_value(self, value: str):
+            final_media_type = None
+            for media_type, alt_media_types in self.__dict__.items():
+                if value in alt_media_types:
+                    final_media_type = media_type
+            if not final_media_type:
+                raise Exception("No media type found")
+            return final_media_type

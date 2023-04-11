@@ -33,6 +33,7 @@ class create_metadata(object):
         self.content = format_content(
             fixed_metadata["version"], fixed_metadata["content"]
         ).content
+        pass
 
     def fix_metadata(
         self,
@@ -119,8 +120,6 @@ class create_metadata(object):
                 for post in old_status:
                     if key != "Texts":
                         for old_media in post.medias:
-                            # if old_item.post_id == 1646808:
-                            #     l = True
                             new_found = None
                             new_items = [
                                 x for x in new_status if post.post_id == x.post_id
@@ -263,12 +262,12 @@ class format_content(object):
     class post_item(create_metadata, object):
         def __init__(self, option={}):
             # create_metadata.__init__(self, option)
-            self.post_id = option.get("post_id", None)
-            self.text = option.get("text", "")
-            self.price = option.get("price", 0)
+            self.post_id: int = option.get("post_id", None)
+            self.text: str = option.get("text", "")
+            self.price: float = option.get("price", 0)
             self.paid = option.get("paid", False)
             self.medias = option.get("medias", [])
-            self.postedAt = option.get("postedAt", "")
+            self.createdAt: str = option.get("createdAt", option.get("postedAt", ""))
 
     class media_item(create_metadata):
         def __init__(self, option={}):
@@ -317,8 +316,6 @@ class format_attributes(object):
     def __iter__(self):
         for attr, value in self.__dict__.items():
             yield attr, value
-
-
 
 
 # Legacy .db and .json files

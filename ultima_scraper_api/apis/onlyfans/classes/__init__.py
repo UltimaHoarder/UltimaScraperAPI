@@ -3,5 +3,6 @@ from ultima_scraper_api.apis.onlyfans.classes import (
     extras,
     message_model,
     post_model,
+    story_model,
     user_model,
 )

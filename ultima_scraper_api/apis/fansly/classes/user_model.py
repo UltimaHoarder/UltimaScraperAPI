@@ -7,13 +7,13 @@ from urllib import parse
 import ultima_scraper_api.apis.fansly.classes.message_model as message_model
 from ultima_scraper_api.apis import api_helper
 from ultima_scraper_api.apis.fansly.classes import collection_model, post_model
-from ultima_scraper_api.apis.fansly.classes.create_story import create_story
 from ultima_scraper_api.apis.fansly.classes.extras import (
     ErrorDetails,
     endpoint_links,
     handle_refresh,
 )
 from ultima_scraper_api.apis.fansly.classes.hightlight_model import create_highlight
+from ultima_scraper_api.apis.fansly.classes.story_model import create_story
 from ultima_scraper_api.apis.user_streamliner import StreamlinedUser
 from ultima_scraper_api.managers.scrape_manager import ScrapeManager
 

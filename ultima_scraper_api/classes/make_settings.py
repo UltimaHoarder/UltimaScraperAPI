@@ -5,6 +5,7 @@ import uuid as uuid
 from pathlib import Path
 from typing import Any, Literal, Tuple, get_args
 
+import orjson
 from yarl import URL
 
 site_name_literals = Literal["OnlyFans", "Fansly"]
@@ -290,6 +291,10 @@ class Config(object):
         self.info = Info()
         self.settings = Settings(**settings)
         self.supported = Supported(**supported)
+    def import_json(self, file_path:Path):
+        with file_path.open(encoding="utf-8") as o_file:
+            json_file = orjson.loads(o_file.read())
+            return Config(**json_file)
 
     def export(self) -> Config:
         base = copy.deepcopy(self)

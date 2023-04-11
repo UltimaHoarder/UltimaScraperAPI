@@ -1,8 +1,14 @@
-from typing import Any
+from typing import TYPE_CHECKING, Any
+
+from ultima_scraper_api.apis.onlyfans import SiteContent
+
+if TYPE_CHECKING:
+    from ultima_scraper_api.apis.onlyfans.classes.user_model import create_user
 
 
-class create_highlight:
-    def __init__(self, option: dict[str, Any]) -> None:
+class create_highlight(SiteContent):
+    def __init__(self, option: dict[str, Any], user: "create_user") -> None:
+        SiteContent.__init__(self, option, user)
         self.id: int = option["id"]
         self.userId: int = option["userId"]
         self.title: str = option["title"]

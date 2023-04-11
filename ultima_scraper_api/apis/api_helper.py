@@ -110,7 +110,7 @@ async def handle_refresh(
         )
         try:
             # We assume the class type is create_user
-            result = getattr(api.temp_scraped, api_type)
+            result = getattr(api.scrape_manager.scraped, api_type)
         except AttributeError:
             # we assume the class type is create_auth
             api_type = api_type.lower()

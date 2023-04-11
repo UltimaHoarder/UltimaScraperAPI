@@ -2,19 +2,21 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any
 
+from ultima_scraper_api.apis.fansly import SiteContent
 from ultima_scraper_api.apis.fansly.classes.extras import endpoint_links
 
 if TYPE_CHECKING:
     from ultima_scraper_api.apis.fansly.classes.user_model import create_user
 
 
-class create_collection:
+class create_collection(SiteContent):
     def __init__(
         self, option: dict[str, Any], user: create_user, extra: dict[str, Any]
     ) -> None:
+        SiteContent.__init__(self, option, user)
         self.responseType: str = option.get("responseType")
         self.id: int = int(option["id"])
-        self.postedAt: str = int(option.get("createdAt",0)/1000)
+        self.createdAt: str = int(option.get("createdAt",0)/1000)
         self.postedAtPrecise: str = option.get("postedAtPrecise")
         self.expiredAt: Any = option.get("expiredAt")
         self.author = user
@@ -85,7 +87,7 @@ class create_collection:
         self.preview: list[int] = option.get("preview", [])
         self.canPurchase: bool = option.get("canPurchase")
 
-    async def get_author(self):
+    def get_author(self):
         return self.author
 
     async def favorite(self):

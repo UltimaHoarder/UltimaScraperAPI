@@ -2,18 +2,21 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any, Optional
 
+from ultima_scraper_api.apis.fansly import SiteContent
 from ultima_scraper_api.apis.fansly.classes.extras import endpoint_links
 
 if TYPE_CHECKING:
     from ultima_scraper_api.apis.fansly.classes.user_model import create_user
 
 
-class create_message:
+class create_message(SiteContent):
     def __init__(
         self, option: dict[str, Any], user: create_user, extra: dict[Any, Any] = {}
     ) -> None:
+        author = user
+        SiteContent.__init__(self, option, author)
         self.responseType: Optional[str] = option.get("responseType")
-        self.text: Optional[str] = option["content"]
+        self.text: str = option["content"]
         self.lockedText: Optional[bool] = option.get("lockedText")
         self.isFree: Optional[bool] = option.get("isFree")
         self.price: Optional[float] = option.get("price")
@@ -28,7 +31,6 @@ class create_message:
         self.queueId: Optional[int] = option.get("queueId")
         self.canUnsendQueue: Optional[bool] = option.get("canUnsendQueue")
         self.unsendSecondsQueue: Optional[int] = option.get("unsendSecondsQueue")
-        self.id: Optional[int] = option.get("id")
         self.isOpened: Optional[bool] = option.get("isOpened")
         self.isNew: Optional[bool] = option.get("isNew")
         self.createdAt: Optional[str] = option.get("createdAt")
@@ -48,7 +50,7 @@ class create_message:
                 case 1:
                     final_media_ids.append(attachment_content_id)
                 case 2:
-                    for bundle in extra.get("accountMediaBundles",[]):
+                    for bundle in extra.get("accountMediaBundles", []):
                         if bundle["id"] == attachment_content_id:
                             final_media_ids.extend(bundle["accountMediaIds"])
                 case 32001:
@@ -58,7 +60,7 @@ class create_message:
         final_media: list[Any] = []
         if final_media_ids and extra:
             for final_media_id in final_media_ids:
-                for account_media in extra.get("accountMedia",[]):
+                for account_media in extra.get("accountMedia", []):
                     if account_media["id"] == final_media_id:
                         temp_media = None
                         if "preview" in account_media:
@@ -74,7 +76,7 @@ class create_message:
         self.media = final_media
         self.user = user
 
-    async def get_author(self):
+    def get_author(self):
         return self.fromUser
 
     async def buy_message(self):
@@ -90,9 +92,7 @@ class create_message:
             "unavailablePaymentGates": [],
         }
         link = endpoint_links().pay
-        result = await self.user.session_manager.json_request(
-            link, method="POST", payload=x
-        )
+        result = await self.user.get_session_manager().json_request(link)
         return result
 
     async def link_picker(self, media: dict[Any, Any], target_quality: str):

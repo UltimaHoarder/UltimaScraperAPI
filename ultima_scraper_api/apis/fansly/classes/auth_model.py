@@ -6,14 +6,10 @@ from itertools import chain, product
 from typing import TYPE_CHECKING, Any, Dict, Optional, Union
 
 from dateutil.relativedelta import relativedelta
-from user_agent import generate_user_agent
-
 from ultima_scraper_api.apis import api_helper
 from ultima_scraper_api.apis.fansly.classes.extras import (
     AuthDetails,
     ErrorDetails,
-    auth_details,
-    content_types,
     create_headers,
     endpoint_links,
 )
@@ -21,6 +17,7 @@ from ultima_scraper_api.apis.fansly.classes.message_model import create_message
 from ultima_scraper_api.apis.fansly.classes.post_model import create_post
 from ultima_scraper_api.apis.fansly.classes.user_model import create_user
 from ultima_scraper_api.managers.session_manager import SessionManager
+from user_agent import generate_user_agent
 
 if TYPE_CHECKING:
     from ultima_scraper_api.apis.fansly.fansly import FanslyAPI
@@ -396,8 +393,7 @@ class create_auth(create_user):
         )
         links = unpredictable_links if depth != 1 else links + unpredictable_links
 
-        results = await self.session_manager.bulk_requests(links)
-        results = [await x.json() for x in results if x]
+        results = await self.session_manager.bulk_json_requests(links)
         has_more = results[-1]["response"]["data"]
         final_results = api_helper.merge_dictionaries(results)["response"]
 

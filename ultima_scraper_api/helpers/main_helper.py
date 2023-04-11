@@ -11,13 +11,12 @@ from typing import TYPE_CHECKING, Any, BinaryIO, Literal
 
 import orjson
 import requests
-from aiofiles import os as async_os
-from bs4 import BeautifulSoup
-from mergedeep import Strategy, merge  # type: ignore
-
 import ultima_scraper_api
 import ultima_scraper_api.classes.make_settings as make_settings
 import ultima_scraper_api.classes.prepare_webhooks as prepare_webhooks
+from aiofiles import os as async_os
+from bs4 import BeautifulSoup
+from mergedeep import Strategy, merge  # type: ignore
 
 if TYPE_CHECKING:
     pass

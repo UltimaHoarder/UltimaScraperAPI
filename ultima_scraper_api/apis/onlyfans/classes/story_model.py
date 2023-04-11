@@ -1,9 +1,14 @@
-from typing import Any
+from typing import TYPE_CHECKING, Any
+
+from ultima_scraper_api.apis.onlyfans import SiteContent
+
+if TYPE_CHECKING:
+    from ultima_scraper_api.apis.onlyfans.classes.user_model import create_user
 
 
-class create_story:
-    def __init__(self, option={}) -> None:
-        self.id: int = option.get("id")
+class create_story(SiteContent):
+    def __init__(self, option: dict[str, Any], user: "create_user") -> None:
+        SiteContent.__init__(self, option, user)
         self.userId: int = option.get("userId")
         self.createdAt: str = option.get("createdAt")
         self.expiredAt: str = option.get("expiredAt")
@@ -21,22 +26,3 @@ class create_story:
         self.question: Any = option.get("question")
         self.placedContents: list = option.get("placedContents")
         self.answered: int = option.get("answered")
-
-    async def link_picker(self, media: dict[str, Any], video_quality: str):
-        link = ""
-        if "files" in media:
-            if "source" in media["files"]:
-                quality_key = "source"
-                source = media["files"][quality_key]
-                link = source["url"]
-                if link:
-                    if media["type"] == "video":
-                        qualities = source["sources"]
-                        qualities = dict(sorted(qualities.items(), reverse=False))
-                        for quality, quality_link in qualities.items():
-                            video_quality = video_quality.removesuffix("p")
-                            if quality == video_quality:
-                                if quality_link:
-                                    link = quality_link
-                                    break
-        return link
