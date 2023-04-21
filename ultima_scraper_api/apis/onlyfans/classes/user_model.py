@@ -525,7 +525,6 @@ class create_user(StreamlinedUser):
             )
         return result
 
-
     def finalize_content_set(self, results: list[dict[str, Any]] | list[str]):
         final_results: list[create_post] = []
         for result in results:
