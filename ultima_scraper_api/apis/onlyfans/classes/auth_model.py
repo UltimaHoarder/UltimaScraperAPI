@@ -216,7 +216,7 @@ class create_auth(create_user):
         if remote_blacklists:
             for remote_blacklist in remote_blacklists:
                 for local_blacklist in local_blacklists:
-                    if remote_blacklist["name"] == local_blacklist:
+                    if remote_blacklist["name"].lower() == local_blacklist.lower():
                         list_users = remote_blacklist["users"]
                         if remote_blacklist["usersCount"] > 2:
                             list_id = remote_blacklist["id"]
