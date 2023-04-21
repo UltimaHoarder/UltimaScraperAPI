@@ -319,7 +319,7 @@ class create_user(StreamlinedUser):
             final_results = [
                 post_model.create_post(x, self, results) for x in results["posts"]
             ]
-            self.temp_scraped.Posts = final_results
+            self.scrape_manager.scraped.Posts = final_results
         return final_results
 
     async def get_post(
@@ -403,7 +403,7 @@ class create_user(StreamlinedUser):
                     for x in final_results
                     if x
                 ]
-            self.temp_scraped.Messages = final_results
+            self.scrape_manager.scraped.Messages = final_results
         return final_results
 
     async def get_message_by_id(
