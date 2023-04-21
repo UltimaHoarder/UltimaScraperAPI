@@ -207,17 +207,13 @@ class SessionManager:
                 continue
             except ClientResponseError as _e:
                 match _e.status:
-                    case 403:
+                    case 403 | 404:
                         return result
                     case 429:
                         if self.is_rate_limited is None:
                             self.rate_limit_check = True
                         continue
-                    case 500:
-                        continue
-                    case 503:
-                        continue
-                    case 504:
+                    case 500 | 503 | 504:
                         continue
                     case _:
                         raise Exception(
