@@ -583,20 +583,6 @@ class create_user(StreamlinedUser):
         else:
             return False
 
-    async def find_duplicate_media(self):
-        for post in self.scraped.Posts:
-            for media in post["medias"]:
-                a = [
-                    media_2
-                    for post_2 in self.scraped.Posts
-                    for media_2 in post_2["medias"]
-                    if media["media_id"] != media_2["media_id"]
-                    and media["filename"] == media_2["filename"]
-                ]
-                if a:
-                    self.duplicate_media.extend(a)
-        return self.duplicate_media
-
     async def get_collections(self):
         link = endpoint_links(identifier=self.id).collections_api
         results = await self.get_session_manager().json_request(link)
