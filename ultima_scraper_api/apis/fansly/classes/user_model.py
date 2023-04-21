@@ -224,8 +224,6 @@ class create_user(StreamlinedUser):
         self.maxPinnedPostsCount: int = option.get("maxPinnedPostsCount")
         # Custom
         authed.users.add(self)
-        self.scraped = authed.api.ContentTypes()
-        self.temp_scraped = authed.api.ContentTypes()
         self.download_info: dict[str, Any] = {}
         self.duplicate_media = []
         self.scrape_manager = ScrapeManager(authed.session_manager)
@@ -552,9 +550,6 @@ class create_user(StreamlinedUser):
             )
         return result
 
-    def set_scraped(self, name: str, scraped: list[Any]):
-        setattr(self.scraped, name, scraped)
-
     def finalize_content_set(self, results: list[dict[str, Any]] | list[str]):
         final_results: list[create_post] = []
         for result in results:
@@ -571,7 +566,7 @@ class create_user(StreamlinedUser):
 
     async def if_scraped(self):
         status = False
-        for key, value in self.scraped.__dict__.items():
+        for key, value in self.scrape_manager.scraped.__dict__.items():
             if key == "Archived":
                 for _key_2, value in value.__dict__.items():
                     if value:

@@ -541,7 +541,7 @@ class create_user(StreamlinedUser):
 
     async def if_scraped(self):
         status = False
-        for key, value in self.scraped.__dict__.items():
+        for key, value in self.scrape_manager.scraped.__dict__.items():
             if key == "Archived":
                 for _key_2, value in value.__dict__.items():
                     if value:
