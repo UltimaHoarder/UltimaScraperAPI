@@ -11,12 +11,13 @@ from typing import TYPE_CHECKING, Any, BinaryIO, Literal
 
 import orjson
 import requests
-import ultima_scraper_api
-import ultima_scraper_api.classes.make_settings as make_settings
-import ultima_scraper_api.classes.prepare_webhooks as prepare_webhooks
 from aiofiles import os as async_os
 from bs4 import BeautifulSoup
 from mergedeep import Strategy, merge  # type: ignore
+
+import ultima_scraper_api
+import ultima_scraper_api.classes.make_settings as make_settings
+import ultima_scraper_api.classes.prepare_webhooks as prepare_webhooks
 
 if TYPE_CHECKING:
     pass
@@ -110,16 +111,13 @@ async def format_media_set(media_set: list[dict[str, Any]]):
 async def format_image(filepath: Path, timestamp: float, reformat_media: bool):
     if reformat_media:
         while True:
-            try:
-                if os_name == "Windows":
-                    from win32_setctime import setctime
+            if os_name == "Windows":
+                from win32_setctime import setctime
 
-                    setctime(filepath, timestamp)
-                    # print(f"Updated Creation Time {filepath}")
-                os.utime(filepath, (timestamp, timestamp))
-                # print(f"Updated Modification Time {filepath}")
-            except Exception as _e:
-                continue
+                setctime(filepath, timestamp)
+                # print(f"Updated Creation Time {filepath}")
+            os.utime(filepath, (timestamp, timestamp))
+            # print(f"Updated Modification Time {filepath}")
             break
 
 
