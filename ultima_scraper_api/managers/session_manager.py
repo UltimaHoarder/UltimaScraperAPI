@@ -34,6 +34,15 @@ import ultima_scraper_api.apis.api_helper as api_helper
 
 if TYPE_CHECKING:
     auth_types = ultima_scraper_api.auth_types
+EXCEPTION_TEMPLATE = (
+    ClientPayloadError,
+    ContentTypeError,
+    ClientOSError,
+    ServerDisconnectedError,
+    ProxyConnectionError,
+    ConnectionResetError,
+    asyncio.TimeoutError,
+)
 
 
 class SessionManager:
@@ -178,15 +187,6 @@ class SessionManager:
             if self.rate_limit_check:
                 await asyncio.sleep(5)
                 continue
-            exception_template = (
-                ClientPayloadError,
-                ContentTypeError,
-                ClientOSError,
-                ServerDisconnectedError,
-                ProxyConnectionError,
-                ConnectionResetError,
-                asyncio.TimeoutError,
-            )
             headers = {}
             if premade_settings == "json":
                 headers = await self.session_rules(url)
@@ -195,14 +195,14 @@ class SessionManager:
             # await self.limit_rate()
             try:
                 result = await self.active_session.get(url, headers=headers)
-            except exception_template as _e:
+            except EXCEPTION_TEMPLATE as _e:
                 continue
             except Exception as _e:
                 continue
             try:
                 result.raise_for_status()
                 return result
-            except exception_template as _e:
+            except EXCEPTION_TEMPLATE as _e:
                 # Can retry
                 continue
             except ClientResponseError as _e:
