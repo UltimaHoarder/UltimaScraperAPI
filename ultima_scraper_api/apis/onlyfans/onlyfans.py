@@ -15,29 +15,6 @@ class OnlyFansAPI(StreamlinedAPI):
         self.subscriptions: list[create_user] = []
         self.endpoint_links = endpoint_links
 
-    def add_auth(
-        self, auth_json: dict[str, Any] = {}, only_active: bool = False
-    ) -> create_auth:
-        """Creates and appends an auth object to auths property
-
-        Args:
-            auth_json (dict[str, str], optional): []. Defaults to {}.
-            only_active (bool, optional): [description]. Defaults to False.
-
-        Returns:
-            create_auth: [Auth object]
-        """
-        temp_auth_details = AuthDetails(**auth_json).upgrade_legacy(auth_json)
-        auth = create_auth(
-            self, max_threads=self.max_threads, auth_details=temp_auth_details
-        )
-        if only_active and not auth.auth_details.active:
-            return auth
-        auth.auth_details = temp_auth_details
-        auth.extras["settings"] = self.config
-        self.auths.append(auth)
-        return auth
-
     def get_auth(self, identifier: Union[str, int]) -> Optional[create_auth]:
         final_auth = None
         for auth in self.auths:
@@ -85,7 +62,7 @@ class OnlyFansAPI(StreamlinedAPI):
         def get_keys(self):
             return [item[0] for item in self]
 
-        async def response_type_to_key(self, value:str):
+        async def response_type_to_key(self, value: str):
             result = [x[0] for x in self if x[0].lower() == f"{value}s"]
             if result:
                 return result[0]
@@ -99,7 +76,8 @@ class OnlyFansAPI(StreamlinedAPI):
 
         def get_keys(self):
             return [item[0] for item in self.__dict__.items()]
-        def find_by_value(self,value:str):
+
+        def find_by_value(self, value: str):
             final_media_type = None
             for media_type, alt_media_types in self.__dict__.items():
                 if value in alt_media_types:

@@ -15,29 +15,6 @@ class FanslyAPI(StreamlinedAPI):
         self.subscriptions: list[create_user] = []
         self.endpoint_links = endpoint_links
 
-    def add_auth(
-        self, auth_json: dict[str, Any] = {}, only_active: bool = False
-    ) -> create_auth:
-        """Creates and appends an auth object to auths property
-
-        Args:
-            auth_json (dict[str, str], optional): []. Defaults to {}.
-            only_active (bool, optional): [description]. Defaults to False.
-
-        Returns:
-            create_auth: [Auth object]
-        """
-        temp_auth_details = AuthDetails(**auth_json).upgrade_legacy(auth_json)
-        auth = create_auth(
-            self, max_threads=self.max_threads, auth_details=temp_auth_details
-        )
-        if only_active and not auth.auth_details.active:
-            return auth
-        auth.auth_details = temp_auth_details
-        auth.extras["settings"] = self.config
-        self.auths.append(auth)
-        return auth
-
     def get_auth(self, identifier: Union[str, int]) -> Optional[create_auth]:
         final_auth = None
         for auth in self.auths:
