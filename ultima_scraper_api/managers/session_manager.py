@@ -13,6 +13,8 @@ from urllib.parse import urlparse
 import aiohttp
 import python_socks
 import requests
+import ultima_scraper_api
+import ultima_scraper_api.apis.api_helper as api_helper
 from aiohttp import ClientResponse, ClientSession
 from aiohttp.client_exceptions import (
     ClientConnectorError,
@@ -22,15 +24,7 @@ from aiohttp.client_exceptions import (
     ContentTypeError,
     ServerDisconnectedError,
 )
-from aiohttp_socks import (
-    ChainProxyConnector,
-    ProxyConnectionError,
-    ProxyError,
-    ProxyInfo,
-)
-
-import ultima_scraper_api
-import ultima_scraper_api.apis.api_helper as api_helper
+from aiohttp_socks import ProxyConnectionError, ProxyConnector, ProxyError, ProxyInfo
 
 if TYPE_CHECKING:
     auth_types = ultima_scraper_api.auth_types
@@ -43,6 +37,31 @@ EXCEPTION_TEMPLATE = (
     ConnectionResetError,
     asyncio.TimeoutError,
 )
+
+
+class ProxyManager:
+    def __init__(self, session_manager: SessionManager) -> None:
+        self.session_manager = session_manager
+        self.proxies = [
+            ProxyInfo(*python_socks.parse_proxy_url(proxy)) for proxy in self.session_manager.proxies  # type: ignore
+        ]
+        self.current_proxy_index = 0
+
+    def create_connection(self, proxy: ProxyInfo | None = None):
+        if proxy is None:
+            proxy = self.proxies[0]
+        return ProxyConnector(**proxy._asdict())  # type: ignore
+
+    def get_current_proxy(self):
+        return self.proxies[self.current_proxy_index]
+
+    async def proxy_switcher(self):
+        self.current_proxy_index = (self.current_proxy_index + 1) % len(self.proxies)
+        await self.session_manager.active_session.close()
+        self.session_manager.active_session = (
+            self.session_manager.create_client_session(False, self.get_current_proxy())
+        )
+        pass
 
 
 class SessionManager:
@@ -60,7 +79,10 @@ class SessionManager:
         self.max_attempts = 10
         self.kill = False
         self.headers = headers
-        self.proxies: list[str] = proxies
+        self.proxies: list[str] = (
+            proxies if proxies else auth.api.config.settings.proxies
+        )
+        self.proxy_manager = ProxyManager(self)
         global_settings = auth.api.get_global_settings()
         dynamic_rules_link = (
             global_settings.dynamic_rules_link if global_settings else ""
@@ -92,12 +114,14 @@ class SessionManager:
     def test_proxies(self, proxies: list[str] = []):
 
         final_proxies: list[str] = []
+
+        session = requests.Session()
         proxies = proxies if proxies else self.proxies
         for proxy in proxies:
             url = "https://checkip.amazonaws.com"
             temp_proxies = {"https": proxy}
             try:
-                resp = requests.get(url, proxies=temp_proxies)
+                resp = session.get(url, proxies=temp_proxies)
                 ip = resp.text
                 ip = ip.strip()
                 final_proxies.append(proxy)
@@ -105,18 +129,16 @@ class SessionManager:
                 continue
         return final_proxies
 
-    def create_client_session(self, test_proxies: bool = True):
+    def create_client_session(
+        self, test_proxies: bool = True, proxy: ProxyInfo | None = None
+    ):
         limit = 0
         if test_proxies and self.proxies:
             self.proxies = self.test_proxies()
             if not self.proxies:
                 raise Exception("Unable to create session due to invalid proxies")
-        proxies = [
-            ProxyInfo(*python_socks.parse_proxy_url(proxy)) for proxy in self.proxies  # type: ignore
-        ]
-
         connector = (
-            ChainProxyConnector(proxies, limit=limit)
+            self.proxy_manager.create_connection(proxy)
             if self.proxies
             else aiohttp.TCPConnector(limit=limit)
         )
@@ -167,6 +189,9 @@ class SessionManager:
                         headers["accept"] = "application/json, text/plain, */*"
                         headers["Connection"] = "keep-alive"
 
+                        await self.proxy_manager.proxy_switcher()
+                        print(self.proxy_manager.get_current_proxy().host)
+
                         result = await self.active_session.get(url, headers=headers)
                         result.raise_for_status()
                         self.rate_limit_check = False
@@ -207,9 +232,10 @@ class SessionManager:
                 continue
             except ClientResponseError as _e:
                 match _e.status:
-                    case 403 | 404:
+                    case 400 | 401 | 403 | 404:
                         return result
                     case 429:
+                        pass
                         if self.is_rate_limited is None:
                             self.rate_limit_check = True
                         continue
@@ -227,10 +253,14 @@ class SessionManager:
 
     async def json_request(self, url: str):
         response = await self.request(url)
-        json_resp = await response.json()
+        json_resp: dict[str, Any] = {}
+        if response.status == 200:
+            json_resp = await response.json()
+        else:
+            json_resp["error"] = {"code":response.status,"message":response.reason}
         return json_resp
 
-    async def bulk_json_requests(self, urls: list[str]):
+    async def bulk_json_requests(self, urls: list[str]) -> list[dict[str, Any]]:
         return await asyncio.gather(*[self.json_request(url) for url in urls])
 
     async def json_request_2(
