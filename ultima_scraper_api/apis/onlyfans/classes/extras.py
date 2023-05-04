@@ -6,7 +6,18 @@ from typing import Any, Literal, Optional, Union
 
 
 class AuthDetails:
-    def __init__(self, username:str="", cookie:str="", x_bc:str="",user_agent:str="",email:str="", password:str="", hashed:bool=False,support_2fa:bool=True, active:bool=True) -> None:
+    def __init__(
+        self,
+        username: str = "",
+        cookie: str = "",
+        x_bc: str = "",
+        user_agent: str = "",
+        email: str = "",
+        password: str = "",
+        hashed: bool = False,
+        support_2fa: bool = True,
+        active: bool = True,
+    ) -> None:
         self.username = username
         self.cookie = cookie_parser(cookie)
         self.x_bc = x_bc
@@ -22,13 +33,17 @@ class AuthDetails:
             self = legacy_auth_details(options).upgrade(self)
         return self
 
-    def export(self):
+    def export(self, model: Any = None):
         new_dict = copy.copy(self.__dict__)
         cookie = self.cookie.convert()
         results = [
             x for x in cookie.replace(" ", "").split(";") if x and x.split("=")[1]
         ]
         new_dict["cookie"] = cookie if results else ""
+        if model:
+            for att in new_dict.copy():
+                if att not in model.__annotations__:
+                    del new_dict[att]
         return new_dict
 
 
