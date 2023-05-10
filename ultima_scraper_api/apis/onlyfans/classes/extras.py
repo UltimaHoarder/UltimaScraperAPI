@@ -173,12 +173,12 @@ class endpoint_links(object):
         content_type = f"{content_type}s" if content_type[0] != "s" else content_type
         return f"{self.full_url_path}/{content_type}/{content_id}/comments?limit={global_limit}&offset={global_offset}&sort={sort_order}"
 
-    def create_links(self, link: str, api_count: int, limit: int = 10, offset: int = 0):
+    def create_links(self, url: str, api_count: int, limit: int = 10, offset: int = 0):
         """
         This function will create a list of links depending on their content count.
 
         Example:\n
-        create_links(link="base_link", api_count=50) will return a list with 5 links.
+        create_links(link="base_link", api_count=50) will return a list with 5 links if limit=10.
         """
         final_links: list[str] = []
         if api_count:
@@ -186,8 +186,11 @@ class endpoint_links(object):
             numbers = list(range(ceil))
             for num in numbers:
                 num = num * limit
-                link = link.replace(f"limit={limit}", f"limit={limit}")
-                new_link = link.replace(f"offset={offset}", f"offset={num}")
+                parsed_url = urlparse(url)
+                query_params = parse_qs(parsed_url.query)
+                limit_value = query_params["limit"][0]
+                url = url.replace(f"limit={limit_value}", f"limit={limit}")
+                new_link = url.replace(f"offset={offset}", f"offset={num}")
                 final_links.append(new_link)
         return final_links
 
