@@ -21,6 +21,7 @@ from user_agent import generate_user_agent
 from ultima_scraper_api.apis.fansly import SubscriptionType
 
 if TYPE_CHECKING:
+    from ultima_scraper_api.apis.onlyfans.classes.only_drm import OnlyDRM
     from ultima_scraper_api.apis.fansly.fansly import FanslyAPI
 
 from typing import TYPE_CHECKING, Any, Dict, Optional, Union
@@ -54,6 +55,7 @@ class create_auth(create_user):
         self.errors: list[ErrorDetails] = []
         self.extras: dict[str, Any] = {}
         self.blacklist: list[str] = []
+        self.drm: OnlyDRM | None = None
 
     class _SessionManager(SessionManager):
         def __init__(

@@ -9,7 +9,7 @@ packages = [{include = "ultima_scraper_api"}]
 include = ["ultima_scraper_api/py.typed"]
 
 [tool.poetry.dependencies]
-python = "^3.10"
+python = ">=3.10,<3.12"
 requests = {extras = ["socks"], version = "2.28.2"}
 orjson = "^3.8.3"
 dill = "^0.3.6"
@@ -27,9 +27,12 @@ sphinx-rtd-theme = "^1.1.1"
 mypy = "^0.991"
 lxml =  "^4.9.1"
 win32-setctime = {version="^1.1.0", platform = 'win32'}
+pywidevine = "^1.6.0"
+xmltodict = "^0.13.0"
 
 [tool.poetry.group.dev.dependencies]
 python-semantic-release = "^7.33.2"
+black = {version = "^23.3.0", allow-prereleases = true}
 
 [tool.semantic_release]
 version_toml = "pyproject.toml:tool.poetry.version"

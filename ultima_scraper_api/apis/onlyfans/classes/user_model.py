@@ -289,7 +289,7 @@ class create_user(StreamlinedUser):
     async def get_posts(
         self,
         links: Optional[list[str]] = None,
-        limit: int = 10,
+        limit: int = 50,
         offset: int = 0,
         refresh: bool = True,
     ) -> list[create_post]:
@@ -301,7 +301,7 @@ class create_user(StreamlinedUser):
         if not links:
             epl = endpoint_links()
             link = epl.list_posts(self.id)
-            links = epl.create_links(link, self.postsCount)
+            links = epl.create_links(link, self.postsCount, limit=limit)
         results = await self.scrape_manager.bulk_scrape(links)
         final_results = self.finalize_content_set(results)
         self.scrape_manager.scraped.Posts = final_results
@@ -372,7 +372,6 @@ class create_user(StreamlinedUser):
                 final_results = [
                     message_model.create_message(x, self) for x in final_results if x
                 ]
-                pass
             else:
                 final_results.sort(key=lambda x: x["fromUser"]["id"], reverse=True)
             self.scrape_manager.scraped.Messages = final_results

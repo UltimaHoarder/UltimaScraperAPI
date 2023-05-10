@@ -5,4 +5,5 @@ from ultima_scraper_api.apis.onlyfans.classes import (
     post_model,
     story_model,
     user_model,
+    only_drm,
 )

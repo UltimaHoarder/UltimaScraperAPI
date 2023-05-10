@@ -2,12 +2,9 @@ from __future__ import annotations
 
 import asyncio
 import math
-from asyncio.tasks import Task
-from datetime import datetime
 from itertools import chain, product
 from typing import TYPE_CHECKING, Any, Dict, Optional
 
-from dateutil.relativedelta import relativedelta
 from ultima_scraper_api.apis import api_helper
 from ultima_scraper_api.apis.onlyfans.classes.extras import (
     AuthDetails,
@@ -26,8 +23,8 @@ from user_agent import generate_user_agent
 from ultima_scraper_api.apis.onlyfans import SubscriptionType
 
 if TYPE_CHECKING:
+    from ultima_scraper_api.apis.onlyfans.classes.only_drm import OnlyDRM
     from ultima_scraper_api.apis.onlyfans.onlyfans import OnlyFansAPI
-SubscriptionType = Literal["all", "active", "expired"]
 
 # auth_model.py handles functions that only relate to the authenticated user
 # We can create a auth_streamliner that has a parent class of create_user instead
@@ -61,6 +58,7 @@ class create_auth(create_user):
         self.errors: list[ErrorDetails] = []
         self.extras: dict[str, Any] = {}
         self.blacklist: list[str] = []
+        self.drm: OnlyDRM | None = None
 
     class _SessionManager(SessionManager):
         def __init__(
@@ -117,7 +115,6 @@ class create_auth(create_user):
             async def resolve_auth(auth: create_auth):
                 if self.errors:
                     error = self.errors[-1]
-                    print(error.message)
                     if error.code == 101:
                         if auth_items.support_2fa:
                             link = f"https://onlyfans.com/api2/v2/users/otp/check"
@@ -153,8 +150,6 @@ class create_auth(create_user):
                         break
                     if "Please refresh" in error_message:
                         break
-                else:
-                    print("Auth 404'ed")
                 continue
             else:
                 break
@@ -353,7 +348,7 @@ class create_auth(create_user):
                         found_raw_subscriptions.append(raw_subscription)
                         break
             raw_subscriptions = found_raw_subscriptions
-            with self.get_pool() as pool:
+        with self.get_pool() as pool:
             tasks = pool.starmap(assign_user_to_sub, product(raw_subscriptions))
             subscriptions: list[SubscriptionModel] = await asyncio.gather(*tasks)
         return subscriptions
@@ -469,7 +464,7 @@ class create_auth(create_user):
                     if final_result["responseType"] == "message":
                         user = await self.get_user(final_result["fromUser"]["id"])
                         if not user:
-                        user = create_user(final_result["fromUser"], self)
+                            user = create_user(final_result["fromUser"], self)
                         content = create_message(final_result, user)
                     elif final_result["responseType"] == "post":
                         user = create_user(final_result["author"], self)

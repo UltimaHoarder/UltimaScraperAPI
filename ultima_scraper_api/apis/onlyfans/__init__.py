@@ -51,8 +51,12 @@ class SiteContent:
                         break
         if "src" in media_item:
             url = media_item["src"]
+        if authed.drm:
+            has_drm = authed.drm.has_drm(media_item)
+            if has_drm:
+                url = has_drm
         return urlparse(url) if url else None
-        
+
     def preview_url_picker(self, media_item: dict[str, Any]):
         preview_url = None
         if "files" in media_item:
@@ -63,7 +67,7 @@ class SiteContent:
                 preview_url = media_item["files"]["preview"]["url"]
         else:
             preview_url = media_item["preview"]
-        return urlparse(preview_url) if preview_url else None
+            return urlparse(preview_url) if preview_url else None
 
     def get_author(self):
         return self.author
