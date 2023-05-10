@@ -56,12 +56,16 @@ class ProxyManager:
         return self.proxies[self.current_proxy_index]
 
     async def proxy_switcher(self):
-        self.current_proxy_index = (self.current_proxy_index + 1) % len(self.proxies)
+        if self.proxies:
+            self.current_proxy_index = (self.current_proxy_index + 1) % len(
+                self.proxies
+            )
         await self.session_manager.active_session.close()
         self.session_manager.active_session = (
-            self.session_manager.create_client_session(False, self.get_current_proxy())
+                self.session_manager.create_client_session(
+                    False, self.get_current_proxy()
         )
-        pass
+            )
 
 
 class SessionManager:
