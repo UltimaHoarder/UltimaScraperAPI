@@ -60,11 +60,11 @@ class ProxyManager:
             self.current_proxy_index = (self.current_proxy_index + 1) % len(
                 self.proxies
             )
-        await self.session_manager.active_session.close()
-        self.session_manager.active_session = (
+            await self.session_manager.active_session.close()
+            self.session_manager.active_session = (
                 self.session_manager.create_client_session(
                     False, self.get_current_proxy()
-        )
+                )
             )
 
 
@@ -106,7 +106,6 @@ class SessionManager:
         asyncio.create_task(self.check_rate_limit())
 
     def get_cookies(self):
-
         import ultima_scraper_api.apis.fansly.classes as fansly_classes
 
         if isinstance(self.auth, fansly_classes.auth_model.create_auth):
@@ -116,7 +115,6 @@ class SessionManager:
         return final_cookies
 
     def test_proxies(self, proxies: list[str] = []):
-
         final_proxies: list[str] = []
 
         session = requests.Session()
@@ -211,7 +209,14 @@ class SessionManager:
                 await asyncio.sleep(self.time2sleep)
             await asyncio.sleep(5)
 
-    async def request(self, url: str, premade_settings: str = "json"):
+    async def request(
+        self,
+        url: str,
+        method: str = "GET",
+        data: Any = {},
+        premade_settings: str = "json",
+        custom_cookies: str = "",
+    ):
         while True:
             if self.rate_limit_check:
                 await asyncio.sleep(5)
@@ -221,9 +226,19 @@ class SessionManager:
                 headers = await self.session_rules(url)
                 headers["accept"] = "application/json, text/plain, */*"
                 headers["Connection"] = "keep-alive"
+            if custom_cookies:
+                headers = await self.session_rules(url, custom_cookies=custom_cookies)
+                pass
+
             # await self.limit_rate()
             try:
-                result = await self.active_session.get(url, headers=headers)
+                match method.upper():
+                    case "GET":
+                        result = await self.active_session.get(url, headers=headers)
+                    case "POST":
+                        result = await self.active_session.post(
+                            url, headers=headers, data=data
+                        )
             except EXCEPTION_TEMPLATE as _e:
                 continue
             except Exception as _e:
@@ -257,14 +272,14 @@ class SessionManager:
 
     async def json_request(self, url: str):
         response = await self.request(url)
-        json_resp: dict[str, Any] = {}
+        json_resp: dict[Any, Any] = {}
         if response.status == 200:
             json_resp = await response.json()
         else:
-            json_resp["error"] = {"code":response.status,"message":response.reason}
+            json_resp["error"] = {"code": response.status, "message": response.reason}
         return json_resp
 
-    async def bulk_json_requests(self, urls: list[str]) -> list[dict[str, Any]]:
+    async def bulk_json_requests(self, urls: list[str]) -> list[dict[Any, Any]]:
         return await asyncio.gather(*[self.json_request(url) for url in urls])
 
     async def json_request_2(
@@ -323,7 +338,6 @@ class SessionManager:
                             # qwsd = list(response.request_info.headers.items())
                             result = await response.json()
                             if "error" in result:
-
                                 extras: dict[str, Any] = {}
                                 extras["auth"] = self.auth
                                 extras["link"] = link
@@ -360,35 +374,45 @@ class SessionManager:
             return result
 
     async def session_rules(
-        self, link: str, signed_headers: dict[str, Any] = {}
+        self, link: str, signed_headers: dict[str, Any] = {}, custom_cookies: str = ""
     ) -> dict[str, Any]:
-
         import ultima_scraper_api.apis.fansly.classes as fansly_classes
         import ultima_scraper_api.apis.onlyfans.classes as onlyfans_classes
 
         headers: dict[str, Any] = {}
         headers |= self.headers
-        if "https://onlyfans.com/api2/v2/" in link and isinstance(
-            self.auth.auth_details, onlyfans_classes.extras.AuthDetails
-        ):
-            dynamic_rules = self.dynamic_rules
-            final_cookies = self.auth.auth_details.cookie.convert()
-            headers["app-token"] = dynamic_rules["app_token"]
-            headers["cookie"] = final_cookies
-            if self.auth.guest:
-                headers["x-bc"] = "".join(
-                    random.choice(string.digits + string.ascii_lowercase)
-                    for _ in range(40)
-                )
-            headers2 = self.create_signed_headers(link)
-            headers |= headers2
-            # t2s does not set for cdn links yet
-            self.time2sleep = 5
-        elif "https://apiv3.fansly.com" in link and isinstance(
-            self.auth.auth_details, fansly_classes.extras.AuthDetails
-        ):
-            headers["authorization"] = self.auth.auth_details.authorization
-            self.is_rate_limited = False
+        match self.auth.auth_details.__class__:
+            case onlyfans_classes.extras.AuthDetails:
+                if "https://onlyfans.com/api2/v2/" in link:
+                    dynamic_rules = self.dynamic_rules
+                    final_cookies = self.auth.auth_details.cookie.convert()
+                    headers["app-token"] = dynamic_rules["app_token"]
+                    headers["cookie"] = final_cookies
+                    if self.auth.guest:
+                        headers["x-bc"] = "".join(
+                            random.choice(string.digits + string.ascii_lowercase)
+                            for _ in range(40)
+                        )
+                    headers2 = self.create_signed_headers(link)
+                    headers |= headers2
+                    # t2s does not set for cdn links yet
+                    self.time2sleep = 5
+                elif ".mpd" in link:
+                    headers["cookie"] = custom_cookies
+                else:
+                    if "/files/" not in link:
+                        pass
+                    dynamic_rules = self.dynamic_rules
+                    final_cookies = (
+                        self.auth.auth_details.cookie.convert() + custom_cookies
+                    )
+                    headers["cookie"] = final_cookies
+            case fansly_classes.extras.AuthDetails:
+                if "https://apiv3.fansly.com" in link:
+                    headers["authorization"] = self.auth.auth_details.authorization
+                    self.is_rate_limited = False
+            case _:
+                pass
         return headers
 
     def create_signed_headers(
