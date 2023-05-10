@@ -18,6 +18,7 @@ from ultima_scraper_api.apis.fansly.classes.post_model import create_post
 from ultima_scraper_api.apis.fansly.classes.user_model import create_user
 from ultima_scraper_api.managers.session_manager import SessionManager
 from user_agent import generate_user_agent
+from ultima_scraper_api.apis.fansly import SubscriptionType
 
 if TYPE_CHECKING:
     from ultima_scraper_api.apis.fansly.fansly import FanslyAPI
@@ -228,6 +229,8 @@ class create_auth(create_user):
 
     def find_user_by_identifier(self, identifier: int | str):
         user = [x for x in self.users if x.id == identifier or x.username == identifier]
+        if user:
+            user = user[0]
         return user
 
     async def get_user(self, identifier: int | str) -> Union[create_user, ErrorDetails]:
@@ -315,7 +318,10 @@ class create_auth(create_user):
         return valid
 
     async def get_subscriptions(
-        self, refresh: bool = True, identifiers: list[int | str] = []
+        self,
+        refresh: bool = True,
+        identifiers: list[int | str] = [],
+        sub_type: SubscriptionType = "all",
     ) -> list[create_user]:
         result, status = await api_helper.default_data(self, refresh)
         if status:

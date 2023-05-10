@@ -12,7 +12,7 @@ if TYPE_CHECKING:
 class create_message(SiteContent):
     def __init__(self, option: dict[str, Any], user: create_user) -> None:
 
-        author = user.get_authed().find_user_by_identifier(option["fromUser"]["id"])[0]
+        author = user.get_authed().find_user_by_identifier(option["fromUser"]["id"])
         SiteContent.__init__(self, option, author)
         self.responseType: Optional[str] = option.get("responseType")
         self.text: str = option.get("text","")

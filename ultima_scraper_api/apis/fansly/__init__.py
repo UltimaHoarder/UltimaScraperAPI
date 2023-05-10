@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, Literal
 from urllib.parse import urlparse
 
 if TYPE_CHECKING:
@@ -9,6 +9,7 @@ if TYPE_CHECKING:
         create_user,
     )
 
+SubscriptionType = Literal["all", "active", "expired"]
 
 class SiteContent:
     def __init__(self, option: dict[str, Any], user: create_auth | create_user) -> None:

@@ -17,12 +17,17 @@ from ultima_scraper_api.apis.onlyfans.classes.extras import (
 )
 from ultima_scraper_api.apis.onlyfans.classes.message_model import create_message
 from ultima_scraper_api.apis.onlyfans.classes.post_model import create_post
+from ultima_scraper_api.models.subscription_model import (
+    SubscriptionModel,
+)
 from ultima_scraper_api.apis.onlyfans.classes.user_model import create_user
 from ultima_scraper_api.managers.session_manager import SessionManager
 from user_agent import generate_user_agent
+from ultima_scraper_api.apis.onlyfans import SubscriptionType
 
 if TYPE_CHECKING:
     from ultima_scraper_api.apis.onlyfans.onlyfans import OnlyFansAPI
+SubscriptionType = Literal["all", "active", "expired"]
 
 # auth_model.py handles functions that only relate to the authenticated user
 # We can create a auth_streamliner that has a parent class of create_user instead
@@ -234,6 +239,8 @@ class create_auth(create_user):
 
     def find_user_by_identifier(self, identifier: int | str):
         user = [x for x in self.users if x.id == identifier or x.username == identifier]
+        if user:
+            user = user[0]
         return user
 
     async def get_user(self, identifier: int | str) -> Union[create_user, ErrorDetails]:
@@ -270,8 +277,8 @@ class create_auth(create_user):
         return results
 
     async def get_subscription(
-        self, identifier: int | str = "", custom_list: list[create_user] = []
-    ) -> create_user | None:
+        self, identifier: int | str = "", custom_list: list[SubscriptionModel] = []
+    ) -> SubscriptionModel | None:
         subscriptions = (
             await self.get_subscriptions(refresh=False)
             if not custom_list
@@ -279,7 +286,10 @@ class create_auth(create_user):
         )
         valid = None
         for subscription in subscriptions:
-            if identifier == subscription.username or identifier == subscription.id:
+            if (
+                identifier == subscription.user.username
+                or identifier == subscription.user.id
+            ):
                 valid = subscription
                 break
         return valid
@@ -288,94 +298,65 @@ class create_auth(create_user):
         self,
         refresh: bool = True,
         identifiers: list[int | str] = [],
-        extra_info: bool = True,
         limit: int = 20,
-    ) -> list[create_user]:
+        sub_type: SubscriptionType = "all",
+    ):
         result, status = await api_helper.default_data(self, refresh)
         if status:
             return result
-        # if self.subscribesCount > 900:
-        #     limit = 100
-        ceil = math.ceil(self.subscribesCount / limit)
+        url = endpoint_links().subscription_count
+        subscriptions_count = await self.session_manager.json_request(url)
+        subscriptions_info = subscriptions_count["subscriptions"]
+        match sub_type:
+            case "all":
+                subscription_type_count = subscriptions_info[sub_type]
+            case "active":
+                subscription_type_count = subscriptions_info[sub_type]
+            case "expired":
+                subscription_type_count = subscriptions_info[sub_type]
+            case _:
+                raise ValueError(f"Invalid subscription type: {sub_type}")
+        ceil = math.ceil(subscription_type_count / limit)
         a = list(range(ceil))
-        offset_array: list[str] = []
+        urls: list[str] = []
         for b in a:
             b = b * limit
-            link = endpoint_links(global_limit=limit, global_offset=b).subscriptions
-            offset_array.append(link)
+            link = endpoint_links(
+                identifier=sub_type, global_limit=limit, global_offset=b
+            ).subscriptions
+            urls.append(link)
 
-        results: list[list[create_user]] = []
-        if not identifiers:
+        subscription_responses = await self.session_manager.bulk_json_requests(urls)
+        raw_subscriptions = [
+            raw_subscription
+            for temp_raw_subscriptions in subscription_responses
+            for raw_subscription in temp_raw_subscriptions
+        ]
 
-            async def multi(item: str):
-                link = item
-                subscriptions = await self.session_manager.json_request(link)
-                valid_subscriptions: list[create_user] = []
-                extras = {}
-                extras["auth_check"] = ""
-                if isinstance(subscriptions, ErrorDetails):
-                    return
-                subscriptions = [
-                    subscription
-                    for subscription in subscriptions
-                    if "error" != subscription
-                ]
-                tasks: list[Task[create_user | ErrorDetails]] = []
-                for subscription in subscriptions:
-                    subscription["session_manager"] = self.session_manager
-                    if extra_info:
-                        task = asyncio.create_task(
-                            self.get_user(subscription["username"])
-                        )
-                        tasks.append(task)
-                results2 = await asyncio.gather(*tasks)
-                for result in results2:
-                    if isinstance(result, ErrorDetails):
-                        continue
-                    if not result:
-                        pass
-                    subscription2: create_user = result
-                    for subscription in subscriptions:
-                        if subscription["id"] != subscription2.id:
-                            continue
-                        subscription = subscription | subscription2.__dict__
-                        subscription = create_user(subscription, self)
-                        if subscription.isBlocked:
-                            continue
-                        valid_subscriptions.append(subscription)
-                return valid_subscriptions
+        async def assign_user_to_sub(raw_subscription: Dict[str, Any]):
+            user = await self.get_user(raw_subscription["username"])
+            if isinstance(user, dict):
+                user = create_user(raw_subscription, self)
+                user.active = False
+            subscription_model = SubscriptionModel(raw_subscription, user, self)
+            return subscription_model
 
-            # If user is a creator, add them to the subscription list
-            if self.isPerformer:
-                subscription = await self.convert_to_user()
-                if isinstance(subscription, ErrorDetails):
-                    return result
-                subscription.subscribedByData = {}
-                new_date = datetime.now() + relativedelta(years=1)
-                subscription.subscribedByData["expiredAt"] = new_date.isoformat()
-                subscriptions = [subscription]
-                results.append(subscriptions)
-            with self.get_pool() as pool:
-                tasks = pool.starmap(multi, product(offset_array))
-                results2 = await asyncio.gather(*tasks)
-                results2 = list(filter(None, results2))
-                results.extend(results2)
-        else:
+        subscriptions: list[SubscriptionModel] = []
+        if identifiers:
+            found_raw_subscriptions: list[dict[str, Any]] = []
             for identifier in identifiers:
-                if self.id == identifier or self.username == identifier:
-                    continue
-                link = endpoint_links(identifier=identifier).users
-                result = await self.session_manager.json_request(link)
-                if isinstance(result, ErrorDetails) or not result["subscribedBy"]:
-                    continue
-                subscription = create_user(result, self)
-                if subscription.isBlocked:
-                    continue
-                results.append([subscription])
-        final_results = [x for x in results if x is not None]
-        final_results = list(chain(*final_results))
-        self.subscriptions = final_results
-        return final_results
+                for raw_subscription in raw_subscriptions:
+                    if (
+                        identifier == raw_subscription["id"]
+                        or identifier == raw_subscription["username"]
+                    ):
+                        found_raw_subscriptions.append(raw_subscription)
+                        break
+            raw_subscriptions = found_raw_subscriptions
+            with self.get_pool() as pool:
+            tasks = pool.starmap(assign_user_to_sub, product(raw_subscriptions))
+            subscriptions: list[SubscriptionModel] = await asyncio.gather(*tasks)
+        return subscriptions
 
     async def get_chats(
         self,

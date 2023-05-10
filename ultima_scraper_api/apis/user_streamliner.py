@@ -4,7 +4,6 @@ import copy
 from typing import TYPE_CHECKING
 
 import dill
-
 from ultima_scraper_api.managers.job_manager.jobs.custom_job import CustomJob
 
 if TYPE_CHECKING:
@@ -55,6 +54,7 @@ class StreamlinedUser:
         self.jobs: list[CustomJob] = []
         self.job_whitelist: list[int | str] = []
         self.scrape_whitelist: list[int | str] = []
+        self.active: bool = True
 
     def get_authed(self):
         return self.__authed
@@ -93,3 +93,6 @@ class StreamlinedUser:
 
     def get_api(self):
         return self.__authed.api
+
+    def is_active(self):
+        return self.active
