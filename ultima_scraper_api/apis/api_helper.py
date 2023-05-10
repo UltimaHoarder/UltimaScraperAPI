@@ -205,3 +205,7 @@ async def remove_errors(results: Any):
     if wrapped and final_results:
         final_results = final_results[0]
     return final_results
+
+
+async def extract_list(result: dict[str, Any]):
+    return result["list"]

@@ -23,6 +23,8 @@ from ultima_scraper_api.apis.fansly import SubscriptionType
 if TYPE_CHECKING:
     from ultima_scraper_api.apis.fansly.fansly import FanslyAPI
 
+from typing import TYPE_CHECKING, Any, Dict, Optional, Union
+
 
 class create_auth(create_user):
     def __init__(

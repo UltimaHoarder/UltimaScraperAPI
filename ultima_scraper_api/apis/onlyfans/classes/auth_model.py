@@ -5,7 +5,7 @@ import math
 from asyncio.tasks import Task
 from datetime import datetime
 from itertools import chain, product
-from typing import TYPE_CHECKING, Any, Dict, Optional, Union
+from typing import TYPE_CHECKING, Any, Dict, Optional
 
 from dateutil.relativedelta import relativedelta
 from ultima_scraper_api.apis import api_helper
@@ -110,7 +110,7 @@ class create_auth(create_user):
             self.guest = True
             return self
 
-        while self.auth_attempt < max_attempts + 1:
+        while self.auth_attempt < max_attempts:
             await self.process_auth()
             self.auth_attempt += 1
 
@@ -196,7 +196,7 @@ class create_auth(create_user):
             error_message = "Blocked by 2FA."
         elif error_code == 401:
             # Session/Refresh
-            pass
+            error_message = "Invalid Auth Info"
         error.code = error_code
         error.message = error_message
         match error_code:
@@ -243,14 +243,14 @@ class create_auth(create_user):
             user = user[0]
         return user
 
-    async def get_user(self, identifier: int | str) -> Union[create_user, ErrorDetails]:
+    async def get_user(self, identifier: int | str):
         valid_user = self.find_user_by_identifier(identifier)
         if valid_user:
-            return valid_user[0]
+            return valid_user
         else:
             link = endpoint_links(identifier).users
             response = await self.session_manager.json_request(link)
-            if not isinstance(response, ErrorDetails):
+            if "error" not in response:
                 response["session_manager"] = self.session_manager
                 response = create_user(response, self)
             return response
@@ -467,6 +467,8 @@ class create_auth(create_user):
                 for final_result in final_results:
                     content = None
                     if final_result["responseType"] == "message":
+                        user = await self.get_user(final_result["fromUser"]["id"])
+                        if not user:
                         user = create_user(final_result["fromUser"], self)
                         content = create_message(final_result, user)
                     elif final_result["responseType"] == "post":

@@ -17,10 +17,10 @@ class SiteContent:
         self.id: int = option["id"]
         self.author = user
         self.media: list[dict[str, Any]] = option.get("media", [])
-        self.preview_ids:list[int] = []
-
+        self.preview_ids: list[int] = []
 
     def url_picker(self, media_item: dict[str, Any], video_quality: str = ""):
+        authed = self.get_author().get_authed()
         video_quality = (
             video_quality or self.author.get_api().get_site_settings().video_quality
         )
@@ -54,6 +54,7 @@ class SiteContent:
         return urlparse(url) if url else None
         
     def preview_url_picker(self, media_item: dict[str, Any]):
+        preview_url = None
         if "files" in media_item:
             if (
                 "preview" in media_item["files"]

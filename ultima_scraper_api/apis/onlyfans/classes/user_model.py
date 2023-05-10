@@ -63,19 +63,19 @@ class create_user(StreamlinedUser):
         self.website: str = option.get("website")
         self.wishlist: str = option.get("wishlist")
         self.location: str = option.get("location")
-        self.postsCount: int = option.get("postsCount")
-        self.archivedPostsCount: int = option.get("archivedPostsCount")
-        self.photosCount: int = option.get("photosCount")
-        self.videosCount: int = option.get("videosCount")
-        self.audiosCount: int = option.get("audiosCount")
-        self.mediasCount: int = option.get("mediasCount")
+        self.postsCount: int = option.get("postsCount", 0)
+        self.archivedPostsCount: int = option.get("archivedPostsCount", 0)
+        self.photosCount: int = option.get("photosCount", 0)
+        self.videosCount: int = option.get("videosCount", 0)
+        self.audiosCount: int = option.get("audiosCount", 0)
+        self.mediasCount: int = option.get("mediasCount", 0)
         self.promotions: list[dict[str, Any]] = option.get("promotions", {})
         self.lastSeen: Any = option.get("lastSeen")
-        self.favoritesCount: int = option.get("favoritesCount")
-        self.favoritedCount: int = option.get("favoritedCount")
+        self.favoritesCount: int = option.get("favoritesCount", 0)
+        self.favoritedCount: int = option.get("favoritedCount", 0)
         self.showPostsInFeed: bool = option.get("showPostsInFeed")
         self.canReceiveChatMessage: bool = option.get("canReceiveChatMessage")
-        self.isPerformer: bool = option.get("isPerformer")
+        self.isPerformer: bool = option.get("isPerformer", False)
         self.isRealPerformer: bool = option.get("isRealPerformer")
         self.isSpotifyConnected: bool = option.get("isSpotifyConnected")
         self.subscribersCount: int = option.get("subscribersCount")
@@ -363,6 +363,12 @@ class create_user(StreamlinedUser):
                 )
                 final_results.extend(results2)
             if depth == 1:
+                if len(final_results) > 1:
+                    last_link = f"{link}&id={final_results[-1]['id']}"
+                    first_message = await self.get_session_manager().json_request(
+                        last_link
+                    )
+                    final_results.extend(first_message["list"])
                 final_results = [
                     message_model.create_message(x, self) for x in final_results if x
                 ]
@@ -500,6 +506,9 @@ class create_user(StreamlinedUser):
                 if promotion_price < subscription_price:
                     subscription_price = promotion_price
         return subscription_price
+
+    async def get_promotions(self):
+        return self.promotions
 
     async def buy_subscription(self):
         """

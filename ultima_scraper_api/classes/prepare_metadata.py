@@ -13,11 +13,6 @@ from ultima_scraper_api.apis import api_helper
 from ultima_scraper_api.apis.onlyfans.classes.extras import media_types
 from ultima_scraper_api.helpers import main_helper
 
-if TYPE_CHECKING:
-    from ultima_scraper_api.classes.prepare_directories import DirectoryManager
-
-auth_types = ultima_scraper_api.auth_types
-user_types = ultima_scraper_api.user_types
 global_version = 2
 
 # Supports legacy metadata (.json and .db format) and converts it into the latest format (.db)

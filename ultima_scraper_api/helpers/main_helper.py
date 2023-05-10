@@ -24,7 +24,6 @@ if TYPE_CHECKING:
 
 api_types = ultima_scraper_api.api_types
 auth_types = ultima_scraper_api.auth_types
-user_types = ultima_scraper_api.user_types
 
 
 os_name = platform.system()
@@ -108,7 +107,7 @@ async def format_media_set(media_set: list[dict[str, Any]]):
     return merged
 
 
-async def format_image(filepath: Path, timestamp: float, reformat_media: bool):
+async def format_file(filepath: Path, timestamp: float, reformat_media: bool):
     if reformat_media:
         while True:
             if os_name == "Windows":

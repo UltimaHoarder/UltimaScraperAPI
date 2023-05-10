@@ -11,15 +11,15 @@ if TYPE_CHECKING:
 
 SubscriptionType = Literal["all", "active", "expired"]
 
+
 class SiteContent:
     def __init__(self, option: dict[str, Any], user: create_auth | create_user) -> None:
         self.id: int = int(option["id"])
         self.author = user
         self.media: list[dict[str, Any]] = option.get("media", [])
-        self.preview_ids:list[int] = []
+        self.preview_ids: list[int] = []
 
-    def url_picker(self, media_item:dict[str, Any],video_quality: str=""):
-        
+    def url_picker(self, media_item: dict[str, Any], video_quality: str = ""):
         # There are two media results at play here.
         # The top-level `media` element itself represents the original source quality.
         # It may also contain a `variants` list entry with alternate encoding qualities.
@@ -68,9 +68,10 @@ class SiteContent:
 
         # If all media was > target quality, return the lowest quality/last media.
         return urlparse(media_url)
-        
+
     def preview_url_picker(self, media_item: dict[str, Any]):
-        return  None
+        return None
+
     def get_author(self):
         return self.author
 

@@ -11,9 +11,12 @@ class OnlyFansAPI(StreamlinedAPI):
     def __init__(self, config: Config = Config()) -> None:
         self.site_name: Literal["OnlyFans"] = "OnlyFans"
         StreamlinedAPI.__init__(self, self, config)
-        self.auths: list[create_auth] = []
-        self.subscriptions: list[create_user] = []
+        self.auths: list[dict[str, Any]] = []
+        self.users: dict[int, create_user] = {}
         self.endpoint_links = endpoint_links
+
+    def add_user(self, user: create_auth):
+        self.users[user.id] = user
 
     def get_auth(self, identifier: Union[str, int]) -> Optional[create_auth]:
         final_auth = None
