@@ -3,6 +3,7 @@ import math
 from itertools import chain
 from pathlib import Path
 from typing import Any, Literal, Optional, Union
+from urllib.parse import urlparse, parse_qs
 
 
 class AuthDetails:
@@ -153,6 +154,10 @@ class endpoint_links(object):
         )
         self.list_comments_api = f"{full_url_path}/{identifier}/{identifier2}/comments?limit={global_limit}&offset={global_offset}&sort={sort_order}"
         self.subscription_count = f"{full_url_path}/subscriptions/count/all"
+        self.socials = f"{full_url_path}/users/{identifier}/social/buttons"
+        self.spotify = f"{full_url_path}/users/{identifier}/social/spotify"
+        self.two_factor = f"{full_url_path}/users/otp/check"
+        self.drm_server = f"{full_url_path}/users/media/{identifier}/drm/{identifier2}/{identifier3}?type=widevine"
 
     def list_posts(
         self,

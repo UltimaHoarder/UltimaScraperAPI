@@ -575,3 +575,47 @@ class create_user(StreamlinedUser):
 
     async def is_subscribed(self):
         return not self.subscribedIsExpiredNow
+
+    async def get_paid_contents(self):
+        # REMINDER THAT YOU'LL HAVE TO REFRESH CONTENT
+        final_paid_content: list[create_post | message_model.create_message] = []
+        authed = self.get_authed()
+        for paid_content in authed.paid_content:
+            if paid_content.author.id == self.id:
+                final_paid_content.append(paid_content)
+        return final_paid_content
+
+    async def has_socials(self):
+        # If error message, this means the user has socials, but we have to subscribe to see them
+        result = bool(
+            await self.get_session_manager().json_request(
+                endpoint_links(self.id).socials
+            )
+        )
+        return result
+
+    async def get_socials(self):
+        result = await self.get_session_manager().json_request(
+            endpoint_links(self.id).socials
+        )
+        if "error" in result:
+            return []
+        return result
+
+    async def get_spotify(self):
+        if self.isSpotifyConnected:
+            result = await self.get_session_manager().json_request(
+                endpoint_links(self.id).spotify
+            )
+            if "error" in result:
+                return []
+            return result
+
+    async def has_socials(self):
+        # If error message, this means the user has socials, but we have to subscribe to see them
+        result = bool(
+            await self.get_session_manager().json_request(
+                endpoint_links(self.id).spotify
+            )
+        )
+        return result
