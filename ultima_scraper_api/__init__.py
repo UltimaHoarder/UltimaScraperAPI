@@ -24,6 +24,8 @@ message_types = (
     onlyfans_classes.message_model.create_message
     | fansly_classes.message_model.create_message
 )
+
+subscription_types = (onlyfans_classes.subscription_model.SubscriptionModel,)
 content_types = story_types | post_types | message_types
 error_types = onlyfans_classes.extras.ErrorDetails | fansly_classes.extras.ErrorDetails
 

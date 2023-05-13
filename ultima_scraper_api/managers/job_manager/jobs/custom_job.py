@@ -14,9 +14,11 @@ class CustomJob:
         self.result = []
         self.done = False
         self.options: list[str] = []
-        self.blacklist:list[str] = []
+        self.blacklist: list[str] = []
 
     def add_media_type(self, media_type: str):
+        if media_type in self.media_types:
+            return
         self.media_types.append(media_type)
 
     def convert_to_dill(self):
