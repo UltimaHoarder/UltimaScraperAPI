@@ -13,7 +13,8 @@ class create_message(SiteContent):
     def __init__(
         self, option: dict[str, Any], user: create_user, extra: dict[Any, Any] = {}
     ) -> None:
-        author = user
+        author = user.get_authed().find_user_by_identifier(option["senderId"])
+        self.user = user
         SiteContent.__init__(self, option, author)
         self.responseType: Optional[str] = option.get("responseType")
         self.text: str = option["content"]
@@ -26,7 +27,7 @@ class create_message(SiteContent):
         self.previews: list[dict[str, Any]] = option.get("previews", [])
         self.isTip: Optional[bool] = option.get("isTip")
         self.isReportedByMe: Optional[bool] = option.get("isReportedByMe")
-        self.fromUser = user.get_authed().find_user_by_identifier(option["senderId"])[0]
+        self.fromUser = user.get_authed().find_user_by_identifier(option["senderId"])
         self.isFromQueue: Optional[bool] = option.get("isFromQueue")
         self.queueId: Optional[int] = option.get("queueId")
         self.canUnsendQueue: Optional[bool] = option.get("canUnsendQueue")
@@ -77,7 +78,13 @@ class create_message(SiteContent):
         self.user = user
 
     def get_author(self):
-        return self.fromUser
+        return self.author
+
+    def get_receiver(self):
+        receiver = (
+            self.author.get_authed() if self.author.id == self.user.id else self.user
+        )
+        return receiver
 
     async def buy_message(self):
         """

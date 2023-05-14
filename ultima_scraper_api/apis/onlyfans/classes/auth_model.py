@@ -14,13 +14,13 @@ from ultima_scraper_api.apis.onlyfans.classes.extras import (
 )
 from ultima_scraper_api.apis.onlyfans.classes.message_model import create_message
 from ultima_scraper_api.apis.onlyfans.classes.post_model import create_post
-from ultima_scraper_api.models.subscription_model import (
-    SubscriptionModel,
-)
 from ultima_scraper_api.apis.onlyfans.classes.user_model import create_user
 from ultima_scraper_api.managers.session_manager import SessionManager
 from user_agent import generate_user_agent
 from ultima_scraper_api.apis.onlyfans import SubscriptionType
+from ultima_scraper_api.apis.onlyfans.classes.subscription_model import (
+    SubscriptionModel,
+)
 
 if TYPE_CHECKING:
     from ultima_scraper_api.apis.onlyfans.classes.only_drm import OnlyDRM
@@ -47,7 +47,7 @@ class create_auth(create_user):
             self.username = f"u{self.id}"
         self.lists = []
         self.links = api.ContentTypes()
-        self.subscriptions: list[create_user] = []
+        self.subscriptions: list[SubscriptionModel] = []
         self.chats = None
         self.archived_stories = {}
         self.mass_messages = []
@@ -236,7 +236,7 @@ class create_auth(create_user):
         user = [x for x in self.users if x.id == identifier or x.username == identifier]
         if user:
             user = user[0]
-        return user
+            return user
 
     async def get_user(self, identifier: int | str):
         valid_user = self.find_user_by_identifier(identifier)
@@ -298,6 +298,7 @@ class create_auth(create_user):
     ):
         result, status = await api_helper.default_data(self, refresh)
         if status:
+            result: list[SubscriptionModel]
             return result
         url = endpoint_links().subscription_count
         subscriptions_count = await self.session_manager.json_request(url)
@@ -482,3 +483,7 @@ class create_auth(create_user):
             if not isinstance(post, ErrorDetails):
                 user = post.author
         return user
+
+    async def get_scrapable_users(self):
+        subscription_users = [x.user for x in self.subscriptions]
+        return subscription_users

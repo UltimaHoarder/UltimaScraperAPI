@@ -6,4 +6,5 @@ from ultima_scraper_api.apis.onlyfans.classes import (
     story_model,
     user_model,
     only_drm,
+    subscription_model,
 )

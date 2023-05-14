@@ -4,5 +4,6 @@ from ultima_scraper_api.apis.fansly.classes import (
     extras,
     message_model,
     post_model,
-    story_model
+    story_model,
+    subscription_model,
 )

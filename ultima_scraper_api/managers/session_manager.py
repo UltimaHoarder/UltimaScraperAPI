@@ -190,9 +190,10 @@ class SessionManager:
                         headers = await self.session_rules(url)
                         headers["accept"] = "application/json, text/plain, */*"
                         headers["Connection"] = "keep-alive"
-
-                        await self.proxy_manager.proxy_switcher()
-                        print(self.proxy_manager.get_current_proxy().host)
+                        proxy_manager = self.proxy_manager
+                        if proxy_manager.proxies:
+                            await proxy_manager.proxy_switcher()
+                            print(proxy_manager.get_current_proxy().host)
 
                         result = await self.active_session.get(url, headers=headers)
                         result.raise_for_status()

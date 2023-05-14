@@ -3,7 +3,7 @@ from typing import TYPE_CHECKING, Any
 from ultima_scraper_api.apis.fansly import SiteContent
 
 if TYPE_CHECKING:
-    from ultima_scraper_api.apis.onlyfans.classes.user_model import create_user
+    from ultima_scraper_api.apis.fansly.classes.user_model import create_user
 
 class create_story(SiteContent):
     def __init__(self, option: dict[str, Any], user: "create_user") -> None:
