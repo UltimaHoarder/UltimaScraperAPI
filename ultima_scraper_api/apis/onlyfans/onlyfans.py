@@ -11,7 +11,7 @@ class OnlyFansAPI(StreamlinedAPI):
     def __init__(self, config: Config = Config()) -> None:
         self.site_name: Literal["OnlyFans"] = "OnlyFans"
         StreamlinedAPI.__init__(self, self, config)
-        self.auths: list[dict[str, Any]] = []
+        self.auths: list[create_auth] = []
         self.users: dict[int, create_user] = {}
         self.endpoint_links = endpoint_links
 
@@ -42,17 +42,8 @@ class OnlyFansAPI(StreamlinedAPI):
 
     class ContentTypes:
         def __init__(self) -> None:
-            class ArchivedTypes:
-                def __init__(self) -> None:
-                    self.Posts = []
-
-                def __iter__(self):
-                    for attr, value in self.__dict__.items():
-                        yield attr, value
-
             self.Stories = []
             self.Posts = []
-            # self.Archived = ArchivedTypes()
             self.Chats = []
             self.Messages = []
             self.Highlights = []

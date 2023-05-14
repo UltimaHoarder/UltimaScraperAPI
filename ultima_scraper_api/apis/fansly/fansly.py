@@ -12,7 +12,7 @@ class FanslyAPI(StreamlinedAPI):
         self.site_name: Literal["Fansly"] = "Fansly"
         StreamlinedAPI.__init__(self, self, config)
         self.auths: list[create_auth] = []
-        self.subscriptions: list[create_user] = []
+        self.users: dict[int, create_user] = {}
         self.endpoint_links = endpoint_links
 
     def get_auth(self, identifier: Union[str, int]) -> Optional[create_auth]:
@@ -39,17 +39,8 @@ class FanslyAPI(StreamlinedAPI):
 
     class ContentTypes:
         def __init__(self) -> None:
-            class ArchivedTypes:
-                def __init__(self) -> None:
-                    self.Posts = []
-
-                def __iter__(self):
-                    for attr, value in self.__dict__.items():
-                        yield attr, value
-
             self.Stories = []
             self.Posts = []
-            # self.Archived = ArchivedTypes()
             self.Chats = []
             self.Messages = []
             self.Highlights = []
