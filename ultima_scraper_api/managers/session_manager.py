@@ -146,11 +146,9 @@ class SessionManager:
         )
         final_cookies = self.get_cookies()
         # Had to remove final_cookies and cookies=final_cookies due to it conflicting with headers
-        timeout = aiohttp.ClientTimeout(total=None, connect=10, sock_connect=10, sock_read=30)
+        timeout = aiohttp.ClientTimeout(total=None)
         client_session = ClientSession(
-            connector=connector,
-            cookies=final_cookies,
-            timeout=timeout
+            connector=connector, cookies=final_cookies, timeout=timeout
         )
         return client_session
 
