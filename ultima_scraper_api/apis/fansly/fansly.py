@@ -26,6 +26,15 @@ class FanslyAPI(StreamlinedAPI):
                 break
         return final_auth
 
+    async def remove_invalid_auths(self):
+        for auth in self.auths.copy():
+            if not auth.check_authed():
+                await self.remove_auth(auth)
+
+    async def remove_auth(self, auth: create_auth):
+        await auth.session_manager.active_session.close()
+        self.auths.remove(auth)
+
     def create_auth_details(self, auth_json: dict[str, Any] = {}) -> AuthDetails:
         """If you've got a auth.json file, you can load it into python and pass it through here.
 

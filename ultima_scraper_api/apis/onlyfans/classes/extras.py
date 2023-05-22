@@ -3,7 +3,7 @@ import math
 from itertools import chain
 from pathlib import Path
 from typing import Any, Literal, Optional, Union
-from urllib.parse import urlparse, parse_qs
+from urllib.parse import parse_qs, urlparse
 
 
 class AuthDetails:
@@ -17,7 +17,7 @@ class AuthDetails:
         password: str = "",
         hashed: bool = False,
         support_2fa: bool = True,
-        active: bool = True,
+        active: bool | None = None,
     ) -> None:
         self.username = username
         self.cookie = cookie_parser(cookie)

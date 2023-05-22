@@ -6,6 +6,7 @@ from itertools import chain, product
 from typing import TYPE_CHECKING, Any, Dict, Optional
 
 from ultima_scraper_api.apis import api_helper
+from ultima_scraper_api.apis.onlyfans import SubscriptionType
 from ultima_scraper_api.apis.onlyfans.classes.extras import (
     AuthDetails,
     ErrorDetails,
@@ -14,13 +15,12 @@ from ultima_scraper_api.apis.onlyfans.classes.extras import (
 )
 from ultima_scraper_api.apis.onlyfans.classes.message_model import create_message
 from ultima_scraper_api.apis.onlyfans.classes.post_model import create_post
-from ultima_scraper_api.apis.onlyfans.classes.user_model import create_user
-from ultima_scraper_api.managers.session_manager import SessionManager
-from user_agent import generate_user_agent
-from ultima_scraper_api.apis.onlyfans import SubscriptionType
 from ultima_scraper_api.apis.onlyfans.classes.subscription_model import (
     SubscriptionModel,
 )
+from ultima_scraper_api.apis.onlyfans.classes.user_model import create_user
+from ultima_scraper_api.managers.session_manager import SessionManager
+from user_agent import generate_user_agent
 
 if TYPE_CHECKING:
     from ultima_scraper_api.apis.onlyfans.classes.only_drm import OnlyDRM
@@ -53,8 +53,8 @@ class create_auth(create_user):
         self.mass_messages = []
         self.paid_content: list[create_message | create_post] = []
         self.auth_attempt = 0
+        self.max_attempts = 10
         self.guest = False
-        self.active: bool = False
         self.errors: list[ErrorDetails] = []
         self.extras: dict[str, Any] = {}
         self.blacklist: list[str] = []
@@ -90,7 +90,7 @@ class create_auth(create_user):
             if found_attr:
                 setattr(self, key, value)
 
-    async def login(self, max_attempts: int = 10, guest: bool = False):
+    async def login(self, guest: bool = False):
         auth_items = self.auth_details
         if not auth_items:
             return self
@@ -108,7 +108,7 @@ class create_auth(create_user):
             self.guest = True
             return self
 
-        while self.auth_attempt < max_attempts:
+        while self.auth_attempt < self.max_attempts:
             await self.process_auth()
             self.auth_attempt += 1
 
@@ -140,7 +140,7 @@ class create_auth(create_user):
                                     break
 
             await resolve_auth(self)
-            if not self.active:
+            if not self.check_authed():
                 if self.errors:
                     error = self.errors[-1]
                     error_message = error.message
@@ -153,24 +153,26 @@ class create_auth(create_user):
                 continue
             else:
                 break
-        if not self.active:
+        if not self.check_authed():
             user = await self.get_user(auth_id)
             if isinstance(user, create_user):
                 self.update(user.__dict__)
         return self
 
     async def process_auth(self):
-        if not self.active:
+        if not self.maxed_out_auth_attempts():
             link = endpoint_links().customer
             json_resp = await self.session_manager.json_request(link)
             if json_resp:
                 await self.resolve_auth_errors(json_resp)
                 if not self.errors:
-                    self.active = True
+                    self.auth_details.active = True
                     self.update(json_resp)
+                else:
+                    self.auth_details.active = False
             else:
                 # 404'ed
-                self.active = False
+                self.auth_details.active = False
         return self
 
     async def resolve_auth_errors(self, response: ErrorDetails | dict[str, Any]):
@@ -487,3 +489,9 @@ class create_auth(create_user):
     async def get_scrapable_users(self):
         subscription_users = [x.user for x in self.subscriptions]
         return subscription_users
+
+    def maxed_out_auth_attempts(self):
+        return True if self.auth_attempt >= self.max_attempts else False
+
+    def check_authed(self):
+        return self.auth_details.active

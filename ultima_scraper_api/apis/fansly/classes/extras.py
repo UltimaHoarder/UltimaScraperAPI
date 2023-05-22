@@ -6,7 +6,17 @@ from typing import Any, Literal, Optional, Union
 
 
 class AuthDetails:
-    def __init__(self, username:str="", authorization:str="", user_agent:str="",email:str="", password:str="", hashed:bool=False,support_2fa:bool=True, active:bool=True) -> None:
+    def __init__(
+        self,
+        username: str = "",
+        authorization: str = "",
+        user_agent: str = "",
+        email: str = "",
+        password: str = "",
+        hashed: bool = False,
+        support_2fa: bool = True,
+        active: bool | None = None,
+    ) -> None:
         self.username = username
         self.authorization = authorization
         self.user_agent = user_agent
@@ -153,7 +163,6 @@ class endpoint_links(object):
         self.two_factor = f"https://onlyfans.com/api2/v2/users/otp/check"
 
     def list_followings(self, identifier: int, offset: int = 0):
-
         return f"{self.full_url_path}/account/{identifier}/following?before=0&after=0&limit=100&offset={offset}"
 
     def list_users(self, identifiers: list[int | str] | list[int] | list[str]):
