@@ -21,7 +21,6 @@ if TYPE_CHECKING:
 
 class create_user(StreamlinedUser):
     def __init__(self, option: dict[str, Any], authed: create_auth) -> None:
-
         self.avatar: Optional[str] = option.get("avatar")
         self.avatarThumbs: Optional[list[str]] = option.get("avatarThumbs")
         self.header: Optional[str] = option.get("header")
@@ -218,15 +217,6 @@ class create_user(StreamlinedUser):
         self.scrape_manager = ScrapeManager(authed.session_manager)
         self.__raw__ = option
         StreamlinedUser.__init__(self, authed)
-
-    def __eq__(self, other: Any):
-        if isinstance(self, create_user):
-            if self.id == other.id:
-                return True
-        return False
-
-    def __hash__(self) -> int:
-        return hash((self.id))
 
     def get_link(self):
         link = f"https://onlyfans.com/{self.username}"

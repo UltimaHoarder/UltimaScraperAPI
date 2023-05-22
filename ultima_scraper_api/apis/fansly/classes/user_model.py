@@ -28,7 +28,6 @@ class create_user(StreamlinedUser):
         option: dict[str, Any],
         authed: create_auth,
     ) -> None:
-
         self.avatar: Any = option.get("avatar")
         self.avatarThumbs: Any = option.get("avatarThumbs")
         self.header: Any = option.get("banner")
@@ -229,15 +228,6 @@ class create_user(StreamlinedUser):
         self.scrape_manager = ScrapeManager(authed.session_manager)
         self.__raw__ = option
         StreamlinedUser.__init__(self, authed)
-
-    def __eq__(self, other: Any):
-        if isinstance(self, create_user):
-            if self.id == other.id:
-                return True
-        return False
-
-    def __hash__(self) -> int:
-        return hash((self.id))
 
     def get_link(self):
         link = f"https://fansly.com/{self.username}"
