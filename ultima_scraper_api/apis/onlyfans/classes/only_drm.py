@@ -1,20 +1,22 @@
+import platform
+import re
+import subprocess
 from pathlib import Path
+from typing import TYPE_CHECKING, Any
 
+import orjson
+import xmltodict
 from pywidevine.cdm import Cdm
 from pywidevine.device import Device
 from pywidevine.pssh import PSSH
-from typing import TYPE_CHECKING, Any
-import orjson
-import xmltodict
-import re
+
 from ultima_scraper_api.apis.onlyfans.classes.extras import endpoint_links
-import subprocess
 
 if TYPE_CHECKING:
     import ultima_scraper_api
 
     auth_types = ultima_scraper_api.auth_types
-
+os_name = platform.system()
 # Replace authed with your ClientSession
 # Replace endpoint_links.drm_server with "https://onlyfans.com/api2/v2/users/media/{MEDIA_ID}/drm/post/{POST_ID}?type=widevine"
 # media_item is a Post's media from the "https://onlyfans.com/api2/v2/posts/{USER_ID}?skip_users=all" api
@@ -137,9 +139,12 @@ class OnlyDRM:
 
     def decrypt_file(self, filepath: Path, key: str):
         output_filepath = Path(filepath.as_posix().replace("enc", "dec"))
+        mp4decrypt_path = "./mp4decrypt"
+        if os_name == "Windows":
+            mp4decrypt_path = ".\\mp4decrypt"
         pid = subprocess.Popen(
             [
-                "./mp4decrypt",
+                mp4decrypt_path,
                 f"{filepath.as_posix()}",
                 f"{output_filepath.as_posix()}",
                 "--key",
