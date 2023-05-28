@@ -247,7 +247,7 @@ class create_auth(create_user):
             response = await self.session_manager.json_request(link)
             if "error" not in response:
                 response["session_manager"] = self.session_manager
-                response = create_user(response, self)
+                response = create_user(response["response"][0], self)
             return response
 
     async def get_lists_users(
@@ -309,8 +309,8 @@ class create_auth(create_user):
         return final_followings
 
     async def get_subscription(
-        self, identifier: int | str = "", custom_list: list[create_user] = []
-    ) -> create_user | None:
+        self, identifier: int | str = "", custom_list: list[SubscriptionModel] = []
+    ) -> SubscriptionModel | None:
         subscriptions = (
             await self.get_subscriptions(refresh=False)
             if not custom_list
@@ -318,7 +318,10 @@ class create_auth(create_user):
         )
         valid = None
         for subscription in subscriptions:
-            if identifier == subscription.username or identifier == subscription.id:
+            if (
+                identifier == subscription.user.username
+                or identifier == subscription.user.id
+            ):
                 valid = subscription
                 break
         return valid
@@ -346,20 +349,20 @@ class create_auth(create_user):
             return subscription_model
 
         subscriptions: list[SubscriptionModel] = []
-        if identifiers:
-            found_raw_subscriptions: list[dict[str, Any]] = []
-            for identifier in identifiers:
-                for raw_subscription in raw_subscriptions:
-                    if (
-                        identifier == raw_subscription["id"]
-                        or identifier == raw_subscription["username"]
-                    ):
-                        found_raw_subscriptions.append(raw_subscription)
-                        break
-            raw_subscriptions = found_raw_subscriptions
         with self.get_pool() as pool:
             tasks = pool.starmap(assign_user_to_sub, product(raw_subscriptions))
             subscriptions: list[SubscriptionModel] = await asyncio.gather(*tasks)
+            if identifiers:
+                found_subscriptions: list[SubscriptionModel] = []
+                for identifier in identifiers:
+                    for subscription in subscriptions:
+                        if (
+                            identifier == subscription.user.id
+                            or identifier == subscription.user.username
+                        ):
+                            found_subscriptions.append(subscription)
+                            break
+                subscriptions = found_subscriptions
 
         match sub_type:
             case "all":

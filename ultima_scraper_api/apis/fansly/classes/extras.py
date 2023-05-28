@@ -126,7 +126,7 @@ class endpoint_links(object):
         self.full_url_path = full_url_path
         self.customer = f"{full_url_path}/account?ids={identifier}"
         self.settings = f"{full_url_path}/account/settings"
-        self.users = f"https://onlyfans.com/api2/v2/users/{identifier}"
+        self.users = f"{self.full_url_path}/account?ids={identifier}"
         self.followings = f"{full_url_path}/account/{identifier}/following?before={global_offset}&after=0&limit=100&offset=0"
         self.subscriptions = f"{full_url_path}/subscriptions"
         self.lists = f"https://onlyfans.com/api2/v2/lists?limit={global_limit}&offset={global_offset}"
