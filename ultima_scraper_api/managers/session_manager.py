@@ -272,13 +272,20 @@ class SessionManager:
         return await asyncio.gather(*[self.request(url) for url in urls])
 
     async def json_request(self, url: str):
-        response = await self.request(url)
-        json_resp: dict[Any, Any] = {}
-        if response.status == 200:
-            json_resp = await response.json()
-        else:
-            json_resp["error"] = {"code": response.status, "message": response.reason}
-        return json_resp
+        while True:
+            response = await self.request(url)
+            json_resp: dict[Any, Any] = {}
+            try:
+                if response.status == 200:
+                    json_resp = await response.json()
+                else:
+                    json_resp["error"] = {
+                        "code": response.status,
+                        "message": response.reason,
+                    }
+                return json_resp
+            except EXCEPTION_TEMPLATE as _e:
+                continue
 
     async def bulk_json_requests(self, urls: list[str]) -> list[dict[Any, Any]]:
         return await asyncio.gather(*[self.json_request(url) for url in urls])
