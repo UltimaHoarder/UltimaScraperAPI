@@ -43,7 +43,6 @@ except ImportError:
     # psutil likes to round the disk usage percentage to 1 decimal
     # https://github.com/giampaolo/psutil/blob/master/psutil/_common.py#L365
     def disk_usage(path: str, round_: int = 1):
-
         # check if path exists
         if not os.path.exists(path):
             raise FileNotFoundError(errno.ENOENT, os.strerror(errno.ENOENT), path)

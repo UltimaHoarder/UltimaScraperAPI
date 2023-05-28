@@ -26,6 +26,8 @@ from aiohttp.client_exceptions import (
 )
 from aiohttp_socks import ProxyConnectionError, ProxyConnector, ProxyError, ProxyInfo
 
+import ultima_scraper_api
+import ultima_scraper_api.apis.api_helper as api_helper
 if TYPE_CHECKING:
     auth_types = ultima_scraper_api.auth_types
 EXCEPTION_TEMPLATE = (
