@@ -277,15 +277,15 @@ async def send_webhook(
     if category == "download_webhook":
         subscriptions = await item.get_subscriptions(refresh=False)
         for subscription in subscriptions:
-            if await subscription.if_scraped():
+            if await subscription.user.if_scraped():
                 for webhook_link in webhook_links:
                     message = prepare_webhooks.discord()
                     embed = message.embed()
                     embed.title = f"Downloaded: {subscription.username}"
                     embed.add_field("username", subscription.username)
-                    embed.add_field("post_count", subscription.postsCount)
-                    embed.add_field("link", subscription.get_link())
-                    embed.image.url = subscription.avatar
+                    embed.add_field("post_count", subscription.user.postsCount)
+                    embed.add_field("link", subscription.user.get_link())
+                    embed.image.url = subscription.user.avatar
                     message.embeds.append(embed)
                     message = orjson.loads(
                         json.dumps(message, default=lambda o: o.__dict__)
