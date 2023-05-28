@@ -13,8 +13,6 @@ from urllib.parse import urlparse
 import aiohttp
 import python_socks
 import requests
-import ultima_scraper_api
-import ultima_scraper_api.apis.api_helper as api_helper
 from aiohttp import ClientResponse, ClientSession
 from aiohttp.client_exceptions import (
     ClientConnectorError,
@@ -28,6 +26,7 @@ from aiohttp_socks import ProxyConnectionError, ProxyConnector, ProxyError, Prox
 
 import ultima_scraper_api
 import ultima_scraper_api.apis.api_helper as api_helper
+
 if TYPE_CHECKING:
     auth_types = ultima_scraper_api.auth_types
 EXCEPTION_TEMPLATE = (
@@ -148,7 +147,10 @@ class SessionManager:
         )
         final_cookies = self.get_cookies()
         # Had to remove final_cookies and cookies=final_cookies due to it conflicting with headers
-        timeout = aiohttp.ClientTimeout(total=None)
+        # timeout = aiohttp.ClientTimeout(None)
+        timeout = aiohttp.ClientTimeout(
+            total=None, connect=10, sock_connect=10, sock_read=60
+        )
         client_session = ClientSession(
             connector=connector, cookies=final_cookies, timeout=timeout
         )
@@ -202,6 +204,8 @@ class SessionManager:
                         self.rate_limit_check = False
                         self.is_rate_limited = None
                         break
+                    except EXCEPTION_TEMPLATE as _e:
+                        continue
                     except ClientResponseError as _e:
                         if _e.status == 429:
                             # Still rate limited, wait 5 seconds and retry
