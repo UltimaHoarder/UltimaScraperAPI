@@ -467,7 +467,7 @@ class create_auth(create_user):
                     content = None
                     if final_result["responseType"] == "message":
                         user = await self.get_user(final_result["fromUser"]["id"])
-                        if not user:
+                        if isinstance(user, dict):
                             user = create_user(final_result["fromUser"], self)
                         content = create_message(final_result, user)
                     elif final_result["responseType"] == "post":

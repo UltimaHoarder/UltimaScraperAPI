@@ -565,12 +565,18 @@ class create_user(StreamlinedUser):
     async def is_subscribed(self):
         return not self.subscribedIsExpiredNow
 
-    async def get_paid_contents(self):
+    async def get_paid_contents(self, content_type: str | None = None):
         # REMINDER THAT YOU'LL HAVE TO REFRESH CONTENT
         final_paid_content: list[create_post | message_model.create_message] = []
         authed = self.get_authed()
         for paid_content in authed.paid_content:
+            # Just use response to key function in ContentTypes
             if paid_content.author.id == self.id:
+                if (
+                    content_type is not None
+                    and content_type.lower() != f"{paid_content.responseType}s"
+                ):
+                    continue
                 final_paid_content.append(paid_content)
         return final_paid_content
 
