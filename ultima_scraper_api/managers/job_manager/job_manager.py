@@ -14,7 +14,6 @@ class JobManager:
     def __init__(self) -> None:
         self.jobs: list[CustomJob] = []
         self.queue: asyncio.Queue[Any] = asyncio.Queue()
-        self.worker_task = asyncio.create_task(self.worker())
 
     def create_jobs(
         self, value: str, type_values: list[str], module: Any, module_args: list[Any]
@@ -42,9 +41,13 @@ class JobManager:
         if isinstance(media_type, str):
             media_type = [media_type]
         [job.add_media_type(mt) for job in self.jobs for mt in media_type]
-
-    async def worker(self):
+    async def process_jobs(self):
+        await asyncio.create_task(self.__worker())
+        await self.queue.join()
+    async def __worker(self):
         while True:
+            if self.queue.qsize() == 0:
+                return
             job = await self.queue.get()
             # We can make jobs work in the background if we make waiting for inputs async
             await job.task
