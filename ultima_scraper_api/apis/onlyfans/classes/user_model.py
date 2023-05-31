@@ -99,7 +99,7 @@ class create_user(StreamlinedUser):
         self.hasNewTicketReplies: dict = option.get("hasNewTicketReplies")
         self.hasInternalPayments: bool = option.get("hasInternalPayments")
         self.isCreditsEnabled: bool = option.get("isCreditsEnabled")
-        self.creditBalance: float = option.get("creditBalance")
+        self.creditBalance: float = option.get("creditBalance", 0.0)
         self.isMakePayment: bool = option.get("isMakePayment")
         self.isOtpEnabled: bool = option.get("isOtpEnabled")
         self.email: str = option.get("email")
@@ -584,7 +584,7 @@ class create_user(StreamlinedUser):
         return result
 
     async def get_socials(self):
-        result = await self.get_session_manager().json_request(
+        result: list[dict[str, Any]] = await self.get_session_manager().json_request(
             endpoint_links(self.id).socials
         )
         if "error" in result:
@@ -600,7 +600,7 @@ class create_user(StreamlinedUser):
                 return []
             return result
 
-    async def has_socials(self):
+    async def has_spotify(self):
         # If error message, this means the user has socials, but we have to subscribe to see them
         result = bool(
             await self.get_session_manager().json_request(

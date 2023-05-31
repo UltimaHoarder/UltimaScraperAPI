@@ -354,7 +354,8 @@ class create_auth(create_user):
         with self.get_pool() as pool:
             tasks = pool.starmap(assign_user_to_sub, product(raw_subscriptions))
             subscriptions: list[SubscriptionModel] = await asyncio.gather(*tasks)
-        return subscriptions
+        self.subscriptions = subscriptions
+        return self.subscriptions
 
     async def get_chats(
         self,

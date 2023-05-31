@@ -11,7 +11,6 @@ if TYPE_CHECKING:
 
 class create_message(SiteContent):
     def __init__(self, option: dict[str, Any], user: create_user) -> None:
-
         author = user.get_authed().find_user_by_identifier(option["fromUser"]["id"])
         self.user = user
         SiteContent.__init__(self, option, author)
