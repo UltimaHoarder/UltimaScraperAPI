@@ -56,6 +56,9 @@ class ProxyManager:
     def get_current_proxy(self):
         return self.proxies[self.current_proxy_index]
 
+    def add_proxy(self, proxy: str):
+        self.proxies.append(ProxyInfo(*python_socks.parse_proxy_url(proxy)))  # type: ignore
+
     async def proxy_switcher(self):
         if self.proxies:
             self.current_proxy_index = (self.current_proxy_index + 1) % len(
@@ -72,7 +75,7 @@ class ProxyManager:
 class SessionManager:
     def __init__(
         self,
-        auth: auth_types,
+        auth: ultima_scraper_api.authenticator_types,
         headers: dict[str, Any] = {},
         proxies: list[str] = [],
         max_threads: int = -1,
@@ -107,13 +110,17 @@ class SessionManager:
         asyncio.create_task(self.check_rate_limit())
 
     def get_cookies(self):
-        import ultima_scraper_api.apis.fansly.classes as fansly_classes
+        from ultima_scraper_api.apis.fansly.fansly import FanslyAuthenticator
 
-        if isinstance(self.auth, fansly_classes.auth_model.create_auth):
+        if isinstance(self.auth, FanslyAuthenticator):
             final_cookies: dict[str, Any] = {}
         else:
             final_cookies = self.auth.auth_details.cookie.format()
         return final_cookies
+
+    def add_proxies(self, proxies: list[str] = []):
+        for proxy in proxies:
+            self.proxy_manager.add_proxy(proxy)
 
     def test_proxies(self, proxies: list[str] = []):
         final_proxies: list[str] = []
@@ -277,9 +284,9 @@ class SessionManager:
     async def bulk_requests(self, urls: list[str]) -> list[ClientResponse | None]:
         return await asyncio.gather(*[self.request(url) for url in urls])
 
-    async def json_request(self, url: str):
+    async def json_request(self, url: str, method: str = "GET"):
         while True:
-            response = await self.request(url)
+            response = await self.request(url, method)
             json_resp: dict[Any, Any] = {}
             try:
                 if response.status == 200:
@@ -287,7 +294,7 @@ class SessionManager:
                 else:
                     json_resp["error"] = {
                         "code": response.status,
-                        "message": response.reason,
+                        "message": getattr(response, "reason"),
                     }
                 return json_resp
             except EXCEPTION_TEMPLATE as _e:
@@ -356,7 +363,7 @@ class SessionManager:
                                 extras["auth"] = self.auth
                                 extras["link"] = link
                                 if isinstance(
-                                    self.auth, onlyfans_classes.auth_model.create_auth
+                                    self.auth, onlyfans_classes.auth_model.AuthModel
                                 ):
                                     handle_error = onlyfans_classes.extras.ErrorDetails
                                 else:
@@ -438,7 +445,9 @@ class SessionManager:
         path = urlparse(link).path
         query = urlparse(link).query
         if query:
-            auth_id = self.auth.id if self.auth.id else auth_id
+            auth_id = (
+                self.auth.auth_details.id if self.auth.auth_details.id else auth_id
+            )
             headers["user-id"] = str(auth_id)
         path = path if not query else f"{path}?{query}"
         dynamic_rules = self.dynamic_rules
