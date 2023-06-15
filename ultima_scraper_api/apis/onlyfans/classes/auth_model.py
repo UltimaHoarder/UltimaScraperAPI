@@ -6,202 +6,74 @@ from itertools import chain, product
 from typing import TYPE_CHECKING, Any, Dict, Optional
 
 from ultima_scraper_api.apis import api_helper
+from ultima_scraper_api.apis.auth_streamliner import StreamlinedAuth
 from ultima_scraper_api.apis.onlyfans import SubscriptionType
-from ultima_scraper_api.apis.onlyfans.classes.extras import (
-    AuthDetails,
-    ErrorDetails,
-    create_headers,
-    endpoint_links,
-)
+from ultima_scraper_api.apis.onlyfans.classes.extras import endpoint_links
 from ultima_scraper_api.apis.onlyfans.classes.message_model import create_message
 from ultima_scraper_api.apis.onlyfans.classes.post_model import create_post
 from ultima_scraper_api.apis.onlyfans.classes.subscription_model import (
     SubscriptionModel,
 )
 from ultima_scraper_api.apis.onlyfans.classes.user_model import create_user
-from ultima_scraper_api.managers.session_manager import SessionManager
-from user_agent import generate_user_agent
 
 if TYPE_CHECKING:
+    from ultima_scraper_api.apis.onlyfans.classes.extras import OnlyFansAuthenticator
     from ultima_scraper_api.apis.onlyfans.classes.only_drm import OnlyDRM
-    from ultima_scraper_api.apis.onlyfans.onlyfans import OnlyFansAPI
-
-# auth_model.py handles functions that only relate to the authenticated user
-# We can create a auth_streamliner that has a parent class of create_user instead
 
 
-class create_auth(create_user):
+class AuthModel(StreamlinedAuth):
     def __init__(
         self,
-        api: OnlyFansAPI,
-        option: dict[str, Any] = {},
-        max_threads: int = -1,
-        auth_details: AuthDetails = AuthDetails(),
+        authenticator: OnlyFansAuthenticator,
     ) -> None:
-        self.api = api
+        self.api = authenticator.api
         self.users: set[create_user] = set()
-        self.auth_details = auth_details
-        self.session_manager = self._SessionManager(self, max_threads=max_threads)
-        create_user.__init__(self, option, self)
-        if not self.username:
-            self.username = f"u{self.id}"
+        self.authenticator = authenticator
+        self.session_manager = authenticator.session_manager
+        assert authenticator.__raw__ is not None
+        self.user: create_user = create_user(authenticator.__raw__, self)
+        self.id = self.user.id
+        self.username = self.user.username
         self.lists = []
-        self.links = api.ContentTypes()
+        self.links = self.api.ContentTypes()
         self.subscriptions: list[SubscriptionModel] = []
         self.chats = None
         self.archived_stories = {}
         self.mass_messages = []
         self.paid_content: list[create_message | create_post] = []
-        self.auth_attempt = 0
-        self.max_attempts = 10
-        self.guest = False
-        self.errors: list[ErrorDetails] = []
         self.extras: dict[str, Any] = {}
         self.blacklist: list[str] = []
+        self.guest = self.authenticator.guest
         self.drm: OnlyDRM | None = None
+        self.update()
 
-    class _SessionManager(SessionManager):
-        def __init__(
-            self,
-            auth: create_auth,
-            headers: dict[str, Any] = {},
-            proxies: list[str] = [],
-            max_threads: int = -1,
-            use_cookies: bool = True,
-        ) -> None:
-            SessionManager.__init__(
-                self, auth, headers, proxies, max_threads, use_cookies
-            )
+        StreamlinedAuth.__init__(self, self.authenticator)
 
     def get_pool(self):
         return self.api.pool
 
-    async def convert_to_user(self):
-        user = await self.get_user(self.username)
-        for k, _v in user.__dict__.items():
-            setattr(user, k, getattr(self, k))
-        return user
+    def update(self):
+        if self.user:
+            identifier = self.user.id
+            username = self.user.username
+            self.id = identifier
+            self.username = username
+            # # This affects scripts that use the username to select profiles
+            auth_details = self.get_auth_details()
+            auth_details.id = identifier
+            # auth_details.username = username
 
-    def update(self, data: Dict[str, Any]):
-        if not data["username"]:
-            data["username"] = f"u{data['id']}"
-        for key, value in data.items():
-            found_attr = hasattr(self, key)
-            if found_attr:
-                setattr(self, key, value)
+    async def get_authed_user(self):
+        assert self.user
+        return self.user
 
-    async def login(self, guest: bool = False):
-        auth_items = self.auth_details
-        if not auth_items:
-            return self
-        if guest and auth_items:
-            auth_items.cookie.auth_id = "0"
-            auth_items.user_agent = generate_user_agent()
-        link = endpoint_links().customer
-        user_agent = auth_items.user_agent
-        auth_id = str(auth_items.cookie.auth_id)
-        # expected string error is fixed by auth_id
-        dynamic_rules = self.session_manager.dynamic_rules
-        a: list[Any] = [dynamic_rules, auth_id, auth_items.x_bc, user_agent, link]
-        self.session_manager.headers = create_headers(*a)
-        if guest:
-            self.guest = True
-            return self
+    async def get_id(self):
+        assert self.user
+        return self.user.id
 
-        while self.auth_attempt < self.max_attempts:
-            await self.process_auth()
-            self.auth_attempt += 1
-
-            async def resolve_auth(auth: create_auth):
-                if self.errors:
-                    error = self.errors[-1]
-                    if error.code == 101:
-                        if auth_items.support_2fa:
-                            link = f"https://onlyfans.com/api2/v2/users/otp/check"
-                            count = 1
-                            max_count = 3
-                            while count < max_count + 1:
-                                print(
-                                    "2FA Attempt " + str(count) + "/" + str(max_count)
-                                )
-                                code = input("Enter 2FA Code\n")
-                                data = {"code": code, "rememberMe": True}
-                                response = await self.session_manager.json_request(
-                                    link, method="POST", payload=data
-                                )
-                                if isinstance(response, ErrorDetails):
-                                    error.message = response.message
-                                    count += 1
-                                else:
-                                    print("Success")
-                                    auth.active = False
-                                    auth.errors.remove(error)
-                                    await self.process_auth()
-                                    break
-
-            await resolve_auth(self)
-            if not self.check_authed():
-                if self.errors:
-                    error = self.errors[-1]
-                    error_message = error.message
-                    if "token" in error_message:
-                        break
-                    if "Code wrong" in error_message:
-                        break
-                    if "Please refresh" in error_message:
-                        break
-                continue
-            else:
-                break
-        if not self.check_authed():
-            user = await self.get_user(auth_id)
-            if isinstance(user, create_user):
-                self.update(user.__dict__)
-        return self
-
-    async def process_auth(self):
-        if not self.maxed_out_auth_attempts():
-            link = endpoint_links().customer
-            json_resp = await self.session_manager.json_request(link)
-            if json_resp:
-                await self.resolve_auth_errors(json_resp)
-                if not self.errors:
-                    self.auth_details.active = True
-                    self.update(json_resp)
-                else:
-                    self.auth_details.active = False
-            else:
-                # 404'ed
-                self.auth_details.active = False
-        return self
-
-    async def resolve_auth_errors(self, response: ErrorDetails | dict[str, Any]):
-        # Adds an error object to self.auth.errors
-        if isinstance(response, ErrorDetails):
-            error = response
-        elif "error" in response:
-            error = response["error"]
-            error = ErrorDetails(error)
-        else:
-            self.errors.clear()
-            return
-        error_message = error.message
-        error_code = error.code
-        if error_code == 0:
-            pass
-        elif error_code == 101:
-            error_message = "Blocked by 2FA."
-        elif error_code == 401:
-            # Session/Refresh
-            error_message = "Invalid Auth Info"
-        error.code = error_code
-        error.message = error_message
-        match error_code:
-            case 0:
-                pass
-            case _:
-                await api_helper.handle_error_details(error)
-        self.errors.append(error)
+    async def get_username(self):
+        assert self.user
+        return self.user.get_username()
 
     async def get_lists(self, refresh: bool = True, limit: int = 100, offset: int = 0):
         result, status = await api_helper.default_data(self, refresh)
@@ -449,50 +321,41 @@ class create_auth(create_user):
         limit: int = 10,
         offset: int = 0,
         inside_loop: bool = False,
-    ) -> list[create_message | create_post] | ErrorDetails:
+    ):
+        if not self.cache.paid_content.is_released():
+            return self.paid_content
         result, status = await api_helper.default_data(self, refresh)
         if status:
             return result
         link = endpoint_links(global_limit=limit, global_offset=offset).paid_api
         final_results = await self.session_manager.json_request(link)
-        if not isinstance(final_results, ErrorDetails):
-            if len(final_results) > 0 and not check:
-                results2 = await self.get_paid_content(
-                    limit=limit, offset=limit + offset, inside_loop=True
-                )
-                final_results.extend(results2)
-            if not inside_loop:
-                temp: list[create_message | create_post] = []
-                for final_result in final_results:
-                    content = None
-                    if final_result["responseType"] == "message":
-                        user = await self.get_user(final_result["fromUser"]["id"])
-                        if isinstance(user, dict):
-                            user = create_user(final_result["fromUser"], self)
-                        content = create_message(final_result, user)
-                    elif final_result["responseType"] == "post":
-                        user = create_user(final_result["author"], self)
-                        content = create_post(final_result, user)
-                    if content:
-                        temp.append(content)
-                final_results = temp
-            self.paid_content = final_results
+        if len(final_results) > 0 and not check:
+            results2 = await self.get_paid_content(
+                limit=limit, offset=limit + offset, inside_loop=True
+            )
+            final_results.extend(results2)  # type:ignore
+        if not inside_loop:
+            for final_result in final_results:
+                content = None
+                if final_result["responseType"] == "message":
+                    user = await self.get_user(final_result["fromUser"]["id"])
+                    if isinstance(user, dict):
+                        user = create_user(final_result["fromUser"], self)
+                    content = create_message(final_result, user)
+                elif final_result["responseType"] == "post":
+                    user = create_user(final_result["author"], self)
+                    content = create_post(final_result, user)
+                if content:
+                    self.paid_content.append(content)
+                    self.cache.paid_content.activate()
+            return self.paid_content
         return final_results
-
-    async def resolve_user(self, post_id: int | None = None):
-        user = None
-        if post_id:
-            post = await self.get_post(post_id)
-            if not isinstance(post, ErrorDetails):
-                user = post.author
-        return user
 
     async def get_scrapable_users(self):
         subscription_users = [x.user for x in self.subscriptions]
         return subscription_users
 
-    def maxed_out_auth_attempts(self):
-        return True if self.auth_attempt >= self.max_attempts else False
-
-    def check_authed(self):
-        return self.auth_details.active
+    async def get_login_issues(self):
+        url = endpoint_links().login_issues
+        response = await self.session_manager.json_request(url, method="POST")
+        return response
