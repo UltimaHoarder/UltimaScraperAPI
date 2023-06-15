@@ -1,7 +1,11 @@
 import asyncio
+from pathlib import Path
+
 
 import ultima_scraper_api
 from ultima_scraper_api.classes.make_settings import Config
+
+FULL_TEST = False
 
 
 async def main():
@@ -33,8 +37,9 @@ async def main():
     config = Config()
     api = ultima_scraper_api.select_api("OnlyFans", config=config)
     authed = await authenticate(api)
-    # await bulk_ip(authed)
-    # await rate_limit_enabler(authed)
+    if FULL_TEST:
+        await bulk_ip(authed)
+        await rate_limit_enabler(authed)
 
     posts = await get_all_posts(authed)
     if posts:
