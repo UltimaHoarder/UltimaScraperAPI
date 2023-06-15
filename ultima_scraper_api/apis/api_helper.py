@@ -137,13 +137,13 @@ async def default_data(
                 "get_lists_users",
                 "get_subscriptions",
             ]:
-                if not auth.active or not refresh:
+                if not auth.get_auth_details().active or not refresh:
                     result = await handle_refresh(
                         auth, api_type, refresh, function_that_called
                     )
                     status = True
             case "get_mass_messages":
-                if not auth.active or not auth.isPerformer:
+                if not auth.get_auth_details().active or not auth.isPerformer:
                     result = await handle_refresh(
                         auth, api_type, refresh, function_that_called
                     )

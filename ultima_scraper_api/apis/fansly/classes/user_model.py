@@ -18,7 +18,7 @@ from ultima_scraper_api.apis.user_streamliner import StreamlinedUser
 from ultima_scraper_api.managers.scrape_manager import ScrapeManager
 
 if TYPE_CHECKING:
-    from ultima_scraper_api.apis.fansly.classes.auth_model import create_auth
+    from ultima_scraper_api.apis.fansly.classes.auth_model import AuthModel
     from ultima_scraper_api.apis.fansly.classes.post_model import create_post
 
 
@@ -26,7 +26,7 @@ class create_user(StreamlinedUser):
     def __init__(
         self,
         option: dict[str, Any],
-        authed: create_auth,
+        authed: AuthModel,
     ) -> None:
         self.avatar: Any = option.get("avatar")
         self.avatarThumbs: Any = option.get("avatarThumbs")
@@ -229,6 +229,9 @@ class create_user(StreamlinedUser):
         self.__raw__ = option
         StreamlinedUser.__init__(self, authed)
 
+    def get_username(self):
+        return self.username
+
     def get_link(self):
         link = f"https://fansly.com/{self.username}"
         return link
@@ -238,6 +241,12 @@ class create_user(StreamlinedUser):
         if self.email:
             status = True
         return status
+
+    def is_authed_user(self):
+        if self.id == self.get_authed().id:
+            return True
+        else:
+            return False
 
     async def get_stories(
         self, refresh: bool = True, limit: int = 100, offset: int = 0
@@ -344,7 +353,7 @@ class create_user(StreamlinedUser):
         before: str = "",
         refresh: bool = True,
         inside_loop: bool = False,
-    ) -> list[Any]:
+    ):
         result, status = await api_helper.default_data(self, refresh)
         if status:
             return result
@@ -357,8 +366,6 @@ class create_user(StreamlinedUser):
                 if self.id == user["userId"]:
                     found_id = user["groupId"]
                     break
-                print
-            print
         final_results: list[message_model.create_message] = []
         if found_id:
             if links is None:

@@ -7,13 +7,13 @@ from ultima_scraper_api.apis.onlyfans.classes.extras import endpoint_links
 
 if TYPE_CHECKING:
     from ultima_scraper_api.apis.onlyfans.classes.user_model import (
-        create_auth,
+        AuthModel,
         create_user,
     )
 
 
 class create_post(SiteContent):
-    def __init__(self, option: dict[str, Any], user: create_auth | create_user) -> None:
+    def __init__(self, option: dict[str, Any], user: AuthModel | create_user) -> None:
         SiteContent.__init__(self, option, user)
         self.responseType: str = option.get("responseType")
         self.createdAt: str = option.get("postedAt")
@@ -52,7 +52,6 @@ class create_post(SiteContent):
         self.preview: list[int] = option.get("preview", [])
         self.canPurchase: bool = option.get("canPurchase")
         self.comments: list[Any] = []
-        self.__raw__ = option
 
     def get_author(self):
         return self.author

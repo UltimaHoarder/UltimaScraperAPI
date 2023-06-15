@@ -1,10 +1,11 @@
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING
 
 import ultima_scraper_api
 from ultima_scraper_api.apis import api_helper
 from ultima_scraper_api.classes.make_settings import Config
+
 
 if TYPE_CHECKING:
     api_types = ultima_scraper_api.api_types
@@ -19,19 +20,19 @@ class Packages:
 
                 self.AuthDetails = AuthDetails
                 from ultima_scraper_api.apis.onlyfans.classes.auth_model import (
-                    create_auth,
+                    AuthModel,
                 )
 
-                self.CreateAuth = create_auth
+                self.CreateAuth = AuthModel
             case "fansly":
                 from ultima_scraper_api.apis.fansly.classes.extras import AuthDetails
 
                 self.AuthDetails = AuthDetails
                 from ultima_scraper_api.apis.fansly.classes.auth_model import (
-                    create_auth,
+                    AuthModel,
                 )
 
-                self.CreateAuth = create_auth
+                self.CreateAuth = AuthModel
             case _:
                 raise ValueError("Site Doesn't Exist")
 
@@ -53,13 +54,10 @@ class StreamlinedAPI:
         self.job_manager = JobManager()
         self.packages = Packages(self.api.site_name)
 
-    async def login(self, auth_json: dict[str, Any] = {}, guest: bool = False):
-        auth = self.add_auth(auth_json)
-        authed = await auth.login(guest=guest)
-        return authed
+
 
     def add_auth(
-        self, auth_json: dict[str, Any] = {}, only_active: bool = False
+        self, authenticator:ultima_scraper_api.authenticator_types, only_active: bool = False
     ) -> auth_types:
         """Creates and appends an auth object to auths property
 
@@ -71,19 +69,17 @@ class StreamlinedAPI:
             create_auth: [Auth object]
         """
         packages = self.packages
-        temp_auth_details = packages.AuthDetails(**auth_json).upgrade_legacy(auth_json)
         auth = packages.CreateAuth(
-            self.api, max_threads=self.max_threads, auth_details=temp_auth_details  # type: ignore
+            authenticator   # type: ignore
         )
-        if only_active and not auth.auth_details.active:
+        if only_active and not auth.authenticator.auth_details.active:
             return auth
-        auth.auth_details = temp_auth_details  # type: ignore
         auth.extras["settings"] = self.config
         self.api.auths.append(auth)  # type: ignore
         return auth
 
     def has_active_auths(self):
-        return bool([x for x in self.api.auths if x.active])
+        return bool([x for x in self.api.auths if x.is_authed()])
 
     def get_auths_via_subscription_identifier(self, identifier: str):
         for auth in self.api.auths:

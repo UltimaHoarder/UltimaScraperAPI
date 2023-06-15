@@ -38,7 +38,7 @@ class ScrapeManager:
             extras: dict[str, Any] = {}
             extras["auth"] = session_manager.auth
             extras["link"] = url
-            if isinstance(auth, onlyfans_classes.auth_model.create_auth):
+            if isinstance(auth, onlyfans_classes.auth_model.AuthModel):
                 handle_error_ = onlyfans_classes.extras.ErrorDetails
             else:
                 handle_error_ = fansly_classes.extras.ErrorDetails

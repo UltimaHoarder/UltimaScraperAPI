@@ -3,27 +3,23 @@ from __future__ import annotations
 import asyncio
 from datetime import datetime
 from itertools import product
-from typing import TYPE_CHECKING, Any, Dict, Optional
+from typing import TYPE_CHECKING, Any, Dict
 
 from dateutil.relativedelta import relativedelta
-from user_agent import generate_user_agent
 
 from ultima_scraper_api.apis import api_helper
+from ultima_scraper_api.apis.auth_streamliner import StreamlinedAuth
 from ultima_scraper_api.apis.fansly import SubscriptionType
 from ultima_scraper_api.apis.fansly.classes.extras import (
-    AuthDetails,
-    ErrorDetails,
-    create_headers,
     endpoint_links,
 )
 from ultima_scraper_api.apis.fansly.classes.message_model import create_message
 from ultima_scraper_api.apis.fansly.classes.post_model import create_post
 from ultima_scraper_api.apis.fansly.classes.subscription_model import SubscriptionModel
 from ultima_scraper_api.apis.fansly.classes.user_model import create_user
-from ultima_scraper_api.managers.session_manager import SessionManager
 
 if TYPE_CHECKING:
-    from ultima_scraper_api.apis.fansly.fansly import FanslyAPI
+    from ultima_scraper_api.apis.fansly.classes.extras import FanslyAuthenticator
     from ultima_scraper_api.apis.onlyfans.classes.only_drm import OnlyDRM
 
 

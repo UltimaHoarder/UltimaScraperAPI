@@ -42,7 +42,6 @@ class create_message(SiteContent):
         self.canPurchaseReason: Optional[str] = option.get("canPurchaseReason")
         self.canReport: Optional[bool] = option.get("canReport")
         self.attachments: list[dict[str, Any]] = option.get("attachments", {})
-        self.__raw__ = option
         # Custom
         final_media_ids: list[Any] = []
         for attachment in self.attachments:

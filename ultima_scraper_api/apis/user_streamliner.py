@@ -11,7 +11,7 @@ if TYPE_CHECKING:
     import ultima_scraper_api.apis.onlyfans.classes as onlyfans_classes
 
     auth_types = (
-        onlyfans_classes.auth_model.create_auth | fansly_classes.auth_model.create_auth
+        onlyfans_classes.auth_model.AuthModel | fansly_classes.auth_model.AuthModel
     )
 
 

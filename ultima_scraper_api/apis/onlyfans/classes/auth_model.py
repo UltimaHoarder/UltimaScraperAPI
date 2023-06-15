@@ -254,7 +254,7 @@ class create_auth(create_user):
 
     async def get_lists_users(
         self,
-        identifier: int | str,
+        identifier: int,
         check: bool = False,
         limit: int = 100,
         offset: int = 0,
@@ -270,7 +270,7 @@ class create_auth(create_user):
             results2 = await self.get_lists_users(
                 identifier, limit=limit, offset=limit + offset
             )
-            results.extend(results2)
+            results.extend(results2)  # type: ignore
         return results
 
     async def get_subscription(

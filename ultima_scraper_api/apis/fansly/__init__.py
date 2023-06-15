@@ -5,7 +5,7 @@ from urllib.parse import urlparse
 
 if TYPE_CHECKING:
     from ultima_scraper_api.apis.fansly.classes.user_model import (
-        create_auth,
+        AuthModel,
         create_user,
     )
 
@@ -13,7 +13,7 @@ SubscriptionType = Literal["all", "active", "expired"]
 
 
 class SiteContent:
-    def __init__(self, option: dict[str, Any], user: create_auth | create_user) -> None:
+    def __init__(self, option: dict[str, Any], user: AuthModel | create_user) -> None:
         self.id: int = int(option["id"])
         self.author = user
         self.media: list[dict[str, Any]] = option.get("media", [])

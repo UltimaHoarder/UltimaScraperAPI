@@ -15,12 +15,12 @@ from ultima_scraper_api.apis.user_streamliner import StreamlinedUser
 from ultima_scraper_api.managers.scrape_manager import ScrapeManager
 
 if TYPE_CHECKING:
-    from ultima_scraper_api.apis.onlyfans.classes.auth_model import create_auth
+    from ultima_scraper_api.apis.onlyfans.classes.auth_model import AuthModel
     from ultima_scraper_api.apis.onlyfans.classes.post_model import create_post
 
 
 class create_user(StreamlinedUser):
-    def __init__(self, option: dict[str, Any], authed: create_auth) -> None:
+    def __init__(self, option: dict[str, Any], authed: AuthModel) -> None:
         self.avatar: Optional[str] = option.get("avatar")
         self.avatarThumbs: Optional[list[str]] = option.get("avatarThumbs")
         self.header: Optional[str] = option.get("header")
@@ -44,6 +44,7 @@ class create_user(StreamlinedUser):
         self.canEarn: bool = option.get("canEarn")
         self.canAddSubscriber: bool = option.get("canAddSubscriber")
         self.subscribePrice: int = option.get("subscribePrice")
+        self.is_deleted: bool | None = option.get("isDeleted", None)
         self.hasStripe: bool = option.get("hasStripe")
         self.isStripeExist: bool = option.get("isStripeExist")
         self.subscriptionBundles: list = option.get("subscriptionBundles")
@@ -212,11 +213,17 @@ class create_user(StreamlinedUser):
         self.maxPinnedPostsCount: int = option.get("maxPinnedPostsCount")
         # Custom
         authed.users.add(self)
+        self.username = self.get_username()
         self.download_info: dict[str, Any] = {}
         self.duplicate_media = []
         self.scrape_manager = ScrapeManager(authed.session_manager)
         self.__raw__ = option
         StreamlinedUser.__init__(self, authed)
+
+    def get_username(self):
+        if not self.username:
+            self.username = f"u{self.id}"
+        return self.username
 
     def get_link(self):
         link = f"https://onlyfans.com/{self.username}"
@@ -227,6 +234,12 @@ class create_user(StreamlinedUser):
         if self.email:
             status = True
         return status
+
+    def is_authed_user(self):
+        if self.id == self.get_authed().id:
+            return True
+        else:
+            return False
 
     async def get_stories(
         self, refresh: bool = True, limit: int = 100, offset: int = 0
@@ -325,6 +338,8 @@ class create_user(StreamlinedUser):
     ):
         result, status = await api_helper.default_data(self, refresh)
         if status:
+            return result
+        if self.is_deleted:
             return result
         multiplier = self.get_session_manager().max_threads
         temp_limit = limit

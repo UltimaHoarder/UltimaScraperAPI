@@ -7,17 +7,18 @@ SubscriptionType = Literal["all", "active", "expired", "attention"]
 
 if TYPE_CHECKING:
     from ultima_scraper_api.apis.onlyfans.classes.user_model import (
-        create_auth,
+        AuthModel,
         create_user,
     )
 
 
 class SiteContent:
-    def __init__(self, option: dict[str, Any], user: create_auth | create_user) -> None:
+    def __init__(self, option: dict[str, Any], user: AuthModel | create_user) -> None:
         self.id: int = option["id"]
         self.author = user
         self.media: list[dict[str, Any]] = option.get("media", [])
         self.preview_ids: list[int] = []
+        self.__raw__ = option
 
     def url_picker(self, media_item: dict[str, Any], video_quality: str = ""):
         authed = self.get_author().get_authed()

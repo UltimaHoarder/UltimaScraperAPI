@@ -2,15 +2,15 @@ from typing import Any
 
 import ultima_scraper_api.apis.fansly.classes as fansly_classes
 import ultima_scraper_api.apis.onlyfans.classes as onlyfans_classes
+from ultima_scraper_api.apis.fansly.classes.extras import FanslyAuthenticator
 from ultima_scraper_api.apis.fansly.fansly import FanslyAPI
+from ultima_scraper_api.apis.onlyfans.classes.extras import OnlyFansAuthenticator
 from ultima_scraper_api.apis.onlyfans.onlyfans import OnlyFansAPI
 from ultima_scraper_api.classes.make_settings import Config
 
 api_types = OnlyFansAPI | FanslyAPI
-
-auth_types = (
-    onlyfans_classes.auth_model.create_auth | fansly_classes.auth_model.create_auth
-)
+authenticator_types = OnlyFansAuthenticator | FanslyAuthenticator
+auth_types = onlyfans_classes.auth_model.AuthModel | fansly_classes.auth_model.AuthModel
 user_types = (
     onlyfans_classes.user_model.create_user | fansly_classes.user_model.create_user
 )

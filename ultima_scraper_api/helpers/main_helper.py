@@ -6,18 +6,19 @@ import re
 import secrets
 import shutil
 import subprocess
+from datetime import datetime
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, BinaryIO, Literal
 
 import orjson
 import requests
-from aiofiles import os as async_os
-from bs4 import BeautifulSoup
-from mergedeep import Strategy, merge  # type: ignore
-
 import ultima_scraper_api
 import ultima_scraper_api.classes.make_settings as make_settings
 import ultima_scraper_api.classes.prepare_webhooks as prepare_webhooks
+from aiofiles import os as async_os
+from bs4 import BeautifulSoup
+from dateutil.relativedelta import relativedelta
+from mergedeep import Strategy, merge  # type: ignore
 
 if TYPE_CHECKING:
     pass
@@ -303,6 +304,12 @@ def find_between(s: str, start: str, end: str):
     return x
 
 
+def extract_string_between_characters(text:str, opening_char:str, closing_char:str):
+    pattern = re.escape(opening_char) + r"(.*?)" + re.escape(closing_char)
+    matches = re.findall(pattern, text)
+    return matches
+
+
 def module_chooser(domain: str, json_sites: dict[str, Any]):
     string = "Select Site: "
     separator = " | "
@@ -331,3 +338,17 @@ def module_chooser(domain: str, json_sites: dict[str, Any]):
 
 async def replace_path(old_string: str, new_string: str, path: Path):
     return Path(path.as_posix().replace(old_string, new_string))
+
+
+def date_between_cur_month(date_value: datetime):
+    current_date = datetime.today()
+    first_day = current_date.replace(day=1)
+    last_day = first_day + relativedelta(months=1, days=-1)
+    if first_day.date() < date_value.date() < last_day.date():
+        return True
+    else:
+        return False
+
+
+def split_string(identifiers: str):
+    return identifiers.split(",")

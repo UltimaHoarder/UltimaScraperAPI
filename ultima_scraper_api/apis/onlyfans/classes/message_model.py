@@ -38,7 +38,6 @@ class create_message(SiteContent):
         self.canPurchase: Optional[bool] = option.get("canPurchase")
         self.canPurchaseReason: Optional[str] = option.get("canPurchaseReason")
         self.canReport: Optional[bool] = option.get("canReport")
-        self.__raw__ = option
 
     def get_author(self):
         return self.author

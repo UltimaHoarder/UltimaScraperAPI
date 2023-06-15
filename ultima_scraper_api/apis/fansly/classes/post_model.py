@@ -7,7 +7,7 @@ from ultima_scraper_api.apis.fansly.classes.extras import endpoint_links
 
 if TYPE_CHECKING:
     from ultima_scraper_api.apis.fansly.classes.user_model import (
-        create_auth,
+        AuthModel,
         create_user,
     )
 
@@ -16,7 +16,7 @@ class create_post(SiteContent):
     def __init__(
         self,
         option: dict[str, Any],
-        user: create_auth | create_user,
+        user: AuthModel | create_user,
         extra: dict[str, Any],
     ) -> None:
         SiteContent.__init__(self, option, user)
