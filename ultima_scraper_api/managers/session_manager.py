@@ -275,7 +275,7 @@ class SessionManager:
                         if self.is_rate_limited is None:
                             self.rate_limit_check = True
                         continue
-                    case 500 | 503 | 504:
+                    case 500 | 502 | 503 | 504:
                         continue
                     case _:
                         raise Exception(
