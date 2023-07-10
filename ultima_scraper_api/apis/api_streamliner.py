@@ -90,3 +90,15 @@ class StreamlinedAPI:
     async def close_pools(self):
         for auth in self.api.auths:
             await auth.session_manager.active_session.close()
+
+    class CategorizedContent:
+        def __init__(self) -> None:
+            self.Stories: dict[int, Any] = {}
+            self.Posts: dict[int, Any] = {}
+            self.Chats: dict[int, Any] = {}
+            self.Messages: dict[int, Any] = {}
+            self.Highlights: dict[int, Any] = {}
+            self.MassMessages: dict[int, Any] = {}
+
+        def find_content(self, content_id: int, content_type: str):
+            return getattr(self, content_type)[content_id]
