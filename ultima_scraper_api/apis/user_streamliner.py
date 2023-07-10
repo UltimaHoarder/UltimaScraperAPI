@@ -5,6 +5,7 @@ from typing import TYPE_CHECKING
 
 import dill
 from ultima_scraper_api.managers.job_manager.jobs.custom_job import CustomJob
+from ultima_scraper_api.managers.scrape_manager import ContentManager
 
 if TYPE_CHECKING:
     import ultima_scraper_api.apis.fansly.classes as fansly_classes
@@ -55,6 +56,7 @@ class StreamlinedUser:
         self.job_whitelist: list[int | str] = []
         self.scrape_whitelist: list[int | str] = []
         self.active: bool = True
+        self.content_manager = ContentManager(authed.session_manager)
 
     def get_authed(self):
         return self.__authed

@@ -6,6 +6,25 @@ from ultima_scraper_api.apis.api_helper import handle_error_details
 from ultima_scraper_api.managers.session_manager import SessionManager
 
 
+class ContentManager:
+    def __init__(self, session_manager: SessionManager) -> None:
+        self.session_manager = session_manager
+        self.categorized = session_manager.auth.api.CategorizedContent()
+
+    def set_content(self, content_type: str, scraped: list[Any]):
+        for content in scraped:
+            content_item = getattr(self.categorized, content_type)
+            content_item[content.content_id] = content
+
+    def find_content(self, content_id: int, content_type: str):
+        found_content = None
+        try:
+            found_content = getattr(self.categorized, content_type)[content_id]
+        except KeyError:
+            pass
+        return found_content
+
+
 class ScrapeManager:
     def __init__(self, session_manager: SessionManager) -> None:
         self.session_manager = session_manager
