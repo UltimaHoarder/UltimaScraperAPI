@@ -328,6 +328,18 @@ class AuthModel(StreamlinedAuth):
         self.chats = final_results
         return final_results
 
+    async def get_paid_content(
+        self,
+        limit: int = 10,
+        offset: int = 0,
+    ):
+        if not self.cache.paid_content.is_released():
+            return self.paid_content
+        link = endpoint_links(global_limit=limit, global_offset=offset).paid_api
+        result = await self.session_manager.json_request(link)
+        final_results = result["response"]["accountMediaOrders"]
+        return final_results
+
     async def get_scrapable_users(self):
         followed_users = self.followed_users
         subscription_users = [x.user for x in self.subscriptions]
