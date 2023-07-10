@@ -1,5 +1,6 @@
 from datetime import datetime
 from typing import TYPE_CHECKING, Any
+
 from ultima_scraper_api.models.subscription_model import BaseSubscriptionModel
 
 if TYPE_CHECKING:
@@ -39,3 +40,6 @@ class SubscriptionModel(BaseSubscriptionModel):
 
     def get_price(self):
         return self.subscribe_price
+
+    def resolve_expires_at(self):
+        return self.subscribed_by_expire_date

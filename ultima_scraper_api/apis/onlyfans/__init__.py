@@ -6,14 +6,11 @@ from urllib.parse import urlparse
 SubscriptionType = Literal["all", "active", "expired", "attention"]
 
 if TYPE_CHECKING:
-    from ultima_scraper_api.apis.onlyfans.classes.user_model import (
-        AuthModel,
-        create_user,
-    )
+    from ultima_scraper_api.apis.onlyfans.classes.user_model import create_user
 
 
 class SiteContent:
-    def __init__(self, option: dict[str, Any], user: AuthModel | create_user) -> None:
+    def __init__(self, option: dict[str, Any], user: create_user) -> None:
         self.id: int = option["id"]
         self.author = user
         self.media: list[dict[str, Any]] = option.get("media", [])
@@ -59,7 +56,7 @@ class SiteContent:
         return urlparse(url) if url else None
 
     def preview_url_picker(self, media_item: dict[str, Any]):
-        preview_url = None
+        preview_url: str | None = None
         if "files" in media_item:
             if (
                 "preview" in media_item["files"]

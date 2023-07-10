@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from datetime import datetime
 from typing import TYPE_CHECKING, Any
 
 from ultima_scraper_api.apis.fansly import SiteContent
@@ -16,9 +17,6 @@ class create_collection(SiteContent):
         SiteContent.__init__(self, option, user)
         self.responseType: str = option.get("responseType")
         self.id: int = int(option["id"])
-        self.createdAt: str = int(option.get("createdAt",0)/1000)
-        self.postedAtPrecise: str = option.get("postedAtPrecise")
-        self.expiredAt: Any = option.get("expiredAt")
         self.author = user
         text: str = option.get("text", "")
         self.text = str(text or "")
@@ -51,6 +49,9 @@ class create_collection(SiteContent):
         self.linkedPosts: list = option.get("linkedPosts")
         self.previews: list[dict[str, Any]] = option.get("previews", [])
         self.attachments: list[dict[str, Any]] = extra.get("albumContent", {})
+        self.created_at: datetime = datetime.fromtimestamp(option["createdAt"] / 1000)
+        self.postedAtPrecise: str = option.get("postedAtPrecise")
+        self.expiredAt: Any = option.get("expiredAt")
         # Custom
         final_media_ids: list[Any] = []
         for attachment in self.attachments:

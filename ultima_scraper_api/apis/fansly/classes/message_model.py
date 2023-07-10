@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from datetime import datetime
 from typing import TYPE_CHECKING, Any, Optional
 
 from ultima_scraper_api.apis.fansly import SiteContent
@@ -34,7 +35,7 @@ class create_message(SiteContent):
         self.unsendSecondsQueue: Optional[int] = option.get("unsendSecondsQueue")
         self.isOpened: Optional[bool] = option.get("isOpened")
         self.isNew: Optional[bool] = option.get("isNew")
-        self.createdAt: Optional[str] = option.get("createdAt")
+        self.created_at: datetime = datetime.fromtimestamp(option["createdAt"])
         self.changedAt: Optional[str] = option.get("changedAt")
         self.cancelSeconds: Optional[int] = option.get("cancelSeconds")
         self.isLiked: Optional[bool] = option.get("isLiked")

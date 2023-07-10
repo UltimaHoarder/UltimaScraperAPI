@@ -1,19 +1,17 @@
 from __future__ import annotations
 
+from datetime import datetime
 from typing import TYPE_CHECKING, Any
 
 from ultima_scraper_api.apis.onlyfans import SiteContent
 from ultima_scraper_api.apis.onlyfans.classes.extras import endpoint_links
 
 if TYPE_CHECKING:
-    from ultima_scraper_api.apis.onlyfans.classes.user_model import (
-        AuthModel,
-        create_user,
-    )
+    from ultima_scraper_api.apis.onlyfans.classes.user_model import create_user
 
 
 class create_post(SiteContent):
-    def __init__(self, option: dict[str, Any], user: AuthModel | create_user) -> None:
+    def __init__(self, option: dict[str, Any], user: create_user) -> None:
         SiteContent.__init__(self, option, user)
         self.responseType: str = option.get("responseType")
         self.createdAt: str = option.get("postedAt")
@@ -51,7 +49,9 @@ class create_post(SiteContent):
         self.canViewMedia: bool = option.get("canViewMedia")
         self.preview: list[int] = option.get("preview", [])
         self.canPurchase: bool = option.get("canPurchase")
-        self.comments: list[Any] = []
+        self.created_at: datetime = datetime.fromisoformat(option["postedAt"])
+        self.postedAtPrecise: str = option.get("postedAtPrecise")
+        self.expiredAt: Any = option.get("expiredAt")
 
     def get_author(self):
         return self.author

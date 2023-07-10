@@ -1,3 +1,4 @@
+from datetime import datetime
 from typing import TYPE_CHECKING, Any
 
 from ultima_scraper_api.apis.onlyfans import SiteContent
@@ -10,7 +11,6 @@ class create_story(SiteContent):
     def __init__(self, option: dict[str, Any], user: "create_user") -> None:
         SiteContent.__init__(self, option, user)
         self.userId: int = option.get("userId")
-        self.createdAt: str = option.get("createdAt")
         self.expiredAt: str = option.get("expiredAt")
         self.isReady: bool = option.get("isReady")
         self.viewersCount: int = option.get("viewersCount")
@@ -26,3 +26,4 @@ class create_story(SiteContent):
         self.question: Any = option.get("question")
         self.placedContents: list = option.get("placedContents")
         self.answered: int = option.get("answered")
+        self.created_at: datetime = datetime.fromisoformat(option["createdAt"])

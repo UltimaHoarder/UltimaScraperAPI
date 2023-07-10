@@ -6,7 +6,6 @@ from itertools import product
 from typing import TYPE_CHECKING, Any, Dict
 
 from dateutil.relativedelta import relativedelta
-
 from ultima_scraper_api.apis import api_helper
 from ultima_scraper_api.apis.auth_streamliner import StreamlinedAuth
 from ultima_scraper_api.apis.fansly import SubscriptionType
@@ -111,6 +110,8 @@ class AuthModel(StreamlinedAuth):
             return False
 
     def find_user_by_identifier(self, identifier: int | str):
+        if isinstance(identifier,str) and identifier.isnumeric():
+            identifier = int(identifier)
         user = [x for x in self.users if x.id == identifier or x.username == identifier]
         if user:
             user = user[0]
@@ -128,9 +129,17 @@ class AuthModel(StreamlinedAuth):
                 url = endpoint_links(identifier).users_by_username
                 pass
             response = await self.session_manager.json_request(url)
-            if "error" not in response:
+            if response["response"]:
                 response["session_manager"] = self.session_manager
                 response = create_user(response["response"][0], self)
+            return response
+
+    async def resolve_user(self, data: dict[str, Any]):
+        valid_user = self.find_user_by_identifier(data["id"])
+        if valid_user:
+            return valid_user
+        else:
+            response = create_user(data, self)
             return response
 
     async def get_lists_users(
@@ -154,7 +163,9 @@ class AuthModel(StreamlinedAuth):
             results.extend(results2)  # type: ignore
         return results
 
-    async def get_followings(self, identifiers: list[int | str]) -> list[create_user]:
+    async def get_followings(
+        self, identifiers: list[int | str] = []
+    ) -> list[create_user]:
         offset_count = 0
         followings: list[dict[str, Any]] = []
         while True:
@@ -190,6 +201,7 @@ class AuthModel(StreamlinedAuth):
                     new_date = int(new_date.timestamp() * 1000)
                     following.subscribedByData = {}
                     following.subscribedByData["endsAt"] = new_date
+        self.followed_users = final_followings
         return final_followings
 
     async def get_subscription(

@@ -37,13 +37,26 @@ class JobManager:
         self.jobs.extend(local_jobs)
         return local_jobs
 
+    def create_job(self, value: str, module: Any, module_args: list[Any]):
+        local_args = copy.copy(module_args)
+        match value:
+            case "DatabaseImport":
+                job = CustomJob(value)
+                job.task = module(*local_args)
+                self.jobs.append(job)
+            case _:
+                raise Exception(f"Could not create job: {value}")
+        return job
+
     def add_media_type_to_jobs(self, media_type: str | list[str]):
         if isinstance(media_type, str):
             media_type = [media_type]
         [job.add_media_type(mt) for job in self.jobs for mt in media_type]
+
     async def process_jobs(self):
         await asyncio.create_task(self.__worker())
         await self.queue.join()
+
     async def __worker(self):
         while True:
             if self.queue.qsize() == 0:

@@ -1,22 +1,20 @@
 from __future__ import annotations
 
+from datetime import datetime
 from typing import TYPE_CHECKING, Any
 
 from ultima_scraper_api.apis.fansly import SiteContent
 from ultima_scraper_api.apis.fansly.classes.extras import endpoint_links
 
 if TYPE_CHECKING:
-    from ultima_scraper_api.apis.fansly.classes.user_model import (
-        AuthModel,
-        create_user,
-    )
+    from ultima_scraper_api.apis.fansly.classes.user_model import create_user
 
 
 class create_post(SiteContent):
     def __init__(
         self,
         option: dict[str, Any],
-        user: AuthModel | create_user,
+        user: create_user,
         extra: dict[str, Any],
     ) -> None:
         SiteContent.__init__(self, option, user)
@@ -56,6 +54,9 @@ class create_post(SiteContent):
         self.linkedPosts: list = option.get("linkedPosts")
         self.previews: list[dict[str, Any]] = option.get("previews", [])
         self.attachments: list[dict[str, Any]] = option.get("attachments", {})
+        self.created_at: datetime = datetime.fromtimestamp(option["createdAt"])
+        self.postedAtPrecise: str = option.get("postedAtPrecise")
+        self.expiredAt: Any = option.get("expiredAt")
         # Custom
         final_media_ids: list[Any] = []
         for attachment in self.attachments:
@@ -82,9 +83,7 @@ class create_post(SiteContent):
                             if not account_media["access"]:
                                 self.preview_ids.append(int(account_media["previewId"]))
                                 self.previews.append(temp_media)
-                        if (
-                            account_media["media"]["locations"]
-                        ):
+                        if account_media["media"]["locations"]:
                             temp_media = account_media["media"]
                         if temp_media:
                             final_media.append(temp_media)

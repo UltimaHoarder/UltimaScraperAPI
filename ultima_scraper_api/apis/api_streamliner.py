@@ -1,11 +1,10 @@
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 import ultima_scraper_api
 from ultima_scraper_api.apis import api_helper
 from ultima_scraper_api.classes.make_settings import Config
-
 
 if TYPE_CHECKING:
     api_types = ultima_scraper_api.api_types
@@ -28,9 +27,7 @@ class Packages:
                 from ultima_scraper_api.apis.fansly.classes.extras import AuthDetails
 
                 self.AuthDetails = AuthDetails
-                from ultima_scraper_api.apis.fansly.classes.auth_model import (
-                    AuthModel,
-                )
+                from ultima_scraper_api.apis.fansly.classes.auth_model import AuthModel
 
                 self.CreateAuth = AuthModel
             case _:
@@ -54,10 +51,10 @@ class StreamlinedAPI:
         self.job_manager = JobManager()
         self.packages = Packages(self.api.site_name)
 
-
-
     def add_auth(
-        self, authenticator:ultima_scraper_api.authenticator_types, only_active: bool = False
+        self,
+        authenticator: ultima_scraper_api.authenticator_types,
+        only_active: bool = False,
     ) -> auth_types:
         """Creates and appends an auth object to auths property
 
@@ -69,9 +66,7 @@ class StreamlinedAPI:
             create_auth: [Auth object]
         """
         packages = self.packages
-        auth = packages.CreateAuth(
-            authenticator   # type: ignore
-        )
+        auth = packages.CreateAuth(authenticator)  # type: ignore
         if only_active and not auth.authenticator.auth_details.active:
             return auth
         auth.extras["settings"] = self.config

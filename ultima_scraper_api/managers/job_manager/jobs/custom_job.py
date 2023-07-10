@@ -4,7 +4,7 @@ import dill
 
 
 class CustomJob:
-    def __init__(self, job_type: str, api_type: str) -> None:
+    def __init__(self, job_type: str, api_type: str | None = None) -> None:
         self.title = f"{job_type}: {api_type}"
         self.type = job_type
         self.api_type = api_type

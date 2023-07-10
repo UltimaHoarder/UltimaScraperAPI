@@ -124,6 +124,14 @@ class AuthModel(StreamlinedAuth):
                 response = create_user(response, self)
             return response
 
+    async def resolve_user(self, data: dict[str, Any]):
+        valid_user = self.find_user_by_identifier(data["id"])
+        if valid_user:
+            return valid_user
+        else:
+            response = create_user(data, self)
+            return response
+
     async def get_lists_users(
         self,
         identifier: int,

@@ -24,8 +24,11 @@ class ScrapeManager:
         async with session_manager.semaphore:
             result = await session_manager.request(url)
             async with result as response:
-                json_res = await response.json()
-                final_result = await self.handle_error(url, json_res)
+                if result.status != 404:
+                    json_res = await response.json()
+                    final_result = await self.handle_error(url, json_res)
+                else:
+                    final_result = []
                 return final_result
 
     async def handle_error(self, url: str, json_res: dict[str, Any]):

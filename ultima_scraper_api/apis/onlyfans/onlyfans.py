@@ -164,8 +164,8 @@ class OnlyFansAPI(StreamlinedAPI):
 
     class MediaTypes:
         def __init__(self) -> None:
-            self.Images = ["photo"]
-            self.Videos = ["video", "stream", "gif"]
+            self.Images = ["photo", "image"]
+            self.Videos = ["video", "stream", "gif", "application"]
             self.Audios = ["audio"]
             self.Texts = ["text"]
 

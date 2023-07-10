@@ -4,6 +4,7 @@ from typing import TYPE_CHECKING, Any, Optional
 
 from ultima_scraper_api.apis.onlyfans import SiteContent
 from ultima_scraper_api.apis.onlyfans.classes.extras import endpoint_links
+from datetime import datetime
 
 if TYPE_CHECKING:
     from ultima_scraper_api.apis.onlyfans.classes.user_model import create_user
@@ -31,13 +32,13 @@ class create_message(SiteContent):
         self.unsendSecondsQueue: Optional[int] = option.get("unsendSecondsQueue")
         self.isOpened: Optional[bool] = option.get("isOpened")
         self.isNew: Optional[bool] = option.get("isNew")
-        self.createdAt: Optional[str] = option.get("createdAt")
-        self.changedAt: Optional[str] = option.get("changedAt")
         self.cancelSeconds: Optional[int] = option.get("cancelSeconds")
         self.isLiked: Optional[bool] = option.get("isLiked")
         self.canPurchase: Optional[bool] = option.get("canPurchase")
         self.canPurchaseReason: Optional[str] = option.get("canPurchaseReason")
         self.canReport: Optional[bool] = option.get("canReport")
+        self.created_at: datetime = datetime.fromisoformat(option["createdAt"])
+        self.changedAt: Optional[str] = option.get("changedAt")
 
     def get_author(self):
         return self.author

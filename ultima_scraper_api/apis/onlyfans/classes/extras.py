@@ -5,9 +5,8 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any, Literal, Optional, Union
 from urllib.parse import parse_qs, urlparse
 
-from user_agent import generate_user_agent
-
 from ultima_scraper_api.managers.session_manager import SessionManager
+from user_agent import generate_user_agent
 
 if TYPE_CHECKING:
     from ultima_scraper_api.apis.onlyfans.onlyfans import OnlyFansAPI
@@ -112,6 +111,8 @@ class AuthDetails:
             for att in new_dict.copy():
                 if att not in model.__annotations__:
                     del new_dict[att]
+            new_dict["user_id"] = new_dict["id"]
+            del new_dict["id"]
         return new_dict
 
 
@@ -301,7 +302,7 @@ class endpoint_links(object):
         self.post_by_id = f"https://onlyfans.com/api2/v2/posts/{identifier}"
         self.message_by_id = f"https://onlyfans.com/api2/v2/chats/{identifier}/messages?limit=10&offset=0&firstId={identifier2}&order=desc&skip_users=all&skip_users_dups=1"
         self.search_chat = f"https://onlyfans.com/api2/v2/chats/{identifier}/messages/search?query={text}"
-        self.message_api = f"https://onlyfans.com/api2/v2/chats/{identifier}/messages?limit={global_limit}&offset={global_offset}&order=desc"
+        self.message_api = f"https://onlyfans.com/api2/v2/chats/{identifier}/messages?limit={global_limit}&id={global_offset}"
         self.search_messages = f"https://onlyfans.com/api2/v2/chats/{identifier}?limit=10&offset=0&filter=&order=activity&query={text}"
         self.mass_messages_api = f"https://onlyfans.com/api2/v2/messages/queue/stats?limit=100&offset=0&format=infinite"
         self.stories_api = f"https://onlyfans.com/api2/v2/users/{identifier}/stories?limit=100&offset=0&order=desc"

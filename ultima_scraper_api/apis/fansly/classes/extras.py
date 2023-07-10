@@ -89,8 +89,14 @@ class AuthDetails:
     def upgrade_legacy(self, options: dict[str, Any]):
         return self
 
-    def export(self):
+    def export(self, model: Any = None):
         new_dict = copy.copy(self.__dict__)
+        if model:
+            for att in new_dict.copy():
+                if att not in model.__annotations__:
+                    del new_dict[att]
+            new_dict["user_id"] = new_dict["id"]
+            del new_dict["id"]
         return new_dict
 
 
@@ -278,6 +284,7 @@ class endpoint_links(object):
         self.transactions = (
             f"https://onlyfans.com/api2/v2/payments/all/transactions?limit=10&offset=0"
         )
+        self.list_comments_api = f"{full_url_path}/{identifier}/{identifier2}/replies"
         self.two_factor = f"https://onlyfans.com/api2/v2/users/otp/check"
 
     def list_followings(self, identifier: int, offset: int = 0):
@@ -299,17 +306,6 @@ class endpoint_links(object):
         global_offset: int = 0,
     ):
         return f"{self.full_url_path}/timeline/{content_id}?before={global_offset}"
-
-    def list_comments(
-        self,
-        content_type: str,
-        content_id: Optional[int | str],
-        global_limit: int = 10,
-        global_offset: int = 0,
-        sort_order: Literal["asc", "desc"] = "desc",
-    ):
-        content_type = f"{content_type}s" if content_type[0] != "s" else content_type
-        return f"{self.full_url_path}/{content_type}/{content_id}/comments?limit={global_limit}&offset={global_offset}&sort={sort_order}"
 
     def create_links(self, link: str, api_count: int, limit: int = 10, offset: int = 0):
         """

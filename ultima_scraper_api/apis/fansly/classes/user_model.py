@@ -33,7 +33,7 @@ class create_user(StreamlinedUser):
         self.header: Any = option.get("banner")
         self.headerSize: Any = option.get("headerSize")
         self.headerThumbs: Any = option.get("headerThumbs")
-        self.id: int = option.get("id")
+        self.id: int = int(option.get("id", 9001))
         self.name: str = option.get("name")
         self.username: str = option.get("username")
         self.canLookStory: bool = option.get("canLookStory")
@@ -71,20 +71,19 @@ class create_user(StreamlinedUser):
         self.website: str = option.get("website")
         self.wishlist: str = option.get("wishlist")
         self.location: str = option.get("location")
-        timeline_status = option.get("timelineStats", {})
-        self.postsCount: int = option.get("postsCount")
-        self.archivedPostsCount: int = option.get("archivedPostsCount")
-        self.photosCount: int = timeline_status.get("imageCount")
-        self.videosCount: int = timeline_status.get("videoCount")
-        self.audiosCount: int = option.get("audiosCount")
-        self.mediasCount: int = option.get("mediasCount")
+        timeline_stats = option.get("timelineStats", {})
+        self.postsCount: int = option.get("postsCount", 0)
+        self.archivedPostsCount: int = option.get("archivedPostsCount", 0)
+        self.photosCount: int = timeline_stats.get("imageCount", 0)
+        self.videosCount: int = timeline_stats.get("videoCount", 0)
+        self.audiosCount: int = option.get("audiosCount", 0)
+        self.mediasCount: int = option.get("mediasCount", 0)
         self.promotions: list = option.get("promotions")
         self.lastSeen: Any = option.get("lastSeen")
-        self.favoritesCount: int = option.get("favoritesCount")
-        self.favoritedCount: int = option.get("favoritedCount")
+        self.favoritedCount: int = option.get("accountMediaLikes")
         self.showPostsInFeed: bool = option.get("showPostsInFeed")
         self.canReceiveChatMessage: bool = option.get("canReceiveChatMessage")
-        self.isPerformer: bool = option.get("isPerformer")
+        self.isPerformer: bool = bool(self.subscriptionBundles)
         self.isRealPerformer: bool = option.get("isRealPerformer")
         self.isSpotifyConnected: bool = option.get("isSpotifyConnected")
         self.subscribersCount: int = option.get("subscribersCount")
@@ -110,7 +109,9 @@ class create_user(StreamlinedUser):
         self.hasNewTicketReplies: dict = option.get("hasNewTicketReplies")
         self.hasInternalPayments: bool = option.get("hasInternalPayments")
         self.isCreditsEnabled: bool = option.get("isCreditsEnabled")
-        self.creditBalance: float = option.get("creditBalance")
+        self.creditBalance: float = (
+            option["mainWallet"]["balance"] if "mainWallet" in option else 0
+        )
         self.isMakePayment: bool = option.get("isMakePayment")
         self.isOtpEnabled: bool = option.get("isOtpEnabled")
         self.email: str = option.get("email")
@@ -227,6 +228,7 @@ class create_user(StreamlinedUser):
         self.duplicate_media = []
         self.scrape_manager = ScrapeManager(authed.session_manager)
         self.__raw__ = option
+        self.__db_user__: Any = None
         StreamlinedUser.__init__(self, authed)
 
     def get_username(self):
@@ -351,6 +353,7 @@ class create_user(StreamlinedUser):
         links: Optional[list[str]] = None,
         limit: int = 100000,
         before: str = "",
+        cutoff_id: int | None = None,
         refresh: bool = True,
         inside_loop: bool = False,
     ):
@@ -363,8 +366,8 @@ class create_user(StreamlinedUser):
         found_id: Optional[int] = None
         for group in groups["groups"]:
             for user in group["users"]:
-                if self.id == user["userId"]:
-                    found_id = user["groupId"]
+                if self.id == int(user["userId"]):
+                    found_id = int(user["groupId"])
                     break
         final_results: list[message_model.create_message] = []
         if found_id:
@@ -515,13 +518,8 @@ class create_user(StreamlinedUser):
         """
         Returns subscription price. This includes the promotional price.
         """
-        subscription_price = self.subscribePrice
-        if self.promotions:
-            for promotion in self.promotions:
-                promotion_price = promotion["price"]
-                if promotion_price < subscription_price:
-                    subscription_price = promotion_price
-        return subscription_price
+        for bundle in self.subscriptionBundles:
+            return bundle["price"] / 1000
 
     async def buy_subscription(self):
         """

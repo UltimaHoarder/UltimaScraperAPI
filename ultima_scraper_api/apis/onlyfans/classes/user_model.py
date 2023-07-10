@@ -26,7 +26,7 @@ class create_user(StreamlinedUser):
         self.header: Optional[str] = option.get("header")
         self.headerSize: Optional[dict[str, int]] = option.get("headerSize")
         self.headerThumbs: Optional[list[str]] = option.get("headerThumbs")
-        self.id: int = option.get("id")
+        self.id: int = int(option.get("id", 9001))
         self.name: str = option.get("name")
         self.username: str = option.get("username")
         self.canLookStory: bool = option.get("canLookStory")
@@ -218,6 +218,7 @@ class create_user(StreamlinedUser):
         self.duplicate_media = []
         self.scrape_manager = ScrapeManager(authed.session_manager)
         self.__raw__ = option
+        self.__db_user__: Any = None
         StreamlinedUser.__init__(self, authed)
 
     def get_username(self):
@@ -332,7 +333,8 @@ class create_user(StreamlinedUser):
         self,
         links: list[str] = [],
         limit: int = 10,
-        offset: int = 0,
+        offset_id: int = 0,
+        cutoff_id: int | None = None,
         depth: int = 1,
         refresh: bool = True,
     ):
@@ -341,17 +343,11 @@ class create_user(StreamlinedUser):
             return result
         if self.is_deleted:
             return result
-        multiplier = self.get_session_manager().max_threads
         temp_limit = limit
-        temp_offset = offset
         link = endpoint_links(
-            identifier=self.id, global_limit=temp_limit, global_offset=temp_offset
+            identifier=self.id, global_limit=temp_limit, global_offset=offset_id
         ).message_api
-        unpredictable_links, new_offset = api_helper.calculate_the_unpredictable(
-            link, offset, limit, multiplier, depth
-        )
-        links = unpredictable_links if depth != 1 else links + unpredictable_links
-        results = await self.get_session_manager().bulk_json_requests(links)
+        results = await self.get_session_manager().bulk_json_requests([link])
         results = await api_helper.remove_errors(results)
         final_results = []
         if isinstance(results, list):
@@ -359,21 +355,18 @@ class create_user(StreamlinedUser):
             has_more = results[-1]["hasMore"] if results else False
             final_results = [x["list"] for x in results if "list" in x]
             final_results = list(chain.from_iterable(final_results))
-
             if has_more:
-                results2 = await self.get_messages(
-                    limit=temp_limit,
-                    offset=new_offset,
-                    depth=depth + 1,
-                )
-                final_results.extend(results2)
-            if depth == 1:
-                if len(final_results) > 1:
-                    last_link = f"{link}&id={final_results[-1]['id']}"
-                    first_message = await self.get_session_manager().json_request(
-                        last_link
+                temp_offset_id = final_results[-1]["id"]
+                if not any(x for x in final_results if x["id"] == cutoff_id):
+                    pass
+                    results2 = await self.get_messages(
+                        limit=temp_limit,
+                        offset_id=temp_offset_id,
+                        cutoff_id=cutoff_id,
+                        depth=depth + 1,
                     )
-                    final_results.extend(first_message["list"])
+                    final_results.extend(results2)
+            if depth == 1:
                 final_results = [
                     message_model.create_message(x, self) for x in final_results if x
                 ]

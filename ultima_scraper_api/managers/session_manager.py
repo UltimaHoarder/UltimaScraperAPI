@@ -245,6 +245,7 @@ class SessionManager:
                 pass
 
             # await self.limit_rate()
+            result = None
             try:
                 match method.upper():
                     case "GET":
@@ -258,6 +259,7 @@ class SessionManager:
             except Exception as _e:
                 continue
             try:
+                assert result
                 result.raise_for_status()
                 return result
             except EXCEPTION_TEMPLATE as _e:
@@ -266,6 +268,7 @@ class SessionManager:
             except ClientResponseError as _e:
                 match _e.status:
                     case 400 | 401 | 403 | 404:
+                        assert result
                         return result
                     case 429:
                         pass
