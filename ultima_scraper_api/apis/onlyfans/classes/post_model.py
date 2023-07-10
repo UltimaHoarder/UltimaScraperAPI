@@ -4,6 +4,7 @@ from datetime import datetime
 from typing import TYPE_CHECKING, Any
 
 from ultima_scraper_api.apis.onlyfans import SiteContent
+from ultima_scraper_api.apis.onlyfans.classes.comment_model import CommentModel
 from ultima_scraper_api.apis.onlyfans.classes.extras import endpoint_links
 
 if TYPE_CHECKING:
@@ -14,9 +15,6 @@ class create_post(SiteContent):
     def __init__(self, option: dict[str, Any], user: create_user) -> None:
         SiteContent.__init__(self, option, user)
         self.responseType: str = option.get("responseType")
-        self.createdAt: str = option.get("postedAt")
-        self.postedAtPrecise: str = option.get("postedAtPrecise")
-        self.expiredAt: Any = option.get("expiredAt")
         text: str = option.get("text", "")
         self.text = str(text or "")
         raw_text: str = option.get("rawText", "")
@@ -49,6 +47,7 @@ class create_post(SiteContent):
         self.canViewMedia: bool = option.get("canViewMedia")
         self.preview: list[int] = option.get("preview", [])
         self.canPurchase: bool = option.get("canPurchase")
+        self.comments: list[CommentModel] = []
         self.created_at: datetime = datetime.fromisoformat(option["postedAt"])
         self.postedAtPrecise: str = option.get("postedAtPrecise")
         self.expiredAt: Any = option.get("expiredAt")
@@ -61,8 +60,14 @@ class create_post(SiteContent):
         link = epl.list_comments(self.responseType, self.id)
         links = epl.create_links(link, self.commentsCount)
         if links:
-            results = await self.author.scrape_manager.bulk_scrape(links)
-            self.comments = results
+            results: list[
+                dict[str, Any]
+            ] = await self.author.scrape_manager.bulk_scrape(links)
+            authed = self.author.get_authed()
+            final_results = [
+                CommentModel(x, await authed.resolve_user(x["author"])) for x in results
+            ]
+            self.comments = final_results
         return self.comments
 
     async def favorite(self):

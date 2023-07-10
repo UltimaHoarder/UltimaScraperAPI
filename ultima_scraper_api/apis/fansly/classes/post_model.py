@@ -4,6 +4,7 @@ from datetime import datetime
 from typing import TYPE_CHECKING, Any
 
 from ultima_scraper_api.apis.fansly import SiteContent
+from ultima_scraper_api.apis.fansly.classes.comment_model import CommentModel
 from ultima_scraper_api.apis.fansly.classes.extras import endpoint_links
 
 if TYPE_CHECKING:
@@ -19,9 +20,6 @@ class create_post(SiteContent):
     ) -> None:
         SiteContent.__init__(self, option, user)
         self.responseType: str = option.get("responseType")
-        self.createdAt: str = option.get("createdAt")
-        self.postedAtPrecise: str = option.get("postedAtPrecise")
-        self.expiredAt: Any = option.get("expiredAt")
         self.author = user
         text: str = option.get("content", "")
         self.text = str(text or "")
@@ -48,15 +46,17 @@ class create_post(SiteContent):
         self.isArchived: bool = option.get("isArchived")
         self.isDeleted: bool = option.get("isDeleted")
         self.hasUrl: bool = option.get("hasUrl")
-        self.commentsCount: int = option.get("commentsCount")
+        self.commentsCount: int = option.get("replyCount")
         self.mentionedUsers: list = option.get("mentionedUsers")
         self.linkedUsers: list = option.get("linkedUsers")
         self.linkedPosts: list = option.get("linkedPosts")
         self.previews: list[dict[str, Any]] = option.get("previews", [])
         self.attachments: list[dict[str, Any]] = option.get("attachments", {})
+        self.comments: list[CommentModel] = []
         self.created_at: datetime = datetime.fromtimestamp(option["createdAt"])
         self.postedAtPrecise: str = option.get("postedAtPrecise")
         self.expiredAt: Any = option.get("expiredAt")
+
         # Custom
         final_media_ids: list[Any] = []
         for attachment in self.attachments:
@@ -96,12 +96,23 @@ class create_post(SiteContent):
         return self.author
 
     async def get_comments(self):
-        epl = endpoint_links()
-        link = epl.list_comments(self.responseType, self.id)
-        links = epl.create_links(link, self.commentsCount)
-        if links:
-            results = await self.author.scrape_manager.bulk_scrape(links)
-            self.comments = results
+        if not self.commentsCount:
+            return
+        epl = endpoint_links("post", self.id)
+        link = epl.list_comments_api
+        result: list[dict[str, Any]] = await self.author.scrape_manager.scrape(link)
+        response: dict[str, Any] = result["response"]
+        authed = self.author.get_authed()
+        final_results = [
+            CommentModel(
+                x,
+                await authed.resolve_user(
+                    [y for y in response["accounts"] if y["id"] == x["accountId"]][0]
+                ),
+            )
+            for x in response["posts"]
+        ]
+        self.comments = final_results
         return self.comments
 
     async def favorite(self):

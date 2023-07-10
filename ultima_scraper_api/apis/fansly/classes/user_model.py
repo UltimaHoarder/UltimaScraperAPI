@@ -320,6 +320,8 @@ class create_user(StreamlinedUser):
             final_results = [
                 post_model.create_post(x, self, results) for x in results["posts"]
             ]
+            for result in final_results:
+                await result.get_comments()
             self.scrape_manager.scraped.Posts = final_results
         return final_results
 

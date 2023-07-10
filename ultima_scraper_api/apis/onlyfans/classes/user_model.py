@@ -308,6 +308,8 @@ class create_user(StreamlinedUser):
             links = epl.create_links(link, self.postsCount, limit=limit)
         results = await self.scrape_manager.bulk_scrape(links)
         final_results = self.finalize_content_set(results)
+        for result in final_results:
+            await result.get_comments()
         self.scrape_manager.scraped.Posts = final_results
         return final_results
 
