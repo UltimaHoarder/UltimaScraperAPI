@@ -4,7 +4,7 @@ from typing import TYPE_CHECKING, Any
 
 import ultima_scraper_api
 from ultima_scraper_api.apis import api_helper
-from ultima_scraper_api.classes.make_settings import Config
+from ultima_scraper_api.config import UltimaScraperAPIConfig
 
 if TYPE_CHECKING:
     api_types = ultima_scraper_api.api_types
@@ -38,12 +38,11 @@ class StreamlinedAPI:
     def __init__(
         self,
         api: api_types,
-        config: Config,
+        config: UltimaScraperAPIConfig,
     ) -> None:
         from ultima_scraper_api.managers.job_manager.job_manager import JobManager
 
         self.api = api
-        self.max_threads = config.settings.max_threads
         self.config = config
         self.lists = None
         self.pool = api_helper.CustomPool()
@@ -82,7 +81,7 @@ class StreamlinedAPI:
                 pass
 
     def get_site_settings(self):
-        return self.config.supported.get_settings(self.api.site_name)
+        return self.config.site_apis.get_settings(self.api.site_name)
 
     def get_global_settings(self):
         return self.config.settings

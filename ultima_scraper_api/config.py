@@ -1,6 +1,9 @@
 from pathlib import Path
+from typing import Literal
 
 from pydantic import BaseModel
+
+site_name_literals = Literal["OnlyFans", "Fansly"]
 
 
 class Network(BaseModel):
@@ -35,7 +38,7 @@ class GlobalAPI(BaseModel):
     pass
 
 
-class OnlyFansAPI(GlobalAPI):
+class OnlyFansAPIConfig(GlobalAPI):
     class OnlyFansCache(GlobalCache):
         paid_content = 3600 * 1
 
@@ -43,7 +46,7 @@ class OnlyFansAPI(GlobalAPI):
     cache = OnlyFansCache()
 
 
-class FanslyAPI(GlobalAPI):
+class FanslyAPIConfig(GlobalAPI):
     class FanslyCache(GlobalCache):
         pass
 
@@ -51,8 +54,14 @@ class FanslyAPI(GlobalAPI):
 
 
 class Sites(BaseModel):
-    onlyfans: OnlyFansAPI = OnlyFansAPI()
-    fansly: FanslyAPI = FanslyAPI()
+    onlyfans: OnlyFansAPIConfig = OnlyFansAPIConfig()
+    fansly: FanslyAPIConfig = FanslyAPIConfig()
+
+    def get_settings(self, site_name: site_name_literals):
+        if site_name == "OnlyFans":
+            return self.onlyfans
+        else:
+            return self.fansly
 
 
 class UltimaScraperAPIConfig(BaseModel):

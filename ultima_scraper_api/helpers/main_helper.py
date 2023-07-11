@@ -13,7 +13,6 @@ from typing import TYPE_CHECKING, Any, BinaryIO, Literal
 import orjson
 import requests
 import ultima_scraper_api
-import ultima_scraper_api.classes.make_settings as make_settings
 import ultima_scraper_api.classes.prepare_webhooks as prepare_webhooks
 from aiofiles import os as async_os
 from bs4 import BeautifulSoup
@@ -120,39 +119,10 @@ async def format_file(filepath: Path, timestamp: float, reformat_media: bool):
             break
 
 
-def check_space(
-    download_paths: list[Path],
-    min_size: int = 0,
-    priority: str = "download",
-) -> Path:
-    root = ""
-    while not root:
-        paths = []
-        for download_path in download_paths:
-            # ISSUE
-            # Could cause problems w/ relative/symbolic links that point to another hard drive
-            # Haven't tested if it calculates hard A or relative/symbolic B's total space.
-            obj_Disk = disk_usage(str(download_path.parent))
-            free = obj_Disk.free / (1024.0**3)
-            x = {}
-            x["path"] = download_path
-            x["free"] = free
-            paths.append(x)
-        if priority == "download":
-            for item in paths:
-                download_path = item["path"]
-                free = item["free"]
-                if free > min_size:
-                    root = download_path
-                    break
-        elif priority == "upload":
-            paths.sort(key=lambda x: x["free"])
-            item = paths[0]
-            root = item["path"]
-    return root
-
-
-def prompt_modified(message: str, path: Path):
+def prompt_modified(message: str, path: Path | None = None):
+    input(message)
+    return
+    # Need to move this to an edit config function (tired of all the pop ups)
     editor = shutil.which(
         os.environ.get("EDITOR", "notepad" if os_name == "Windows" else "nano")
     )
@@ -171,47 +141,49 @@ def import_json(json_path: Path):
     return json_file
 
 
-def export_json(metadata: list[Any] | dict[str, Any], filepath: Path):
+def export_json(data: list[Any] | dict[str, Any], filepath: Path):
     if filepath.suffix:
         filepath.parent.mkdir(exist_ok=True)
-    filepath.write_bytes(orjson.dumps(metadata, option=orjson.OPT_INDENT_2))
+    filepath.write_bytes(orjson.dumps(data, option=orjson.OPT_INDENT_2))
 
 
 def object_to_json(item: Any):
-    _json = orjson.loads(orjson.dumps(item, default=lambda o: o.__dict__))
+    _json = orjson.loads(item.json())
     return _json
 
 
-def get_config(config_path: Path) -> tuple[make_settings.Config, bool]:
+from typing import TypeVar, Type
+
+T = TypeVar("T")
+
+
+def get_config(config_path: Path, config_class: Type[T]) -> tuple[T, bool]:
     json_config = import_json(config_path)
+    if "supported" in json_config:
+        config_path.rename(config_path.parent.joinpath("old_config.json"))
     old_json_config = copy.deepcopy(json_config)
-    new_json_config = make_settings.fix(json_config)
-    converted_object = make_settings.Config(**new_json_config)
-    new_json_config = object_to_json(converted_object.export())
-    updated = False
+    new_json_config = old_json_config
+    converted_object = config_class(**new_json_config)
+    new_json_config = object_to_json(converted_object)
+    updated = True if json_config else False
+    status = "updated" if updated else "created"
     if new_json_config != old_json_config:
         export_json(new_json_config, config_path)
-        if json_config:
-            updated = True
-            prompt_modified(
-                f"The {config_path} file has been updated. Fill in whatever you need to fill in and then press enter when done.\n",
-                config_path,
-            )
-        else:
-            if not json_config:
-                prompt_modified(
-                    f"The {config_path} file has been created. Fill in whatever you need to fill in and then press enter when done.\n",
-                    config_path,
-                )
+        prompt_modified(
+            f"The {config_path} file has been {status}. Fill in whatever you need to fill in and then press enter when done.\n",
+        )
 
     return converted_object, updated
+
+
+from ultima_scraper_api.config import Settings
 
 
 async def process_webhooks(
     api: api_types,
     category: str,
     category_2: Literal["succeeded", "failed"],
-    global_settings: make_settings.Settings,
+    global_settings: Settings,
 ):
     webhook_settings = global_settings.webhooks
     global_webhooks = webhook_settings.global_webhooks
@@ -304,7 +276,7 @@ def find_between(s: str, start: str, end: str):
     return x
 
 
-def extract_string_between_characters(text:str, opening_char:str, closing_char:str):
+def extract_string_between_characters(text: str, opening_char: str, closing_char: str):
     pattern = re.escape(opening_char) + r"(.*?)" + re.escape(closing_char)
     matches = re.findall(pattern, text)
     return matches

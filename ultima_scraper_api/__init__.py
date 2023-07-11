@@ -6,7 +6,6 @@ from ultima_scraper_api.apis.fansly.classes.extras import FanslyAuthenticator
 from ultima_scraper_api.apis.fansly.fansly import FanslyAPI
 from ultima_scraper_api.apis.onlyfans.classes.extras import OnlyFansAuthenticator
 from ultima_scraper_api.apis.onlyfans.onlyfans import OnlyFansAPI
-from ultima_scraper_api.classes.make_settings import Config
 
 api_types = OnlyFansAPI | FanslyAPI
 authenticator_types = OnlyFansAuthenticator | FanslyAuthenticator
@@ -31,9 +30,10 @@ subscription_types = (
 
 content_types = story_types | post_types | message_types
 error_types = onlyfans_classes.extras.ErrorDetails | fansly_classes.extras.ErrorDetails
+from ultima_scraper_api.config import UltimaScraperAPIConfig
 
 
-def select_api(option: str, config: Config = Config()):
+def select_api(option: str, config: UltimaScraperAPIConfig = UltimaScraperAPIConfig()):
     """Allows you to select an API
 
     Args:

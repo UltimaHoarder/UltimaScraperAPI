@@ -88,15 +88,12 @@ class SessionManager:
         self.kill = False
         self.headers = headers
         self.proxies: list[str] = (
-            proxies if proxies else auth.api.config.settings.proxies
+            proxies if proxies else auth.api.config.settings.network.proxies
         )
         self.proxy_manager = ProxyManager(self)
-        global_settings = auth.api.get_global_settings()
-        dynamic_rules_link = (
-            global_settings.dynamic_rules_link if global_settings else ""
-        )
-        dr_link = dynamic_rules_link
-        dynamic_rules = requests.get(dr_link).json()  # type: ignore
+        site_settings = auth.api.config.site_apis.get_settings(auth.api.site_name)
+        dynamic_rules_url = getattr(site_settings, "dynamic_rules_url")
+        dynamic_rules = requests.get(dynamic_rules_url).json()  # type: ignore
         self.dynamic_rules = dynamic_rules
         self.auth = auth
         self.use_cookies: bool = use_cookies

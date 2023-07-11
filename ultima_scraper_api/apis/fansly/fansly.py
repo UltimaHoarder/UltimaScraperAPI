@@ -12,11 +12,13 @@ from ultima_scraper_api.apis.fansly.classes.message_model import create_message
 from ultima_scraper_api.apis.fansly.classes.post_model import create_post
 from ultima_scraper_api.apis.fansly.classes.story_model import create_story
 from ultima_scraper_api.apis.fansly.classes.user_model import create_user
-from ultima_scraper_api.classes.make_settings import Config
+from ultima_scraper_api.config import UltimaScraperAPIConfig
 
 
 class FanslyAPI(StreamlinedAPI):
-    def __init__(self, config: Config = Config()) -> None:
+    def __init__(
+        self, config: UltimaScraperAPIConfig = UltimaScraperAPIConfig()
+    ) -> None:
         self.site_name: Literal["Fansly"] = "Fansly"
         StreamlinedAPI.__init__(self, self, config)
         self.auths: list[AuthModel] = []
