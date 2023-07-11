@@ -5,7 +5,6 @@ from urllib.parse import urlparse
 
 if TYPE_CHECKING:
     from ultima_scraper_api.apis.fansly.classes.user_model import (
-        AuthModel,
         create_user,
     )
 
