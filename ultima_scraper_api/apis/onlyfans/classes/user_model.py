@@ -600,20 +600,23 @@ class create_user(StreamlinedUser):
         return result
 
     async def get_socials(self):
-        result: list[dict[str, Any]] = await self.get_session_manager().json_request(
+        results: list[dict[str, Any]] | dict[
+            str, Any
+        ] = await self.get_session_manager().json_request(
             endpoint_links(self.id).socials
         )
-        if "error" in result:
-            return []
-        return result
+        if "error" in results:
+            results = []
+        assert isinstance(results, list)
+        return results
 
     async def get_spotify(self):
         if self.isSpotifyConnected:
-            result = await self.get_session_manager().json_request(
+            result: dict[str, Any] = await self.get_session_manager().json_request(
                 endpoint_links(self.id).spotify
             )
             if "error" in result:
-                return []
+                result = {}
             return result
 
     async def has_spotify(self):
