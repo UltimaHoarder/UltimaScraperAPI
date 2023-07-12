@@ -4,9 +4,8 @@ from itertools import chain
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Literal, Optional, Union
 
-from user_agent import generate_user_agent
-
 from ultima_scraper_api.managers.session_manager import SessionManager
+from user_agent import generate_user_agent
 
 if TYPE_CHECKING:
     from ultima_scraper_api.apis.fansly.fansly import FanslyAPI
@@ -337,8 +336,6 @@ def create_headers(
     headers["referer"] = link
     headers["user-id"] = str(auth_id)
     headers["x-bc"] = ""
-    for remove_header in dynamic_rules["remove_headers"]:
-        headers.pop(remove_header)
     return headers
 
 

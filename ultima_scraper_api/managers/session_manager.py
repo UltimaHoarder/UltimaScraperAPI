@@ -13,6 +13,8 @@ from urllib.parse import urlparse
 import aiohttp
 import python_socks
 import requests
+import ultima_scraper_api
+import ultima_scraper_api.apis.api_helper as api_helper
 from aiohttp import ClientResponse, ClientSession
 from aiohttp.client_exceptions import (
     ClientConnectorError,
@@ -23,9 +25,6 @@ from aiohttp.client_exceptions import (
     ServerDisconnectedError,
 )
 from aiohttp_socks import ProxyConnectionError, ProxyConnector, ProxyError, ProxyInfo
-
-import ultima_scraper_api
-import ultima_scraper_api.apis.api_helper as api_helper
 
 if TYPE_CHECKING:
     auth_types = ultima_scraper_api.auth_types
@@ -92,9 +91,15 @@ class SessionManager:
         )
         self.proxy_manager = ProxyManager(self)
         site_settings = auth.api.config.site_apis.get_settings(auth.api.site_name)
-        dynamic_rules_url = getattr(site_settings, "dynamic_rules_url")
-        dynamic_rules = requests.get(dynamic_rules_url).json()  # type: ignore
-        self.dynamic_rules = dynamic_rules
+        self.dynamic_rules = None
+        from ultima_scraper_api.apis.onlyfans.classes.extras import (
+            OnlyFansAuthenticator,
+        )
+
+        if isinstance(auth, OnlyFansAuthenticator):
+            dynamic_rules_url = getattr(site_settings, "dynamic_rules_url")
+            dynamic_rules = requests.get(dynamic_rules_url).json()  # type: ignore
+            self.dynamic_rules = dynamic_rules
         self.auth = auth
         self.use_cookies: bool = use_cookies
         self.active_session = self.create_client_session()
