@@ -128,7 +128,7 @@ class AuthModel(StreamlinedAuth):
                 url = endpoint_links(identifier).users_by_username
                 pass
             response = await self.session_manager.json_request(url)
-            if "error" not in response:
+            if "error" not in response and len(response["response"]):
                 response["session_manager"] = self.session_manager
                 response = create_user(response["response"][0], self)
             return response
