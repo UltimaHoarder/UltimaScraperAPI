@@ -300,6 +300,8 @@ class AuthModel(StreamlinedAuth):
                 for account in aggregationData["accounts"]:
                     if result["partnerAccountId"] == account["id"]:
                         result["withUser"] = create_user(account, self)
+                if "withUser" not in result:
+                    continue
                 for group in aggregationData["groups"]:
                     found_user = [
                         x
@@ -311,7 +313,7 @@ class AuthModel(StreamlinedAuth):
                         result["lastMessage"] = create_message(
                             last_message, result["withUser"]
                         )
-            final_results = final_results["data"]
+            final_results = [x for x in final_results["data"] if "withUser" in x]
             final_results.sort(key=lambda x: x["withUser"].id, reverse=True)
         self.chats = final_results
         return final_results
