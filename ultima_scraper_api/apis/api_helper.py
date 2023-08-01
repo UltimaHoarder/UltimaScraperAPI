@@ -201,7 +201,7 @@ async def remove_errors(results: Any):
         final_results.append(results)
     else:
         final_results = results
-    final_results = [x for x in final_results if not isinstance(x, error_types)]
+    final_results = [x for x in final_results if not isinstance(x, error_types) and not (isinstance(x, dict) and "error" in x)]
     if wrapped and final_results:
         final_results = final_results[0]
     return final_results
