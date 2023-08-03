@@ -320,6 +320,6 @@ class AuthModel(StreamlinedAuth):
 
     async def get_scrapable_users(self):
         followed_users = self.followed_users
-        subscription_users = [x.user for x in self.subscriptions]
+        subscription_users = [x.user for x in self.subscriptions if x.user.active]
         unique_users = list(set(followed_users) | set(subscription_users))
         return unique_users
