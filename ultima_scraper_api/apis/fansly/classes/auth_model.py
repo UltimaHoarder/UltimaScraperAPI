@@ -312,6 +312,8 @@ class AuthModel(StreamlinedAuth):
                 for account in aggregationData["accounts"]:
                     if result["partnerAccountId"] == account["id"]:
                         result["withUser"] = create_user(account, self)
+                if "withUser" not in result:
+                    continue
                 for group in aggregationData["groups"]:
                     found_user = [
                         x
@@ -323,7 +325,7 @@ class AuthModel(StreamlinedAuth):
                         result["lastMessage"] = create_message(
                             last_message, result["withUser"]
                         )
-            final_results = final_results["data"]
+            final_results = [x for x in final_results["data"] if "withUser" in x]
             final_results.sort(key=lambda x: x["withUser"].id, reverse=True)
         self.chats = final_results
         return final_results
@@ -342,6 +344,6 @@ class AuthModel(StreamlinedAuth):
 
     async def get_scrapable_users(self):
         followed_users = self.followed_users
-        subscription_users = [x.user for x in self.subscriptions]
+        subscription_users = [x.user for x in self.subscriptions if x.user.active]
         unique_users = list(set(followed_users) | set(subscription_users))
         return unique_users

@@ -265,9 +265,10 @@ class AuthModel(StreamlinedAuth):
         final_results = list(chain.from_iterable(final_results))
         for result in final_results:
             result["withUser"] = create_user(result["withUser"], self)
-            result["lastMessage"] = create_message(
-                result["lastMessage"], result["withUser"]
-            )
+            if result["lastMessage"]:
+                result["lastMessage"] = create_message(
+                    result["lastMessage"], result["withUser"]
+                )
 
         if has_more:
             results2 = await self.get_chats(
