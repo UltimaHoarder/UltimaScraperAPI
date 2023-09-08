@@ -256,6 +256,10 @@ class SessionManager:
                         result = await self.active_session.post(
                             url, headers=headers, data=data
                         )
+                    case "DELETE":
+                        result = await self.active_session.delete(url, headers=headers)
+                    case _:
+                        raise Exception("Method not found")
             except EXCEPTION_TEMPLATE as _e:
                 continue
             except Exception as _e:

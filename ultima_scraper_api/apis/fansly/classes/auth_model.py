@@ -6,6 +6,7 @@ from itertools import product
 from typing import TYPE_CHECKING, Any, Dict
 
 from dateutil.relativedelta import relativedelta
+
 from ultima_scraper_api.apis import api_helper
 from ultima_scraper_api.apis.auth_streamliner import StreamlinedAuth
 from ultima_scraper_api.apis.fansly import SubscriptionType
@@ -110,7 +111,7 @@ class AuthModel(StreamlinedAuth):
             return False
 
     def find_user_by_identifier(self, identifier: int | str):
-        if isinstance(identifier,str) and identifier.isnumeric():
+        if isinstance(identifier, str) and identifier.isnumeric():
             identifier = int(identifier)
         user = [x for x in self.users if x.id == identifier or x.username == identifier]
         if user:
@@ -264,13 +265,9 @@ class AuthModel(StreamlinedAuth):
             case "all":
                 pass
             case "active":
-                subscriptions = [
-                    x for x in subscriptions if x.ends_at > datetime.utcnow()
-                ]
+                subscriptions = [x for x in subscriptions if x.ends_at > datetime.now()]
             case "expired":
-                subscriptions = [
-                    x for x in subscriptions if x.ends_at < datetime.utcnow()
-                ]
+                subscriptions = [x for x in subscriptions if x.ends_at < datetime.now()]
         return subscriptions
 
     async def get_chats(

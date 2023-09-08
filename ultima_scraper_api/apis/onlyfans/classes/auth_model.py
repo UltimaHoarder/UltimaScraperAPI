@@ -284,19 +284,17 @@ class AuthModel(StreamlinedAuth):
         self.chats = final_results
         return final_results
 
-    async def get_mass_messages(
+    async def get_mass_message_stats(
         self,
         resume: Optional[list[dict[str, Any]]] = None,
-        refresh: bool = True,
-        limit: int = 10,
+        limit: int = 100,
         offset: int = 0,
     ) -> list[dict[str, Any]]:
-        result, status = await api_helper.default_data(self, refresh)
-        if status:
-            return result
+        if not self.cache.mass_messages.is_released():
+            return self.mass_messages
         link = endpoint_links(
             global_limit=limit, global_offset=offset
-        ).mass_messages_api
+        ).mass_messages_stats
         results = await self.session_manager.json_request(link)
         items = results.get("list", [])
         if not items:
@@ -311,10 +309,12 @@ class AuthModel(StreamlinedAuth):
                     resume.append(item)
 
         if results["hasMore"]:
-            results2 = self.get_mass_messages(
+            results2 = await self.get_mass_message_stats(
                 resume=resume, limit=limit, offset=limit + offset
             )
             items.extend(results2)
+        else:
+            self.cache.mass_messages.activate()
         if resume:
             items = resume
 

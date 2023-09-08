@@ -8,16 +8,17 @@ import shutil
 import subprocess
 from datetime import datetime
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, BinaryIO, Literal
+from typing import TYPE_CHECKING, Any, BinaryIO, Literal, Type, TypeVar
 
 import orjson
 import requests
-import ultima_scraper_api
-import ultima_scraper_api.classes.prepare_webhooks as prepare_webhooks
 from aiofiles import os as async_os
 from bs4 import BeautifulSoup
 from dateutil.relativedelta import relativedelta
 from mergedeep import Strategy, merge  # type: ignore
+
+import ultima_scraper_api
+import ultima_scraper_api.classes.prepare_webhooks as prepare_webhooks
 
 if TYPE_CHECKING:
     pass
@@ -134,11 +135,9 @@ def prompt_modified(message: str, path: Path | None = None):
 
 
 def import_json(json_path: Path):
-    json_file: dict[str, Any] = {}
-    if json_path.exists() and json_path.stat().st_size and json_path.suffix == ".json":
-        with json_path.open(encoding="utf-8") as o_file:
-            json_file = orjson.loads(o_file.read())
-    return json_file
+    with json_path.open(encoding="utf-8") as o_file:
+        json_file = orjson.loads(o_file.read())
+        return json_file
 
 
 def export_json(data: list[Any] | dict[str, Any], filepath: Path):
@@ -151,8 +150,6 @@ def object_to_json(item: Any):
     _json = orjson.loads(item.json())
     return _json
 
-
-from typing import TypeVar, Type
 
 T = TypeVar("T")
 

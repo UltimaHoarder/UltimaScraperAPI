@@ -101,7 +101,7 @@ class create_user(StreamlinedUser):
         self.canCreatePromotion: bool = option.get("canCreatePromotion")
         self.canCreateTrial: bool = option.get("canCreateTrial")
         self.isAdultContent: bool = option.get("isAdultContent")
-        self.isBlocked: bool = option.get("isBlocked")
+        self.ignoring: int = option.get("ignoring", 0)
         self.canTrialSend: bool = option.get("canTrialSend")
         self.canAddPhone: bool = option.get("canAddPhone")
         self.phoneLast4: Any = option.get("phoneLast4")
@@ -224,6 +224,7 @@ class create_user(StreamlinedUser):
         self.maxPinnedPostsCount: int = option.get("maxPinnedPostsCount")
         # Custom
         authed.users.add(self)
+        self.is_blocked: bool = True if self.ignoring == 2 else False
         self.download_info: dict[str, Any] = {}
         self.duplicate_media = []
         self.scrape_manager = ScrapeManager(authed.session_manager)

@@ -92,7 +92,7 @@ class create_user(StreamlinedUser):
         self.canCreatePromotion: bool = option.get("canCreatePromotion")
         self.canCreateTrial: bool = option.get("canCreateTrial")
         self.isAdultContent: bool = option.get("isAdultContent")
-        self.isBlocked: bool = option.get("isBlocked")
+        self.is_blocked: bool = option.get("isBlocked")
         self.canTrialSend: bool = option.get("canTrialSend")
         self.canAddPhone: bool = option.get("canAddPhone")
         self.phoneLast4: Any = option.get("phoneLast4")
@@ -308,8 +308,6 @@ class create_user(StreamlinedUser):
             links = epl.create_links(link, self.postsCount, limit=limit)
         results = await self.scrape_manager.bulk_scrape(links)
         final_results = self.finalize_content_set(results)
-        for result in final_results:
-            await result.get_comments()
         self.scrape_manager.scraped.Posts = final_results
         return final_results
 
@@ -626,4 +624,18 @@ class create_user(StreamlinedUser):
                 endpoint_links(self.id).spotify
             )
         )
+        return result
+
+    async def block(self):
+        block_url = endpoint_links(self.id).block
+        result = await self.get_session_manager().json_request(block_url, method="POST")
+
+        return result
+
+    async def unblock(self):
+        block_url = endpoint_links(self.id).block
+        result = await self.get_session_manager().json_request(
+            block_url, method="DELETE"
+        )
+
         return result

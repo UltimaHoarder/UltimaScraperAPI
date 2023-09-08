@@ -8,9 +8,8 @@ from multiprocessing.pool import Pool
 from typing import TYPE_CHECKING, Any, Optional
 from urllib.parse import urlparse
 
-from mergedeep.mergedeep import Strategy, merge  # type: ignore
-
 import ultima_scraper_api
+from mergedeep.mergedeep import Strategy, merge  # type: ignore
 
 if TYPE_CHECKING:
     auth_types = ultima_scraper_api.auth_types
@@ -143,7 +142,7 @@ async def default_data(
                     )
                     status = True
             case "get_mass_messages":
-                if not auth.get_auth_details().active or not auth.isPerformer:
+                if not auth.get_auth_details().active or not auth.user.isPerformer:
                     result = await handle_refresh(
                         auth, api_type, refresh, function_that_called
                     )
@@ -202,6 +201,7 @@ async def remove_errors(results: Any):
     else:
         final_results = results
     final_results = [x for x in final_results if not isinstance(x, error_types)]
+    final_results = [x for x in final_results if "error" not in x]
     if wrapped and final_results:
         final_results = final_results[0]
     return final_results

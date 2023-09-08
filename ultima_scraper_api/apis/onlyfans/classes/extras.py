@@ -5,8 +5,9 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any, Literal, Optional, Union
 from urllib.parse import parse_qs, urlparse
 
-from ultima_scraper_api.managers.session_manager import SessionManager
 from user_agent import generate_user_agent
+
+from ultima_scraper_api.managers.session_manager import SessionManager
 
 if TYPE_CHECKING:
     from ultima_scraper_api.apis.onlyfans.onlyfans import OnlyFansAPI
@@ -304,7 +305,7 @@ class endpoint_links(object):
         self.search_chat = f"https://onlyfans.com/api2/v2/chats/{identifier}/messages/search?query={text}"
         self.message_api = f"https://onlyfans.com/api2/v2/chats/{identifier}/messages?limit={global_limit}&id={global_offset}"
         self.search_messages = f"https://onlyfans.com/api2/v2/chats/{identifier}?limit=10&offset=0&filter=&order=activity&query={text}"
-        self.mass_messages_api = f"https://onlyfans.com/api2/v2/messages/queue/stats?limit=100&offset=0&format=infinite"
+        self.mass_messages_stats = f"https://onlyfans.com/api2/v2/messages/queue/stats?limit={global_limit}&offset={global_offset}&format=infinite"
         self.stories_api = f"https://onlyfans.com/api2/v2/users/{identifier}/stories?limit=100&offset=0&order=desc"
         self.list_highlights = f"https://onlyfans.com/api2/v2/users/{identifier}/stories/highlights?limit=100&offset=0&order=desc"
         self.highlight = f"https://onlyfans.com/api2/v2/stories/highlights/{identifier}"
@@ -319,12 +320,12 @@ class endpoint_links(object):
         self.transactions = (
             f"https://onlyfans.com/api2/v2/payments/all/transactions?limit=10&offset=0"
         )
-        self.list_comments_api = f"{full_url_path}/{identifier}/{identifier2}/comments?limit={global_limit}&offset={global_offset}&sort={sort_order}"
         self.subscription_count = f"{full_url_path}/subscriptions/count/all"
         self.socials = f"{full_url_path}/users/{identifier}/social/buttons"
         self.spotify = f"{full_url_path}/users/{identifier}/social/spotify"
         self.two_factor = f"{full_url_path}/users/otp/check"
         self.drm_server = f"{full_url_path}/users/media/{identifier}/drm/{identifier2}/{identifier3}?type=widevine"
+        self.block = f"{full_url_path}/users/{identifier}/block"
 
     def list_posts(
         self,

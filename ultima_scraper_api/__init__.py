@@ -7,6 +7,7 @@ from ultima_scraper_api.apis.fansly.fansly import FanslyAPI
 from ultima_scraper_api.apis.onlyfans.classes.extras import OnlyFansAuthenticator
 from ultima_scraper_api.apis.onlyfans.onlyfans import OnlyFansAPI
 
+SUPPORTED_SITES = ["OnlyFans", "Fansly"]
 api_types = OnlyFansAPI | FanslyAPI
 authenticator_types = OnlyFansAuthenticator | FanslyAuthenticator
 auth_types = onlyfans_classes.auth_model.AuthModel | fansly_classes.auth_model.AuthModel
