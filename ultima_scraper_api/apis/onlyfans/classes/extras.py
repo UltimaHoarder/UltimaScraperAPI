@@ -208,6 +208,7 @@ class OnlyFansAuthenticator:
             if not self.errors:
                 self.auth_details.active = True
                 self.__raw__ = json_resp
+                self.auth_details.email = self.__raw__["email"]
             else:
                 link = endpoint_links(self.auth_details.cookie.auth_id).users
                 json_resp = await self.session_manager.json_request(link)

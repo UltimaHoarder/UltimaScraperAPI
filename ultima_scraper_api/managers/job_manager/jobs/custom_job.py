@@ -15,14 +15,9 @@ class CustomJob:
         self.done = False
         self.options: list[str] = []
         self.blacklist: list[str] = []
+        self.ignore: bool = False
 
     def add_media_type(self, media_type: str):
         if media_type in self.media_types:
             return
         self.media_types.append(media_type)
-
-    def convert_to_dill(self):
-        old = copy.copy(self)
-        delattr(old, "task")
-        data_string: bytes = dill.dumps(old)  # type: ignore
-        return data_string, old

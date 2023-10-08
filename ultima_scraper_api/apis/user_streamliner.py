@@ -56,6 +56,7 @@ class StreamlinedUser:
         self.job_whitelist: list[int | str] = []
         self.scrape_whitelist: list[int | str] = []
         self.active: bool = True
+        self.aliases: list[str] = []
         self.content_manager = ContentManager(authed.session_manager)
 
     def get_authed(self):
@@ -77,18 +78,6 @@ class StreamlinedUser:
     def get_current_job(self):
         incomplete_jobs = self.get_incomplete_jobs()
         return None if not incomplete_jobs else incomplete_jobs[0]
-
-    def convert_to_dill(self):
-        old = copy.copy(self)
-        delattr(old, "_StreamlinedUser__authed")
-        delattr(old, "__raw__")
-        delattr(old, "directory_manager")
-        delattr(old, "file_manager")
-        delattr(old, "temp_scraped")
-        delattr(old, "scraped")
-        old.jobs = [x.convert_to_dill()[1] for x in old.jobs]
-        data_string: bytes = dill.dumps(old)  # type: ignore
-        return data_string
 
     def get_session_manager(self):
         return self.__authed.session_manager
