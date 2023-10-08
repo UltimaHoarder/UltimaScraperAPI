@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "ultima-scraper-api"
-version = "2.0.4"
+version = "2.0.5"
 description = ""
 authors = ["DIGITALCRIMINAL <21285176+DIGITALCRIMINAL@users.noreply.github.com>"]
 packages = [{include = "ultima_scraper_api"}]
