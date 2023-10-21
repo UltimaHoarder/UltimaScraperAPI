@@ -1,9 +1,8 @@
 import asyncio
 from pathlib import Path
 
-
 import ultima_scraper_api
-from ultima_scraper_api.classes.make_settings import Config
+from ultima_scraper_api import UltimaScraperAPIConfig
 
 FULL_TEST = False
 
@@ -34,7 +33,7 @@ async def main():
         has_errors = any("error" in item for item in responses)
         assert has_errors == False
 
-    config = Config()
+    config = UltimaScraperAPIConfig()
     api = ultima_scraper_api.select_api("OnlyFans", config=config)
     authed = await authenticate(api)
     if FULL_TEST:

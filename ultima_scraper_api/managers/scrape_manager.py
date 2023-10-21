@@ -11,6 +11,9 @@ class ContentManager:
         self.session_manager = session_manager
         self.categorized = session_manager.auth.api.CategorizedContent()
 
+    def get_contents(self, content_type: str):
+        return getattr(self.categorized, content_type)
+
     def set_content(self, content_type: str, scraped: list[Any]):
         for content in scraped:
             content_item = getattr(self.categorized, content_type)

@@ -42,7 +42,7 @@ class OnlyFansAPIConfig(GlobalAPI):
     class OnlyFansCache(GlobalCache):
         paid_content = 3600 * 1
 
-    dynamic_rules_url: str = "https://raw.githubusercontent.com/DIGITALCRIMINALS/dynamic-rules/main/onlyfans.json"
+    dynamic_rules_url: str = "https://raw.githubusercontent.com/DATAHOARDERS/dynamic-rules/main/onlyfans.json"
     cache = OnlyFansCache()
 
 
