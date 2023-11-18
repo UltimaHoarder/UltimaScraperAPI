@@ -352,7 +352,7 @@ class create_user(StreamlinedUser):
         final_results = []
         if isinstance(results, list):
             results = [x for x in results if x]
-            has_more = results[-1]["hasMore"] if results else False
+            has_more = results[-1].get("hasMore", False) if results else False
             final_results = [x["list"] for x in results if "list" in x]
             final_results = list(chain.from_iterable(final_results))
             if has_more:
