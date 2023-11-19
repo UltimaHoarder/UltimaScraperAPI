@@ -217,11 +217,8 @@ async def process_webhooks(
 def open_partial(path: Path) -> BinaryIO:
     prefix, extension = os.path.splitext(path)
     while True:
-        partial_path = "{}-{}{}.part".format(prefix, secrets.token_hex(6), extension)
-        try:
-            return open(partial_path, "xb")
-        except FileExistsError:
-            pass
+        partial_path = f"{prefix}{extension}.part"
+        return open(partial_path, "wb")
 
 
 async def send_webhook(
