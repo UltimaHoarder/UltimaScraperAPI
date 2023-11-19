@@ -1,3 +1,4 @@
+import asyncio
 from pathlib import Path
 from typing import Any, Literal, Optional, Union
 
@@ -26,6 +27,7 @@ class OnlyFansAPI(StreamlinedAPI):
         self.auths: list[AuthModel] = []
         self.users: dict[int, create_user] = {}
         self.endpoint_links = endpoint_links
+        self.lock = asyncio.Lock()
         site_settings = config.site_apis.get_settings(self.site_name)
         dynamic_rules_url = getattr(site_settings, "dynamic_rules_url")
         self.dynamic_rules = requests.get(dynamic_rules_url).json()

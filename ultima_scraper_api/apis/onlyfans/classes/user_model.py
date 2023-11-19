@@ -65,14 +65,17 @@ class create_user(StreamlinedUser):
         self.location: str = option.get("location")
         self.postsCount: int = option.get("postsCount", 0)
         self.archivedPostsCount: int = option.get("archivedPostsCount", 0)
+        self.privateArchivedPostsCount: int = option.get("privateArchivedPostsCount", 0)
         self.photosCount: int = option.get("photosCount", 0)
         self.videosCount: int = option.get("videosCount", 0)
         self.audiosCount: int = option.get("audiosCount", 0)
         self.mediasCount: int = option.get("mediasCount", 0)
+        self.mediasCount: int = option.get("mediasCount", 0)
         self.promotions: list[dict[str, Any]] = option.get("promotions", {})
         self.lastSeen: Any = option.get("lastSeen")
-        self.favoritesCount: int = option.get("favoritesCount", 0)
         self.favoritedCount: int = option.get("favoritedCount", 0)
+        self.favoritesCount: int = option.get("favoritesCount", 0)
+        self.finishedStreamsCount: int = option.get("finishedStreamsCount", 0)
         self.showPostsInFeed: bool = option.get("showPostsInFeed")
         self.canReceiveChatMessage: bool = option.get("canReceiveChatMessage")
         self.isPerformer: bool = option.get("isPerformer", False)
@@ -297,9 +300,6 @@ class create_user(StreamlinedUser):
         offset: int = 0,
         refresh: bool = True,
     ) -> list[create_post]:
-        result, status = await api_helper.default_data(self, refresh)
-        if status:
-            return result
         if links is None:
             links = []
         if not links:
@@ -625,6 +625,13 @@ class create_user(StreamlinedUser):
             )
         )
         return result
+
+    async def get_w9_form(self):
+        # :)
+        if self.canHasW9Form:
+            url = "https://onlyfans.com/action/download_1099"
+            response = await self.get_session_manager().request(url)
+            return await response.read()
 
     async def block(self):
         block_url = endpoint_links(self.id).block

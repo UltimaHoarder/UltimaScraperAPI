@@ -48,8 +48,7 @@ class create_post(SiteContent):
         self.hasUrl: bool = option.get("hasUrl")
         self.commentsCount: int = option.get("replyCount")
         self.mentionedUsers: list = option.get("mentionedUsers")
-        self.linkedUsers: list = option.get("linkedUsers")
-        self.linkedPosts: list = option.get("linkedPosts")
+        self.linkedUsers: list[dict[str, Any]] = option["accountMentions"]
         self.previews: list[dict[str, Any]] = option.get("previews", [])
         self.attachments: list[dict[str, Any]] = option.get("attachments", {})
         self.comments: list[CommentModel] = []

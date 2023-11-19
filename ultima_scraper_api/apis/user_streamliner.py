@@ -49,9 +49,17 @@ class Job:
         return None if not tasks else tasks[0]
 
 
+class Cache:
+    def __init__(self) -> None:
+        from ultima_scraper_api.apis.auth_streamliner import CacheStats
+
+        self.posts = CacheStats()
+
+
 class StreamlinedUser:
     def __init__(self, authed: auth_types) -> None:
         self.__authed = authed
+        self.cache = Cache()
         self.jobs: list[CustomJob] = []
         self.job_whitelist: list[int | str] = []
         self.scrape_whitelist: list[int | str] = []
