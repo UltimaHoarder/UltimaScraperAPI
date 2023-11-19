@@ -104,6 +104,7 @@ class SessionManager:
         self.request_count = 0
         # self.last_request_time: float | None = None
         # self.rate_limit_wait_minutes = 6
+        self.lock = auth.api.lock
         self.rate_limit_check = False
         self.is_rate_limited = None
         self.time2sleep = 0
@@ -191,11 +192,10 @@ class SessionManager:
     #             self.last_request_time = time.time()
 
     async def check_rate_limit(self):
-        lock = asyncio.Lock()
         while True:
             rate_limit_count = 1
-            while self.rate_limit_check:
-                async with lock:
+            async with self.lock:
+                while self.rate_limit_check:
                     try:
                         url = "https://onlyfans.com/api2/v2/init"
                         headers = await self.session_rules(url)
@@ -220,8 +220,8 @@ class SessionManager:
                             rate_limit_count += 1
                     except Exception as _e:
                         pass
-                await asyncio.sleep(self.time2sleep)
-            await asyncio.sleep(5)
+                    await asyncio.sleep(self.time2sleep)
+                await asyncio.sleep(5)
 
     async def request(
         self,

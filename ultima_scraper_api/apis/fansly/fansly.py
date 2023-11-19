@@ -1,3 +1,4 @@
+import asyncio
 from pathlib import Path
 from typing import Any, Literal, Optional, Union
 
@@ -24,6 +25,7 @@ class FanslyAPI(StreamlinedAPI):
         self.auths: list[AuthModel] = []
         self.users: dict[int, create_user] = {}
         self.endpoint_links = endpoint_links
+        self.lock = asyncio.Lock()
 
     async def login(self, auth_json: dict[str, Any] = {}, guest: bool = False):
         temp_auth_details = self.create_auth_details(auth_json)
