@@ -33,7 +33,11 @@ class SubscriptionModel(BaseSubscriptionModel):
         self.__raw__ = data
 
     def is_active(self):
-        return bool(self.active)
+        time_now = datetime.now().astimezone()
+        if self.subscribed_by_expire_date >= time_now:
+            return True
+        else:
+            return False
 
     def get_authed(self):
         return self.subscriber.get_authed()
