@@ -611,3 +611,13 @@ class create_user(StreamlinedUser):
 
     async def is_subscribed(self):
         pass
+
+    def is_performer(self):
+        status = False
+        if self.isPerformer:
+            status = True
+        elif self.isRealPerformer:
+            status = True
+        elif self.canEarn:
+            status = True
+        return status

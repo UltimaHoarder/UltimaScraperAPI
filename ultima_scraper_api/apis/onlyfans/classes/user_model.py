@@ -573,6 +573,16 @@ class create_user(StreamlinedUser):
     async def is_subscribed(self):
         return not self.subscribedIsExpiredNow
 
+    def is_performer(self):
+        status = False
+        if self.isPerformer:
+            status = True
+        elif self.isRealPerformer:
+            status = True
+        elif self.canEarn:
+            status = True
+        return status
+
     async def get_paid_contents(self, content_type: str | None = None):
         # REMINDER THAT YOU'LL HAVE TO REFRESH CONTENT
         final_paid_content: list[create_post | message_model.create_message] = []
