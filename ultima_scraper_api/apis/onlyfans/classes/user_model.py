@@ -331,48 +331,45 @@ class create_user(StreamlinedUser):
 
     async def get_messages(
         self,
-        links: list[str] = [],
         limit: int = 10,
-        offset_id: int = 0,
+        offset_id: int | None = None,
         cutoff_id: int | None = None,
-        depth: int = 1,
-        refresh: bool = True,
     ):
-        result, status = await api_helper.default_data(self, refresh)
-        if status:
-            return result
+        """
+        Retrieves messages for the user.
+
+        Args:
+            limit (int, optional): The maximum number of messages to retrieve. Defaults to 10.
+            offset_id (int | None, optional): The ID of the message to start retrieving from. Defaults to None.
+            cutoff_id (int | None, optional): The ID of the message to stop retrieving at. Defaults to None.
+
+        Returns:
+            list[message_model.create_message]: A list of message objects.
+        """
+        final_results: list[message_model.create_message] = []
         if self.is_deleted:
-            return result
-        temp_limit = limit
-        link = endpoint_links(
-            identifier=self.id, global_limit=temp_limit, global_offset=offset_id
-        ).message_api
-        results = await self.get_session_manager().bulk_json_requests([link])
-        results = await api_helper.remove_errors(results)
-        final_results = []
-        if isinstance(results, list):
-            results = [x for x in results if x]
-            has_more = results[-1].get("hasMore", False) if results else False
-            final_results = [x["list"] for x in results if "list" in x]
-            final_results = list(chain.from_iterable(final_results))
-            if has_more:
-                temp_offset_id = final_results[-1]["id"]
-                if not any(x for x in final_results if x["id"] == cutoff_id):
-                    pass
-                    results2 = await self.get_messages(
-                        limit=temp_limit,
-                        offset_id=temp_offset_id,
-                        cutoff_id=cutoff_id,
-                        depth=depth + 1,
-                    )
-                    final_results.extend(results2)
-            if depth == 1:
-                final_results = [
-                    message_model.create_message(x, self) for x in final_results if x
-                ]
-            else:
-                final_results.sort(key=lambda x: x["fromUser"]["id"], reverse=True)
-            self.scrape_manager.scraped.Messages = final_results
+            return final_results
+
+        async def recursive(
+            limit: int = limit, offset_id: int | str | None = offset_id
+        ):
+            link = endpoint_links().list_messages(
+                self.id, global_limit=limit, global_offset=offset_id
+            )
+            results = await self.get_session_manager().json_request(link)
+
+            items: list[dict[str, Any]] = results.get("list", [])
+            if cutoff_id:
+                for item in items:
+                    if item["id"] == cutoff_id:
+                        return items
+            if results["hasMore"]:
+                results2 = await recursive(limit=limit, offset_id=items[-1]["id"])
+                items.extend(results2)
+            return items
+
+        results = await recursive()
+        final_results = [message_model.create_message(x, self) for x in results]
         return final_results
 
     async def get_message_by_id(
@@ -411,7 +408,7 @@ class create_user(StreamlinedUser):
         link = endpoint_links(global_limit=limit, global_offset=offset).archived_stories
         results = await self.get_session_manager().json_request(link)
         results = await api_helper.remove_errors(results)
-        results = [create_story(x, self) for x in results]
+        results = [create_story(x, self) for x in results["list"]]
         return results
 
     async def get_archived_posts(

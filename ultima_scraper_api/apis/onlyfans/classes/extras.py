@@ -5,8 +5,9 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any, Literal, Optional, Union
 from urllib.parse import parse_qs, urlparse
 
-from ultima_scraper_api.managers.session_manager import SessionManager
 from user_agent import generate_user_agent
+
+from ultima_scraper_api.managers.session_manager import SessionManager
 
 if TYPE_CHECKING:
     from ultima_scraper_api.apis.onlyfans.onlyfans import OnlyFansAPI
@@ -303,7 +304,6 @@ class endpoint_links(object):
         self.post_by_id = f"https://onlyfans.com/api2/v2/posts/{identifier}"
         self.message_by_id = f"https://onlyfans.com/api2/v2/chats/{identifier}/messages?limit=10&offset=0&firstId={identifier2}&order=desc&skip_users=all&skip_users_dups=1"
         self.search_chat = f"https://onlyfans.com/api2/v2/chats/{identifier}/messages/search?query={text}"
-        self.message_api = f"https://onlyfans.com/api2/v2/chats/{identifier}/messages?limit={global_limit}&id={global_offset}"
         self.search_messages = f"https://onlyfans.com/api2/v2/chats/{identifier}?limit=10&offset=0&filter=&order=activity&query={text}"
         self.mass_messages_stats = f"https://onlyfans.com/api2/v2/messages/queue/stats?limit={global_limit}&offset={global_offset}&format=infinite"
         self.mass_message = (
@@ -336,6 +336,16 @@ class endpoint_links(object):
         global_offset: int = 0,
     ):
         return f"{self.full_url_path}/users/{content_id}/posts?limit={global_limit}&offset={global_offset}&order=publish_date_desc&skip_users_dups=0"
+
+    def list_messages(
+        self,
+        chat_id: int | str,
+        global_limit: int = 10,
+        global_offset: int | str | None = 0,
+    ):
+        if global_offset is None:
+            global_offset = ""
+        return f"{self.full_url_path}/chats/{chat_id}/messages?limit={global_limit}&id={str(global_offset)}&order=desc"
 
     def list_comments(
         self,
