@@ -1,9 +1,8 @@
 import asyncio
 from pathlib import Path
 from typing import Any, Literal, Optional, Union
-
+from ultima_scraper_api.helpers.main_helper import is_pascal_case
 import requests
-
 from ultima_scraper_api.apis.api_streamliner import StreamlinedAPI
 from ultima_scraper_api.apis.onlyfans.classes.auth_model import AuthModel
 from ultima_scraper_api.apis.onlyfans.classes.extras import (
@@ -11,6 +10,7 @@ from ultima_scraper_api.apis.onlyfans.classes.extras import (
     OnlyFansAuthenticator,
     endpoint_links,
 )
+from ultima_scraper_api.apis.onlyfans.classes.mass_message_model import MassMessageModel
 from ultima_scraper_api.apis.onlyfans.classes.message_model import create_message
 from ultima_scraper_api.apis.onlyfans.classes.post_model import create_post
 from ultima_scraper_api.apis.onlyfans.classes.story_model import create_story
@@ -92,6 +92,8 @@ class OnlyFansAPI(StreamlinedAPI):
             final_value = self.ContentTypeTransformer("Post")
         elif isinstance(value, create_message):
             final_value = self.ContentTypeTransformer("Message")
+        elif isinstance(value, MassMessageModel):
+            final_value = self.ContentTypeTransformer("MassMessage")
         else:
             raise Exception("api content type not found")
         if make_plural:
@@ -102,34 +104,39 @@ class OnlyFansAPI(StreamlinedAPI):
 
     class ContentTypeTransformer:
         def __init__(self, value: str) -> None:
-            self.value = value
+            self._original_value = value
+            self.value = (
+                self._original_value
+                if is_pascal_case(self._original_value)
+                else self._original_value.capitalize()
+            )
 
         def plural(self):
-            match self.value.capitalize():
+            match self.value:
                 case "Story":
                     final_value = "Stories"
                 case "Post":
                     final_value = "Posts"
                 case "Message":
                     final_value = "Messages"
+                case "MassMessage":
+                    final_value = "MassMessages"
                 case _:
                     raise Exception("key not found")
-            if self.value[0].isupper():
-                final_value = final_value.capitalize()
             return final_value
 
         def singular(self):
-            match self.value.capitalize():
+            match self.value:
                 case "Stories":
                     final_value = "Story"
                 case "Posts":
                     final_value = "Post"
                 case "Messages":
                     final_value = "Message"
+                case "MassMessages":
+                    final_value = "MassMessage"
                 case _:
                     raise Exception("key not found")
-            if self.value[0].isupper():
-                final_value = final_value.capitalize()
             return final_value
 
     class ContentTypes:

@@ -9,7 +9,6 @@ import xmltodict
 from pywidevine.cdm import Cdm
 from pywidevine.device import Device
 from pywidevine.pssh import PSSH
-
 from ultima_scraper_api.apis.onlyfans.classes.extras import endpoint_links
 
 if TYPE_CHECKING:
@@ -18,7 +17,8 @@ if TYPE_CHECKING:
     auth_types = ultima_scraper_api.auth_types
 os_name = platform.system()
 # Replace authed with your ClientSession
-# Replace endpoint_links.drm_server with "https://onlyfans.com/api2/v2/users/media/{MEDIA_ID}/drm/post/{POST_ID}?type=widevine"
+# Replace endpoint_links.drm_resolver with "https://onlyfans.com/api2/v2/users/media/{MEDIA_ID}/drm/{RESPONSE_TYPE}/{CONTENT_ID}?type=widevine"
+# If the content is from mass messages, omit the response_type and content_id, the end result will look like "https://onlyfans.com/api2/v2/users/media/{MEDIA_ID}/drm/?type=widevine"
 # media_item is a Post's media from the "https://onlyfans.com/api2/v2/posts/{USER_ID}?skip_users=all" api
 
 
@@ -106,9 +106,9 @@ class OnlyDRM:
     ):
         pssh = PSSH(raw_pssh)
         challenge = self.cdm.get_license_challenge(self.session_id, pssh)
-        url = endpoint_links(
+        url = endpoint_links().drm_resolver(
             media_item["id"], content_item["responseType"], content_item["id"]
-        ).drm_server
+        )
         licence = await self.authed.session_manager.request(
             url, method="POST", data=challenge
         )

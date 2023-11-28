@@ -3,12 +3,15 @@ from __future__ import annotations
 import asyncio
 import math
 from itertools import chain, product
-from typing import TYPE_CHECKING, Any, Dict, Optional
+from typing import TYPE_CHECKING, Any
 
 from ultima_scraper_api.apis import api_helper
 from ultima_scraper_api.apis.auth_streamliner import StreamlinedAuth
 from ultima_scraper_api.apis.onlyfans import SubscriptionType
 from ultima_scraper_api.apis.onlyfans.classes.extras import endpoint_links
+from ultima_scraper_api.apis.onlyfans.classes.mass_message_model import (
+    MassMessageStatModel,
+)
 from ultima_scraper_api.apis.onlyfans.classes.message_model import create_message
 from ultima_scraper_api.apis.onlyfans.classes.post_model import create_post
 from ultima_scraper_api.apis.onlyfans.classes.subscription_model import (
@@ -39,7 +42,7 @@ class AuthModel(StreamlinedAuth):
         self.subscriptions: list[SubscriptionModel] = []
         self.chats = None
         self.archived_stories = {}
-        self.mass_messages = []
+        self.mass_message_stats: list[MassMessageStatModel] = []
         self.paid_content: list[create_message | create_post] = []
         self.extras: dict[str, Any] = {}
         self.blacklist: list[str] = []
@@ -211,7 +214,7 @@ class AuthModel(StreamlinedAuth):
             for raw_subscription in temp_raw_subscriptions
         ]
 
-        async def assign_user_to_sub(raw_subscription: Dict[str, Any]):
+        async def assign_user_to_sub(raw_subscription: dict[str, Any]):
             user = await self.get_user(raw_subscription["username"])
             if isinstance(user, dict):
                 user = create_user(raw_subscription, self)
@@ -286,41 +289,47 @@ class AuthModel(StreamlinedAuth):
 
     async def get_mass_message_stats(
         self,
-        resume: Optional[list[dict[str, Any]]] = None,
+        resume: list[dict[str, Any]] | None = None,
         limit: int = 100,
         offset: int = 0,
-    ) -> list[dict[str, Any]]:
-        if not self.cache.mass_messages.is_released():
-            return self.mass_messages
-        link = endpoint_links(
-            global_limit=limit, global_offset=offset
-        ).mass_messages_stats
-        results = await self.session_manager.json_request(link)
-        items = results.get("list", [])
-        if not items:
+    ):
+        if not self.cache.mass_message_stats.is_released():
+            return self.mass_message_stats
+
+        async def recursive(
+            resume: list[dict[str, Any]] | None, limit: int, offset: int
+        ):
+            link = endpoint_links(
+                global_limit=limit, global_offset=offset
+            ).mass_messages_stats
+            results = await self.session_manager.json_request(link)
+            items = results.get("list", [])
+            if not items:
+                return items
+            if resume:
+                for item in items:
+                    if any(x["id"] == item["id"] for x in resume):
+                        resume.sort(key=lambda x: x["id"], reverse=True)
+                        return resume
+                    else:
+                        resume.append(item)
+
+            if results["hasMore"]:
+                results2 = await recursive(
+                    resume=resume, limit=limit, offset=limit + offset
+                )
+                items.extend(results2)
+            else:
+                self.cache.mass_message_stats.activate()
+            if resume:
+                items = resume
+
             return items
-        if resume:
-            for item in items:
-                if any(x["id"] == item["id"] for x in resume):
-                    resume.sort(key=lambda x: x["id"], reverse=True)
-                    self.mass_messages = resume
-                    return resume
-                else:
-                    resume.append(item)
 
-        if results["hasMore"]:
-            results2 = await self.get_mass_message_stats(
-                resume=resume, limit=limit, offset=limit + offset
-            )
-            items.extend(results2)
-        else:
-            self.cache.mass_messages.activate()
-        if resume:
-            items = resume
-
+        items = await recursive(resume, limit, offset)
         items.sort(key=lambda x: x["id"], reverse=True)
-        self.mass_messages = items
-        return items
+        self.mass_message_stats = [MassMessageStatModel(x, self.user) for x in items]
+        return self.mass_message_stats
 
     async def get_paid_content(
         self,

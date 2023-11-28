@@ -3,7 +3,6 @@ import json
 import os
 import platform
 import re
-import secrets
 import shutil
 import subprocess
 from datetime import datetime
@@ -12,19 +11,16 @@ from typing import TYPE_CHECKING, Any, BinaryIO, Literal, Type, TypeVar
 
 import orjson
 import requests
+import ultima_scraper_api
+import ultima_scraper_api.classes.prepare_webhooks as prepare_webhooks
 from aiofiles import os as async_os
 from bs4 import BeautifulSoup
 from dateutil.relativedelta import relativedelta
 from mergedeep import Strategy, merge  # type: ignore
 
-import ultima_scraper_api
-import ultima_scraper_api.classes.prepare_webhooks as prepare_webhooks
-
 if TYPE_CHECKING:
-    pass
-
-api_types = ultima_scraper_api.api_types
-auth_types = ultima_scraper_api.auth_types
+    api_types = ultima_scraper_api.api_types
+    auth_types = ultima_scraper_api.auth_types
 
 
 os_name = platform.system()
@@ -177,7 +173,7 @@ from ultima_scraper_api.config import Settings
 
 
 async def process_webhooks(
-    api: api_types,
+    api: "api_types",
     category: str,
     category_2: Literal["succeeded", "failed"],
     global_settings: Settings,
@@ -222,7 +218,7 @@ def open_partial(path: Path) -> BinaryIO:
 
 
 async def send_webhook(
-    item: auth_types,
+    item: "auth_types",
     webhook_hide_sensitive_info: bool,
     webhook_links: list[str],
     category: str,
@@ -318,3 +314,11 @@ def date_between_cur_month(date_value: datetime):
 
 def split_string(identifiers: str):
     return identifiers.split(",")
+
+
+def is_pascal_case(s: str):
+    # Check if the string is not empty and starts with an uppercase letter
+    if s and s[0].isupper():
+        # Check if the string contains only letters and digits
+        return all(c.isupper() or c.islower() or c.isdigit() for c in s)
+    return False

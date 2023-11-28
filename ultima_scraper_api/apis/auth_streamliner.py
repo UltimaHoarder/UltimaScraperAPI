@@ -28,6 +28,7 @@ class CacheStats:
 class Cache:
     def __init__(self) -> None:
         self.paid_content = CacheStats()
+        self.mass_message_stats = CacheStats()
         self.mass_messages = CacheStats()
 
 

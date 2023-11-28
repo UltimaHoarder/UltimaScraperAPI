@@ -5,9 +5,8 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any, Literal, Optional, Union
 from urllib.parse import parse_qs, urlparse
 
-from user_agent import generate_user_agent
-
 from ultima_scraper_api.managers.session_manager import SessionManager
+from user_agent import generate_user_agent
 
 if TYPE_CHECKING:
     from ultima_scraper_api.apis.onlyfans.onlyfans import OnlyFansAPI
@@ -307,6 +306,9 @@ class endpoint_links(object):
         self.message_api = f"https://onlyfans.com/api2/v2/chats/{identifier}/messages?limit={global_limit}&id={global_offset}"
         self.search_messages = f"https://onlyfans.com/api2/v2/chats/{identifier}?limit=10&offset=0&filter=&order=activity&query={text}"
         self.mass_messages_stats = f"https://onlyfans.com/api2/v2/messages/queue/stats?limit={global_limit}&offset={global_offset}&format=infinite"
+        self.mass_message = (
+            f"https://onlyfans.com/api2/v2/messages/queue/{identifier}?format=scheduled"
+        )
         self.stories_api = f"https://onlyfans.com/api2/v2/users/{identifier}/stories?limit=100&offset=0&order=desc"
         self.list_highlights = f"https://onlyfans.com/api2/v2/users/{identifier}/stories/highlights?limit=100&offset=0&order=desc"
         self.highlight = f"https://onlyfans.com/api2/v2/stories/highlights/{identifier}"
@@ -325,7 +327,6 @@ class endpoint_links(object):
         self.socials = f"{full_url_path}/users/{identifier}/social/buttons"
         self.spotify = f"{full_url_path}/users/{identifier}/social/spotify"
         self.two_factor = f"{full_url_path}/users/otp/check"
-        self.drm_server = f"{full_url_path}/users/media/{identifier}/drm/{identifier2}/{identifier3}?type=widevine"
         self.block = f"{full_url_path}/users/{identifier}/block"
 
     def list_posts(
@@ -367,6 +368,17 @@ class endpoint_links(object):
                 new_link = url.replace(f"offset={offset}", f"offset={num}")
                 final_links.append(new_link)
         return final_links
+
+    def drm_resolver(
+        self,
+        media_id: int | str,
+        response_type: str | None = None,
+        content_id: int | str | None = None,
+    ):
+        if response_type:
+            return f"{self.full_url_path}/users/media/{media_id}/drm/{response_type}/{content_id}?type=widevine"
+        else:
+            return f"{self.full_url_path}/users/media/{media_id}/drm/?type=widevine"
 
 
 def create_headers(
