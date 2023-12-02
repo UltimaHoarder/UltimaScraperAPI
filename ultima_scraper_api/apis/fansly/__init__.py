@@ -4,9 +4,7 @@ from typing import TYPE_CHECKING, Any, Literal
 from urllib.parse import urlparse
 
 if TYPE_CHECKING:
-    from ultima_scraper_api.apis.fansly.classes.user_model import (
-        create_user,
-    )
+    from ultima_scraper_api.apis.fansly.classes.user_model import create_user
 
 SubscriptionType = Literal["all", "active", "expired"]
 
@@ -25,7 +23,8 @@ class SiteContent:
         # It may also contain a `variants` list entry with alternate encoding qualities.
         # Each variant has a similar structure to the main media element.
         video_quality = (
-            video_quality or self.author.get_api().get_site_settings().video_quality
+            video_quality
+            or self.author.get_api().get_site_settings().media_quality.video
         )
         media_url = ""
         source_media = media_item
@@ -34,7 +33,8 @@ class SiteContent:
 
         if quality_key == "source":
             try:
-                return urlparse(source_media["locations"][0]["location"])
+                url_string: str = source_media["locations"][0]["location"]
+                return urlparse(url_string)
             except (KeyError, IndexError):
                 pass
 

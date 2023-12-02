@@ -2,9 +2,9 @@ from typing import Any
 
 import ultima_scraper_api.apis.fansly.classes as fansly_classes
 import ultima_scraper_api.apis.onlyfans.classes as onlyfans_classes
-from ultima_scraper_api.apis.fansly.classes.extras import FanslyAuthenticator
+from ultima_scraper_api.apis.fansly.authenticator import FanslyAuthenticator
 from ultima_scraper_api.apis.fansly.fansly import FanslyAPI
-from ultima_scraper_api.apis.onlyfans.classes.extras import OnlyFansAuthenticator
+from ultima_scraper_api.apis.onlyfans.authenticator import OnlyFansAuthenticator
 from ultima_scraper_api.apis.onlyfans.onlyfans import OnlyFansAPI
 
 SUPPORTED_SITES = ["OnlyFans", "Fansly"]

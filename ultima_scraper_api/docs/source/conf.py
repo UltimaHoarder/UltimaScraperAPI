@@ -5,13 +5,13 @@
 
 # -- Project information -----------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#project-information
-import os
-import sys
+import os  # type: ignore
+import sys  # type: ignore
 
 # sys.path.insert(0, os.path.abspath('../..'))
 project = "UltimaScraperAPI"
-copyright = "2022, 0xHoarder"
-author = "0xHoarder"
+copyright = "2022, UltimaHoarder"
+author = "UltimaHoarder"
 
 # -- General configuration ---------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#general-configuration
@@ -20,11 +20,11 @@ extensions = [
     "sphinx.ext.autodoc",
     "sphinx.ext.autosummary",
     "autoapi.extension",
-    "sphinx_rtd_theme"
+    "sphinx_rtd_theme",
 ]
 
-autoapi_type = 'python'
-autoapi_dirs = ['../../apis','../../classes','../../database','../../helpers']
+autoapi_type = "python"
+autoapi_dirs = ["../../apis", "../../classes", "../../database", "../../helpers"]
 autoapi_ignore = ["*database*"]
 # autoapi_keep_files = True
 
