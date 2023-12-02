@@ -32,7 +32,7 @@ class MassMessageStatModel:
 
     async def get_mass_message(self):
         link = endpoint_links(self.id).mass_message
-        result = await self.author.get_session_manager().json_request(link)
+        result = await self.author.get_requester().json_request(link)
         self.mass_message = MassMessageModel(result, self.author, self)
         return self.mass_message
 

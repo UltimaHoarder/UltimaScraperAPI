@@ -10,15 +10,15 @@ if TYPE_CHECKING:
 class create_story(SiteContent):
     def __init__(self, option: dict[str, Any], user: "create_user") -> None:
         SiteContent.__init__(self, option, user)
-        self.userId: int = option.get("userId")
+        self.user_id: int = option["userId"]
         self.expiredAt: str = option.get("expiredAt")
-        self.isReady: bool = option.get("isReady")
+        self.is_ready: bool = option["isReady"]
         self.viewersCount: int = option.get("viewersCount")
         self.viewers: list = option.get("viewers")
-        self.canLike: bool = option.get("canLike")
+        self.canLike: bool = option["canLike"]
         self.mediaCount: int = option.get("mediaCount")
-        self.isWatched: bool = option.get("isWatched")
-        self.isLiked: bool = option.get("isLiked")
+        self.is_watched: bool = option["isWatched"]
+        self.is_liked: bool = option["isLiked"]
         self.canDelete: bool = option.get("canDelete")
         self.isHighlightCover: bool = option.get("isHighlightCover")
         self.isLastInHighlight: bool = option.get("isLastInHighlight")
@@ -26,4 +26,4 @@ class create_story(SiteContent):
         self.question: Any = option.get("question")
         self.placedContents: list = option.get("placedContents")
         self.answered: int = option.get("answered")
-        self.created_at: datetime = datetime.fromisoformat(option["createdAt"])
+        self.created_at = datetime.fromisoformat(option["createdAt"])

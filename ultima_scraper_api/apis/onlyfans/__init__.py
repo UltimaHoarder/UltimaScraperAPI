@@ -16,11 +16,13 @@ class SiteContent:
         self.media: list[dict[str, Any]] = option.get("media", [])
         self.preview_ids: list[int] = []
         self.__raw__ = option
+        self._proxy: str | None = None
 
     def url_picker(self, media_item: dict[str, Any], video_quality: str = ""):
         authed = self.get_author().get_authed()
         video_quality = (
-            video_quality or self.author.get_api().get_site_settings().video_quality
+            video_quality
+            or self.author.get_api().get_site_settings().media_quality.video
         )
         if not media_item["canView"]:
             return

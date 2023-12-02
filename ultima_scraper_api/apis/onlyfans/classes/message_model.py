@@ -1,10 +1,10 @@
 from __future__ import annotations
 
+from datetime import datetime
 from typing import TYPE_CHECKING, Any, Optional
 
 from ultima_scraper_api.apis.onlyfans import SiteContent
 from ultima_scraper_api.apis.onlyfans.classes.extras import endpoint_links
-from datetime import datetime
 
 if TYPE_CHECKING:
     from ultima_scraper_api.apis.onlyfans.classes.user_model import create_user
@@ -12,9 +12,10 @@ if TYPE_CHECKING:
 
 class create_message(SiteContent):
     def __init__(self, option: dict[str, Any], user: create_user) -> None:
-        author = user.get_authed().find_user_by_identifier(option["fromUser"]["id"])
-        self.user = user
+        author = user.get_authed().resolve_user(option["fromUser"])
+        assert author, "Author not found"
         SiteContent.__init__(self, option, author)
+        self.user = user
         self.responseType: Optional[str] = option.get("responseType")
         self.text: str = option.get("text", "")
         self.lockedText: Optional[bool] = option.get("lockedText")
@@ -54,7 +55,7 @@ class create_message(SiteContent):
         This function will buy a ppv message from a model.
         """
         message_price = self.price
-        x = {
+        x: dict[str, float | int | str | list[Any] | None] = {
             "amount": message_price,
             "messageId": self.id,
             "paymentType": "message",
@@ -62,7 +63,7 @@ class create_message(SiteContent):
             "unavailablePaymentGates": [],
         }
         link = endpoint_links().pay
-        result = await self.author.get_session_manager().json_request(
+        result = await self.author.get_requester().json_request(
             link, method="POST", payload=x
         )
         return result

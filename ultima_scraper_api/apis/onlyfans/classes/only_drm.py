@@ -81,7 +81,7 @@ class OnlyDRM:
             cookie_str += f"{key}={value}; "
         cookie_str = cookie_str.strip()
         dash = manifest["dash"]
-        r = await self.authed.session_manager.request(
+        r = await self.authed.get_requester().request(
             dash, premade_settings="", custom_cookies=cookie_str
         )
         xml = xmltodict.parse(await r.text())
@@ -109,7 +109,7 @@ class OnlyDRM:
         url = endpoint_links().drm_resolver(
             media_item["id"], content_item["responseType"], content_item["id"]
         )
-        licence = await self.authed.session_manager.request(
+        licence = await self.authed.get_requester().request(
             url, method="POST", data=challenge
         )
         return await licence.read()

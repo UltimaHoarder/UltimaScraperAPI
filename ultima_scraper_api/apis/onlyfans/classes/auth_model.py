@@ -8,6 +8,7 @@ from typing import TYPE_CHECKING, Any
 from ultima_scraper_api.apis import api_helper
 from ultima_scraper_api.apis.auth_streamliner import StreamlinedAuth
 from ultima_scraper_api.apis.onlyfans import SubscriptionType
+from ultima_scraper_api.apis.onlyfans.classes.chat_model import ChatModel
 from ultima_scraper_api.apis.onlyfans.classes.extras import endpoint_links
 from ultima_scraper_api.apis.onlyfans.classes.mass_message_model import (
     MassMessageStatModel,
@@ -20,27 +21,27 @@ from ultima_scraper_api.apis.onlyfans.classes.subscription_model import (
 from ultima_scraper_api.apis.onlyfans.classes.user_model import create_user
 
 if TYPE_CHECKING:
-    from ultima_scraper_api.apis.onlyfans.classes.extras import OnlyFansAuthenticator
+    from ultima_scraper_api.apis.onlyfans.authenticator import OnlyFansAuthenticator
+    from ultima_scraper_api.apis.onlyfans.classes.extras import AuthDetails
     from ultima_scraper_api.apis.onlyfans.classes.only_drm import OnlyDRM
+    from ultima_scraper_api.apis.onlyfans.onlyfans import OnlyFansAPI
 
 
-class AuthModel(StreamlinedAuth):
+class AuthModel(StreamlinedAuth["OnlyFansAuthenticator", "OnlyFansAPI", "AuthDetails"]):
     def __init__(
         self,
         authenticator: OnlyFansAuthenticator,
     ) -> None:
         self.api = authenticator.api
-        self.users: set[create_user] = set()
-        self.authenticator = authenticator
-        self.session_manager = authenticator.session_manager
-        assert authenticator.__raw__ is not None
-        self.user: create_user = create_user(authenticator.__raw__, self)
+        self.users: dict[int, create_user] = {}
+        super().__init__(authenticator)
+        self.user = authenticator.create_user(self)
         self.id = self.user.id
         self.username = self.user.username
-        self.lists = []
+        self.lists: list[dict[str, Any]] = []
         self.links = self.api.ContentTypes()
         self.subscriptions: list[SubscriptionModel] = []
-        self.chats = None
+        self.chats: list[ChatModel] = []
         self.archived_stories = {}
         self.mass_message_stats: list[MassMessageStatModel] = []
         self.paid_content: list[create_message | create_post] = []
@@ -50,7 +51,25 @@ class AuthModel(StreamlinedAuth):
         self.drm: OnlyDRM | None = None
         self.update()
 
-        StreamlinedAuth.__init__(self, self.authenticator)
+    def find_user(self, identifier: int | str):
+        if isinstance(identifier, int):
+            user = self.users.get(identifier)
+        else:
+            for user in self.users.values():
+                if user.username.lower() == identifier.lower():
+                    break
+            else:
+                user = None
+        return user
+
+    def resolve_user(self, user_dict: dict[str, Any]):
+        user = self.find_user(user_dict["id"])
+        if not user:
+            user = create_user(user_dict, self)
+        return user
+
+    def add_user(self, user: create_user):
+        self.users[user.id] = user
 
     def get_pool(self):
         return self.api.pool
@@ -79,11 +98,10 @@ class AuthModel(StreamlinedAuth):
         return self.user.get_username()
 
     async def get_lists(self, refresh: bool = True, limit: int = 100, offset: int = 0):
-        result, status = await api_helper.default_data(self, refresh)
-        if status:
-            return result
         link = endpoint_links(global_limit=limit, global_offset=offset).lists
-        json_resp = await self.session_manager.json_request(link)
+        json_resp: list[dict[str, Any]] = await self.auth_session.json_request(
+            link
+        )  # type:ignore
         self.lists = json_resp
         return json_resp
 
@@ -109,30 +127,17 @@ class AuthModel(StreamlinedAuth):
         else:
             return False
 
-    def find_user_by_identifier(self, identifier: int | str):
-        user = [x for x in self.users if x.id == identifier or x.username == identifier]
-        if user:
-            user = user[0]
-            return user
-
     async def get_user(self, identifier: int | str):
-        valid_user = self.find_user_by_identifier(identifier)
+        valid_user = self.find_user(identifier)
         if valid_user:
             return valid_user
         else:
             link = endpoint_links(identifier).users
-            response = await self.session_manager.json_request(link)
-            if "error" not in response:
-                response["session_manager"] = self.session_manager
-                response = create_user(response, self)
-            return response
-
-    async def resolve_user(self, data: dict[str, Any]):
-        valid_user = self.find_user_by_identifier(data["id"])
-        if valid_user:
-            return valid_user
-        else:
-            response = create_user(data, self)
+            response = await self.auth_session.json_request(link)
+            if "error" in response:
+                return None
+            response["auth_session"] = self.auth_session
+            response = create_user(response, self)
             return response
 
     async def get_lists_users(
@@ -142,13 +147,12 @@ class AuthModel(StreamlinedAuth):
         limit: int = 100,
         offset: int = 0,
     ):
-        result, status = await api_helper.default_data(self, refresh=True)
-        if status:
-            return result
         link = endpoint_links(
             identifier, global_limit=limit, global_offset=offset
         ).lists_users
-        results = await self.session_manager.json_request(link)
+        results: list[dict[str, Any]] = await self.auth_session.json_request(
+            link
+        )  # type:ignore
         if len(results) >= limit and not check:
             results2 = await self.get_lists_users(
                 identifier, limit=limit, offset=limit + offset
@@ -181,12 +185,8 @@ class AuthModel(StreamlinedAuth):
         limit: int = 20,
         sub_type: SubscriptionType = "all",
     ):
-        result, status = await api_helper.default_data(self, refresh)
-        if status:
-            result: list[SubscriptionModel]
-            return result
         url = endpoint_links().subscription_count
-        subscriptions_count = await self.session_manager.json_request(url)
+        subscriptions_count = await self.auth_session.json_request(url)
         subscriptions_info = subscriptions_count["subscriptions"]
         match sub_type:
             case "all":
@@ -207,7 +207,7 @@ class AuthModel(StreamlinedAuth):
             ).subscriptions
             urls.append(link)
 
-        subscription_responses = await self.session_manager.bulk_json_requests(urls)
+        subscription_responses = await self.auth_session.bulk_json_requests(urls)
         raw_subscriptions = [
             raw_subscription
             for temp_raw_subscriptions in subscription_responses
@@ -216,7 +216,7 @@ class AuthModel(StreamlinedAuth):
 
         async def assign_user_to_sub(raw_subscription: dict[str, Any]):
             user = await self.get_user(raw_subscription["username"])
-            if isinstance(user, dict):
+            if not user:
                 user = create_user(raw_subscription, self)
                 user.active = False
             subscription_model = SubscriptionModel(raw_subscription, user, self)
@@ -242,50 +242,48 @@ class AuthModel(StreamlinedAuth):
 
     async def get_chats(
         self,
-        links: list[str] = [],
         limit: int = 100,
         offset: int = 0,
-        depth: int = 1,
-        refresh: bool = True,
-    ) -> list[dict[str, Any]]:
-        result, status = await api_helper.default_data(self, refresh)
-        if status:
-            return result
+    ):
+        if not self.cache.chats.is_released():
+            return self.chats
 
-        multiplier = self.session_manager.max_threads
-        temp_limit = limit
-        temp_offset = offset
-        link = endpoint_links(
-            identifier=self.id, global_limit=temp_limit, global_offset=temp_offset
-        ).list_chats
-        unpredictable_links, new_offset = api_helper.calculate_the_unpredictable(
-            link, offset, limit, multiplier, depth
-        )
-        links = unpredictable_links if depth != 1 else links + unpredictable_links
-        results = await self.session_manager.bulk_json_requests(links)
-        has_more = results[-1]["hasMore"]
-        final_results = [x["list"] for x in results]
-        final_results = list(chain.from_iterable(final_results))
-        for result in final_results:
-            result["withUser"] = create_user(result["withUser"], self)
-            result["lastMessage"] = create_message(
-                result["lastMessage"], result["withUser"]
+        async def mass_recursive(
+            limit: int, offset: int, multiplier: int, depth: int = 1
+        ):
+            link = endpoint_links(global_limit=limit, global_offset=offset).list_chats
+
+            unpredictable_links, new_offset = api_helper.calculate_the_unpredictable(
+                link, offset, limit, multiplier, depth
             )
+            links = unpredictable_links
+            results = await self.auth_session.bulk_json_requests(links)
+            items = [x["list"] for x in results]
+            if not items:
+                return items
+            if results[-1]["hasMore"]:
+                results2 = await mass_recursive(
+                    limit=limit,
+                    offset=limit + new_offset,
+                    multiplier=multiplier,
+                    depth=depth + 1,
+                )
+                items.extend(results2)
+            else:
+                self.cache.chats.activate()
 
-        if has_more:
-            results2 = await self.get_chats(
-                limit=limit,
-                offset=new_offset,
-                depth=depth + 1,
-            )
-            final_results.extend(results2)
+            return items
 
-        if depth == 1:
-            pass
-
-        final_results.sort(key=lambda x: x["withUser"].id, reverse=True)
-        self.chats = final_results
-        return final_results
+        multiplier = self.auth_session.get_session_manager().max_threads
+        recursive_results = await mass_recursive(limit, offset, multiplier)
+        results = list(chain.from_iterable(recursive_results))
+        temp_chats: set[ChatModel] = set()
+        for result in results:
+            temp_chats.add(ChatModel(result, self))
+        chats: list[ChatModel] = list(temp_chats)
+        chats.sort(key=lambda x: x.user.id, reverse=True)
+        self.chats = chats
+        return self.chats
 
     async def get_mass_message_stats(
         self,
@@ -302,7 +300,7 @@ class AuthModel(StreamlinedAuth):
             link = endpoint_links(
                 global_limit=limit, global_offset=offset
             ).mass_messages_stats
-            results = await self.session_manager.json_request(link)
+            results = await self.auth_session.json_request(link)
             items = results.get("list", [])
             if not items:
                 return items
@@ -333,40 +331,48 @@ class AuthModel(StreamlinedAuth):
 
     async def get_paid_content(
         self,
-        check: bool = False,
-        refresh: bool = True,
+        performer_id: int | str | None = None,
         limit: int = 10,
         offset: int = 0,
-        inside_loop: bool = False,
     ):
         if not self.cache.paid_content.is_released():
             return self.paid_content
-        result, status = await api_helper.default_data(self, refresh)
-        if status:
-            return result
-        link = endpoint_links(global_limit=limit, global_offset=offset).paid_api
-        final_results = await self.session_manager.json_request(link)
-        if len(final_results) > 0 and not check:
-            results2 = await self.get_paid_content(
-                limit=limit, offset=limit + offset, inside_loop=True
-            )
-            final_results.extend(results2)  # type:ignore
-        if not inside_loop:
-            for final_result in final_results:
-                content = None
-                if final_result["responseType"] == "message":
-                    user = await self.get_user(final_result["fromUser"]["id"])
-                    if isinstance(user, dict):
-                        user = create_user(final_result["fromUser"], self)
-                    content = create_message(final_result, user)
-                elif final_result["responseType"] == "post":
-                    user = create_user(final_result["author"], self)
-                    content = create_post(final_result, user)
-                if content:
+
+        async def recursive(limit: int, offset: int):
+            link = endpoint_links(global_limit=limit, global_offset=offset).paid_api
+            results = await self.auth_session.json_request(link)
+            items = results.get("list", [])
+            if not items:
+                return items
+            if results["hasMore"]:
+                results2 = await recursive(limit=limit, offset=limit + offset)
+                items.extend(results2)
+            else:
+                self.cache.mass_message_stats.activate()
+            return items
+
+        items = await recursive(limit, offset)
+        for item in items:
+            content = None
+            if item["responseType"] == "message":
+                user = await self.get_user(item["fromUser"]["id"])
+                if not user:
+                    user = create_user(item["fromUser"], self)
+                content = create_message(item, user)
+            elif item["responseType"] == "post":
+                user = create_user(item["author"], self)
+                content = create_post(item, user)
+            if content:
+                author = content.get_author()
+                if performer_id:
+                    if performer_id == author.id:
+                        self.paid_content.append(content)
+                    elif performer_id == author.username:
+                        self.paid_content.append(content)
+                else:
                     self.paid_content.append(content)
-                    self.cache.paid_content.activate()
-            return self.paid_content
-        return final_results
+                self.cache.paid_content.activate()
+        return self.paid_content
 
     async def get_scrapable_users(self):
         subscription_users = [x.user for x in self.subscriptions]
@@ -374,5 +380,5 @@ class AuthModel(StreamlinedAuth):
 
     async def get_login_issues(self):
         url = endpoint_links().login_issues
-        response = await self.session_manager.json_request(url, method="POST")
+        response = await self.auth_session.json_request(url, method="POST")
         return response

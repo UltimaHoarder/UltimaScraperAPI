@@ -30,7 +30,7 @@ class create_post(SiteContent):
         self.favoritesCount: int = option.get("favoritesCount", 0)
         self.mediaCount: int = option.get("mediaCount", 0)
         self.isMediaReady: bool = option.get("isMediaReady", False)
-        self.voting: list = option.get("voting", [])
+        self.voting: dict[str, Any] = option.get("voting", {})
         self.isOpened: bool = option.get("isOpened", False)
         self.canToggleFavorite: bool = option.get("canToggleFavorite", False)
         self.streamId: int | None = option.get("streamId")
@@ -48,6 +48,7 @@ class create_post(SiteContent):
         self.preview: list[int] = option.get("preview", [])
         self.canPurchase: bool = option.get("canPurchase", False)
         self.comments: list[CommentModel] = []
+        self.fund_raising: dict[str, Any] | None = option.get("fundRaising")
         self.created_at: datetime = datetime.fromisoformat(option["postedAt"])
         self.postedAtPrecise: str = option["postedAtPrecise"]
         self.expiredAt: Any = option.get("expiredAt")
@@ -65,7 +66,7 @@ class create_post(SiteContent):
             ] = await self.author.scrape_manager.bulk_scrape(links)
             authed = self.author.get_authed()
             final_results = [
-                CommentModel(x, await authed.resolve_user(x["author"])) for x in results
+                CommentModel(x, authed.resolve_user(x["author"])) for x in results
             ]
             self.comments = final_results
         return self.comments
@@ -76,8 +77,6 @@ class create_post(SiteContent):
             identifier2=self.id,
             identifier3=self.author.id,
         ).favorite
-        results = await self.author.get_session_manager().json_request(
-            link, method="POST"
-        )
+        results = await self.author.get_requester().json_request(link, method="POST")
         self.isFavorite = True
         return results
