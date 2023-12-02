@@ -6,6 +6,23 @@ from pydantic import BaseModel
 site_name_literals = Literal["OnlyFans", "Fansly"]
 
 
+class Webhook(BaseModel):
+    url: str | None = None
+    hide_info: list[str] = []
+    active: bool
+
+
+class Webhooks(BaseModel):
+    auth: Webhook = Webhook(active=False)
+    download: Webhook = Webhook(active=False)
+
+
+class MediaQuality(BaseModel):
+    image: str = "source"
+    video: str = "source"
+    audio: str = "source"
+
+
 class Network(BaseModel):
     max_threads: int = -1
     proxies: list[str] = []
@@ -35,7 +52,8 @@ class Settings(BaseModel):
 
 
 class GlobalAPI(BaseModel):
-    pass
+    media_quality: MediaQuality = MediaQuality()
+    webhooks: Webhooks = Webhooks()
 
 
 class OnlyFansAPIConfig(GlobalAPI):
@@ -67,3 +85,6 @@ class Sites(BaseModel):
 class UltimaScraperAPIConfig(BaseModel):
     settings: Settings = Settings()
     site_apis: Sites = Sites()
+
+
+api_config_types = OnlyFansAPIConfig | FanslyAPIConfig
