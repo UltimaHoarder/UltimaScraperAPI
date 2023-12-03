@@ -71,7 +71,8 @@ class OnlyFansAPI(StreamlinedAPI):
                     authed.issues = issues if issues["data"] else None
                     self.add_auth(authed)
                     yield authed
-        yield authed
+        else:
+            yield authed
 
     async def remove_invalid_auths(self):
         for _, auth in self.auths.copy().items():

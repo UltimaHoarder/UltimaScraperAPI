@@ -68,7 +68,8 @@ class FanslyAPI(StreamlinedAPI):
                     authed = temp_authed
                     self.add_auth(authed)
                     yield authed
-        yield authed
+        else:
+            yield authed
 
     async def remove_invalid_auths(self):
         for _, auth in self.auths.copy().items():
