@@ -70,7 +70,7 @@ class OnlyFansAPI(StreamlinedAPI):
                     issues = await authed.get_login_issues()
                     authed.issues = issues if issues["data"] else None
                     self.add_auth(authed)
-                    yield authed
+                yield authed
         else:
             yield authed
 

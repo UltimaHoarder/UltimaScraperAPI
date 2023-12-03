@@ -67,7 +67,7 @@ class FanslyAPI(StreamlinedAPI):
                 if temp_authed and temp_authed.is_authed():
                     authed = temp_authed
                     self.add_auth(authed)
-                    yield authed
+                yield authed
         else:
             yield authed
 
