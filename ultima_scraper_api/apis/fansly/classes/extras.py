@@ -1,16 +1,7 @@
 import copy
 import math
-from itertools import chain
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Literal, Optional, Union
-
-from ultima_scraper_api.managers.session_manager import SessionManager
-from user_agent import generate_user_agent
-
-if TYPE_CHECKING:
-    from ultima_scraper_api.apis.fansly.fansly import FanslyAPI
-
-from ultima_scraper_api.apis import api_helper
+from typing import Any, Literal, Optional, Union
 
 
 class ErrorDetails:
@@ -97,110 +88,6 @@ class AuthDetails:
             new_dict["user_id"] = new_dict["id"]
             del new_dict["id"]
         return new_dict
-
-
-class FanslyAuthenticator:
-    def __init__(
-        self,
-        api: "FanslyAPI",
-        auth_details: AuthDetails = AuthDetails(),
-        max_threads: int = -1,
-    ) -> None:
-        self.api = api
-        self.auth_details = auth_details
-        self.session_manager = SessionManager(self, max_threads=max_threads)
-        self.auth_attempt = 0
-        self.max_attempts = 10
-        self.errors: list[ErrorDetails] = []
-        self.active = False
-        self.guest = False
-        self.__raw__: dict[str, Any] | None = None
-
-    async def login(self, guest: bool = False):
-        auth_items = self.auth_details
-        if not auth_items:
-            return self
-        if guest and auth_items:
-            auth_items.user_agent = generate_user_agent()
-        link = endpoint_links().customer
-        user_agent = auth_items.user_agent
-        dynamic_rules = self.session_manager.dynamic_rules
-        a: list[Any] = [dynamic_rules, user_agent, link]
-        self.session_manager.headers = create_headers(*a)
-        if guest:
-            self.guest = True
-            self.__raw__ = {}
-            return self
-
-        while self.auth_attempt < self.max_attempts:
-            await self.process_auth()
-            self.auth_attempt += 1
-
-            if not self.is_authed():
-                if self.errors:
-                    error = self.errors[-1]
-                    error_message = error.message
-                    if "token" in error_message:
-                        break
-                    if "Code wrong" in error_message:
-                        break
-                    if "Please refresh" in error_message:
-                        break
-                continue
-            else:
-                break
-        return self
-
-    async def process_auth(self):
-        if not self.maxed_out_auth_attempts():
-            link = endpoint_links().me
-            json_resp = await self.session_manager.json_request(link)
-            await self.resolve_auth_errors(json_resp)
-            if not self.errors:
-                self.auth_details.active = True
-                self.__raw__ = json_resp
-            else:
-                if self.auth_details.id:
-                    link = endpoint_links(self.auth_details.id).users_by_id
-                    json_resp = await self.session_manager.json_request(link)
-                    await self.resolve_auth_errors(json_resp)
-                    self.__raw__ = json_resp
-                self.auth_details.active = False
-        return self
-
-    def maxed_out_auth_attempts(self):
-        return True if self.auth_attempt >= self.max_attempts else False
-
-    def is_authed(self):
-        return self.auth_details.active
-
-    async def resolve_auth_errors(self, response: ErrorDetails | dict[str, Any]):
-        # Adds an error object to self.auth.errors
-        if isinstance(response, ErrorDetails):
-            error = response
-        elif "error" in response:
-            error = response["error"]
-            error = ErrorDetails(error)
-        else:
-            self.errors.clear()
-            return
-        error_message = error.message
-        error_code = error.code
-        if error_code == 0:
-            pass
-        elif error_code == 101:
-            error_message = "Blocked by 2FA."
-        elif error_code == 401:
-            # Session/Refresh
-            error_message = "Invalid Auth Info"
-        error.code = error_code
-        error.message = error_message
-        match error_code:
-            case 0:
-                pass
-            case _:
-                await api_helper.handle_error_details(error)
-        self.errors.append(error)
 
 
 class legacy_auth_details:
@@ -337,45 +224,3 @@ def create_headers(
     headers["user-id"] = str(auth_id)
     headers["x-bc"] = ""
     return headers
-
-
-def handle_refresh(object_: object, name: str):
-    final_argument = getattr(object_, name)
-    return final_argument
-
-
-class media_types:
-    def __init__(self, option={}, assign_states=False) -> None:
-        self.Images = option.get("Images", [])
-        self.Videos = option.get("Videos", [])
-        self.Audios = option.get("Audios", [])
-        self.Texts = option.get("Texts", [])
-        if assign_states:
-            for k, v in self:
-                setattr(self, k, assign_states())
-
-    def remove_empty(self):
-        copied = copy.deepcopy(self)
-        for k, v in copied:
-            if not v:
-                delattr(self, k)
-            print
-        return self
-
-    def get_status(self) -> list:
-        x = []
-        for key, item in self:
-            for key2, item2 in item:
-                new_status = list(chain.from_iterable(item2))
-                x.extend(new_status)
-        return x
-
-    def extract(self, string: str) -> list:
-        a = self.get_status()
-        source_list = [getattr(x, string, None) for x in a]
-        x = list(set(source_list))
-        return x
-
-    def __iter__(self):
-        for attr, value in self.__dict__.items():
-            yield attr, value

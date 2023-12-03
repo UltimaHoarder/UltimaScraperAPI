@@ -17,23 +17,21 @@ from ultima_scraper_api.apis.fansly.classes.subscription_model import Subscripti
 from ultima_scraper_api.apis.fansly.classes.user_model import create_user
 
 if TYPE_CHECKING:
-    from ultima_scraper_api.apis.fansly.classes.extras import FanslyAuthenticator
+    from ultima_scraper_api.apis.fansly.authenticator import FanslyAuthenticator
+    from ultima_scraper_api.apis.fansly.classes.extras import AuthDetails
+    from ultima_scraper_api.apis.fansly.fansly import FanslyAPI
     from ultima_scraper_api.apis.onlyfans.classes.only_drm import OnlyDRM
 
 
-class AuthModel(StreamlinedAuth):
+class AuthModel(StreamlinedAuth["FanslyAuthenticator", "FanslyAPI", "AuthDetails"]):
     def __init__(
         self,
         authenticator: FanslyAuthenticator,
     ) -> None:
         self.api = authenticator.api
-        self.users: set[create_user] = set()
-        self.authenticator = authenticator
-        self.session_manager = authenticator.session_manager
-        assert authenticator.__raw__ is not None
-        self.user: create_user = create_user(
-            authenticator.__raw__["response"]["account"], self
-        )
+        self.users: dict[int, create_user] = {}
+        super().__init__(authenticator)
+        self.user = authenticator.create_user(self)
         self.id = self.user.id
         self.username = self.user.username
         self.lists = []
@@ -49,8 +47,6 @@ class AuthModel(StreamlinedAuth):
         self.guest = self.authenticator.guest
         self.drm: OnlyDRM | None = None
         self.update()
-
-        StreamlinedAuth.__init__(self, self.authenticator)
 
     def get_pool(self):
         return self.api.pool
@@ -78,12 +74,12 @@ class AuthModel(StreamlinedAuth):
         assert self.user
         return self.user.get_username()
 
+    def add_user(self, user: create_user):
+        self.users[user.id] = user
+
     async def get_lists(self, refresh: bool = True, limit: int = 100, offset: int = 0):
-        result, status = await api_helper.default_data(self, refresh)
-        if status:
-            return result
         link = endpoint_links(global_limit=limit, global_offset=offset).lists
-        json_resp = await self.session_manager.json_request(link)
+        json_resp = await self.get_requester().json_request(link)
         self.lists = json_resp
         return json_resp
 
@@ -110,16 +106,8 @@ class AuthModel(StreamlinedAuth):
         else:
             return False
 
-    def find_user_by_identifier(self, identifier: int | str):
-        if isinstance(identifier, str) and identifier.isnumeric():
-            identifier = int(identifier)
-        user = [x for x in self.users if x.id == identifier or x.username == identifier]
-        if user:
-            user = user[0]
-            return user
-
     async def get_user(self, identifier: int | str):
-        valid_user = self.find_user_by_identifier(identifier)
+        valid_user = self.find_user(identifier)
         if valid_user:
             return valid_user
         else:
@@ -129,19 +117,28 @@ class AuthModel(StreamlinedAuth):
             else:
                 url = endpoint_links(identifier).users_by_username
                 pass
-            response = await self.session_manager.json_request(url)
+            response = await self.get_requester().json_request(url)
             if response["response"]:
-                response["session_manager"] = self.session_manager
+                response["auth_session"] = self.auth_session
                 response = create_user(response["response"][0], self)
             return response
 
-    async def resolve_user(self, data: dict[str, Any]):
-        valid_user = self.find_user_by_identifier(data["id"])
-        if valid_user:
-            return valid_user
+    def find_user(self, identifier: int | str):
+        if isinstance(identifier, int):
+            user = self.users.get(identifier)
         else:
-            response = create_user(data, self)
-            return response
+            for user in self.users.values():
+                if user.username.lower() == identifier.lower():
+                    break
+            else:
+                user = None
+        return user
+
+    def resolve_user(self, user_dict: dict[str, Any]):
+        user = self.find_user(user_dict["id"])
+        if not user:
+            user = create_user(user_dict, self)
+        return user
 
     async def get_lists_users(
         self,
@@ -150,13 +147,10 @@ class AuthModel(StreamlinedAuth):
         limit: int = 100,
         offset: int = 0,
     ):
-        result, status = await api_helper.default_data(self, refresh=True)
-        if status:
-            return result
         link = endpoint_links(
             identifier, global_limit=limit, global_offset=offset
         ).lists_users
-        results = await self.session_manager.json_request(link)
+        results = await self.get_requester().json_request(link)
         if len(results) >= limit and not check:
             results2 = await self.get_lists_users(
                 identifier, limit=limit, offset=limit + offset
@@ -171,7 +165,7 @@ class AuthModel(StreamlinedAuth):
         followings: list[dict[str, Any]] = []
         while True:
             followings_link = endpoint_links().list_followings(self.id, offset_count)
-            temp_followings: dict[str, Any] = await self.session_manager.json_request(
+            temp_followings: dict[str, Any] = await self.get_requester().json_request(
                 followings_link
             )
             account_ids = temp_followings["response"]
@@ -184,7 +178,7 @@ class AuthModel(StreamlinedAuth):
         if followings:
             followings_id: str = ",".join([x["accountId"] for x in followings])
             customer_link = endpoint_links(followings_id).customer
-            temp_followings = await self.session_manager.json_request(customer_link)
+            temp_followings = await self.get_requester().json_request(customer_link)
             if identifiers:
                 final_followings = [
                     create_user(x, self)
@@ -229,12 +223,8 @@ class AuthModel(StreamlinedAuth):
         identifiers: list[int | str] = [],
         sub_type: SubscriptionType = "all",
     ):
-        result, status = await api_helper.default_data(self, refresh)
-        if status:
-            result: list[SubscriptionModel]
-            return result
         subscriptions_link = endpoint_links().subscriptions
-        temp_subscriptions = await self.session_manager.json_request(subscriptions_link)
+        temp_subscriptions = await self.get_requester().json_request(subscriptions_link)
         raw_subscriptions = temp_subscriptions["response"]["subscriptions"]
 
         async def assign_user_to_sub(raw_subscription: Dict[str, Any]):
@@ -276,12 +266,8 @@ class AuthModel(StreamlinedAuth):
         limit: int = 25,
         offset: int = 0,
         depth: int = 1,
-        refresh: bool = True,
     ) -> list[dict[str, Any]]:
-        result, status = await api_helper.default_data(self, refresh)
-        if status:
-            return result
-        multiplier = self.session_manager.max_threads
+        multiplier = self.auth_session.get_session_manager().max_threads
         temp_limit = limit
         temp_offset = offset
         link = endpoint_links(
@@ -292,7 +278,7 @@ class AuthModel(StreamlinedAuth):
         )
         links = unpredictable_links if depth != 1 else links + unpredictable_links
 
-        results = await self.session_manager.bulk_json_requests(links)
+        results = await self.get_requester().bulk_json_requests(links)
         has_more = results[-1]["response"]["data"]
         final_results = api_helper.merge_dictionaries(results)["response"]
 
@@ -327,13 +313,14 @@ class AuthModel(StreamlinedAuth):
 
     async def get_paid_content(
         self,
+        performer_id: int | str | None = None,
         limit: int = 10,
         offset: int = 0,
     ):
         if not self.cache.paid_content.is_released():
             return self.paid_content
         link = endpoint_links(global_limit=limit, global_offset=offset).paid_api
-        result = await self.session_manager.json_request(link)
+        result = await self.get_requester().json_request(link)
         final_results = result["response"]["accountMediaOrders"]
         return final_results
 

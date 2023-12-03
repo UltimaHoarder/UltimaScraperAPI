@@ -97,7 +97,7 @@ class create_collection(SiteContent):
             identifier2=self.id,
             identifier3=self.author.id,
         ).favorite
-        results = await self.user.session_manager.json_request(link, method="POST")
+        results = await self.user.get_requester().json_request(link, method="POST")
         self.isFavorite = True
         return results
 

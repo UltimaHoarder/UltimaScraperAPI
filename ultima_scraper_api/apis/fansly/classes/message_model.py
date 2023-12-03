@@ -14,7 +14,7 @@ class create_message(SiteContent):
     def __init__(
         self, option: dict[str, Any], user: create_user, extra: dict[Any, Any] = {}
     ) -> None:
-        author = user.get_authed().find_user_by_identifier(option["senderId"])
+        author = user.get_authed().resolve_user(option["senderId"])
         self.user = user
         SiteContent.__init__(self, option, author)
         self.responseType: Optional[str] = option.get("responseType")
@@ -28,7 +28,7 @@ class create_message(SiteContent):
         self.previews: list[dict[str, Any]] = option.get("previews", [])
         self.isTip: Optional[bool] = option.get("isTip")
         self.isReportedByMe: Optional[bool] = option.get("isReportedByMe")
-        self.fromUser = user.get_authed().find_user_by_identifier(option["senderId"])
+        self.fromUser = user.get_authed().resolve_user(option["senderId"])
         self.isFromQueue: Optional[bool] = option.get("isFromQueue")
         self.queueId: Optional[int] = option.get("queueId")
         self.canUnsendQueue: Optional[bool] = option.get("canUnsendQueue")
@@ -99,7 +99,7 @@ class create_message(SiteContent):
             "unavailablePaymentGates": [],
         }
         link = endpoint_links().pay
-        result = await self.user.get_session_manager().json_request(link)
+        result = await self.user.get_requester().json_request(link)
         return result
 
     async def link_picker(self, media: dict[Any, Any], target_quality: str):

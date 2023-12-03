@@ -5,11 +5,11 @@ from ultima_scraper_api.apis.fansly import SiteContent
 if TYPE_CHECKING:
     from ultima_scraper_api.apis.fansly.classes.user_model import create_user
 
+
 class create_story(SiteContent):
     def __init__(self, option: dict[str, Any], user: "create_user") -> None:
         SiteContent.__init__(self, option, user)
         self.userId: int = option.get("userId")
-        self.createdAt: str = option.get("createdAt")
         self.expiredAt: str = option.get("expiredAt")
         self.isReady: bool = option.get("isReady")
         self.viewersCount: int = option.get("viewersCount")
@@ -26,6 +26,8 @@ class create_story(SiteContent):
         self.placedContents: list = option.get("placedContents")
         self.answered: int = option.get("answered")
         self.previews: list[dict[str, Any]] = option.get("previews", [])
+        self.created_at: str = option.get("createdAt")
+        self.updated_at: str = option.get("updatedAt")
 
     async def link_picker(self, media: dict[Any, Any], target_quality: str):
         # There are two media results at play here.

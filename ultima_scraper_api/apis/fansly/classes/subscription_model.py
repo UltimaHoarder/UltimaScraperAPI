@@ -26,7 +26,7 @@ class SubscriptionModel(BaseSubscriptionModel):
         return True if self.created_at > self.ends_at else False
 
     def get_authed(self):
-        return self.subscriber.get_authed()
+        return self.subscriber
 
     def get_price(self):
         return self.price

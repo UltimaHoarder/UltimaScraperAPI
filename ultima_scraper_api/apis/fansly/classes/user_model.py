@@ -7,230 +7,237 @@ from urllib import parse
 import ultima_scraper_api.apis.fansly.classes.message_model as message_model
 from ultima_scraper_api.apis import api_helper
 from ultima_scraper_api.apis.fansly.classes import collection_model, post_model
-from ultima_scraper_api.apis.fansly.classes.extras import (
-    ErrorDetails,
-    endpoint_links,
-    handle_refresh,
-)
+from ultima_scraper_api.apis.fansly.classes.extras import ErrorDetails, endpoint_links
 from ultima_scraper_api.apis.fansly.classes.hightlight_model import create_highlight
 from ultima_scraper_api.apis.fansly.classes.story_model import create_story
 from ultima_scraper_api.apis.user_streamliner import StreamlinedUser
 from ultima_scraper_api.managers.scrape_manager import ScrapeManager
 
 if TYPE_CHECKING:
+    from ultima_scraper_api import FanslyAPI
     from ultima_scraper_api.apis.fansly.classes.auth_model import AuthModel
     from ultima_scraper_api.apis.fansly.classes.post_model import create_post
 
 
-class create_user(StreamlinedUser):
+class create_user(StreamlinedUser["AuthModel", "FanslyAPI"]):
     def __init__(
         self,
         option: dict[str, Any],
         authed: AuthModel,
     ) -> None:
         self.avatar: Any = option.get("avatar")
-        self.avatarThumbs: Any = option.get("avatarThumbs")
+        self.avatar_thumbs: Any = option.get("avatarThumbs")
         self.header: Any = option.get("banner")
-        self.headerSize: Any = option.get("headerSize")
-        self.headerThumbs: Any = option.get("headerThumbs")
+        self.header_size: Any = option.get("headerSize")
+        self.header_thumbs: Any = option.get("headerThumbs")
         self.id: int = int(option.get("id", 9001))
         self.name: str = option.get("name")
         self.username: str = option.get("username")
-        self.canLookStory: bool = option.get("canLookStory")
-        self.canCommentStory: bool = option.get("canCommentStory")
-        self.hasNotViewedStory: bool = option.get("hasNotViewedStory")
-        self.isVerified: bool = option.get("isVerified")
-        self.canPayInternal: bool = option.get("canPayInternal")
-        self.hasScheduledStream: bool = option.get("hasScheduledStream")
-        self.hasStream: bool = option.get("hasStream")
-        self.hasStories: bool = option.get("hasStories")
-        self.tipsEnabled: bool = option.get("tipsEnabled")
-        self.tipsTextEnabled: bool = option.get("tipsTextEnabled")
-        self.tipsMin: int = option.get("tipsMin")
-        self.tipsMax: int = option.get("tipsMax")
-        self.canEarn: bool = option.get("canEarn")
-        self.canAddSubscriber: bool = option.get("canAddSubscriber")
-        self.subscribePrice: int = option.get("subscribePrice")
-        self.hasStripe: bool = option.get("hasStripe")
-        self.isStripeExist: bool = option.get("isStripeExist")
-        self.subscriptionBundles: list[dict[Any, Any]] = option.get(
+        self.can_look_story: bool = option.get("canLookStory")
+        self.can_comment_story: bool = option.get("canCommentStory")
+        self.has_not_viewed_story: bool = option.get("hasNotViewedStory")
+        self.is_verified: bool = option.get("isVerified")
+        self.can_pay_internal: bool = option.get("canPayInternal")
+        self.has_scheduled_stream: bool = option.get("hasScheduledStream")
+        self.has_stream: bool = option.get("hasStream")
+        self.has_stories: bool = option.get("hasStories")
+        self.tips_enabled: bool = option.get("tipsEnabled")
+        self.tips_text_enabled: bool = option.get("tipsTextEnabled")
+        self.tips_min: int = option.get("tipsMin")
+        self.tips_max: int = option.get("tipsMax")
+        self.can_earn: bool = option.get("canEarn")
+        self.can_add_subscriber: bool = option.get("canAddSubscriber")
+        self.subscribe_price: int = option.get("subscribePrice")
+        self.has_stripe: bool = option.get("hasStripe")
+        self.is_stripe_exist: bool = option.get("isStripeExist")
+        self.subscription_bundles: list[dict[Any, Any]] = option.get(
             "subscriptionTiers", []
         )
-        self.canSendChatToAll: bool = option.get("canSendChatToAll")
-        self.creditsMin: int = option.get("creditsMin")
-        self.creditsMax: int = option.get("creditsMax")
-        self.isPaywallRestriction: bool = option.get("isPaywallRestriction")
+        self.can_send_chat_to_all: bool = option.get("canSendChatToAll")
+        self.credits_min: int = option.get("creditsMin")
+        self.credits_max: int = option.get("creditsMax")
+        self.is_paywall_restriction: bool = option.get("isPaywallRestriction")
         self.unprofitable: bool = option.get("unprofitable")
-        self.listsSort: str = option.get("listsSort")
-        self.listsSortOrder: str = option.get("listsSortOrder")
-        self.canCreateLists: bool = option.get("canCreateLists")
-        self.joinDate: str = option.get("joinDate")
-        self.isReferrerAllowed: bool = option.get("isReferrerAllowed")
+        self.lists_sort: str = option.get("listsSort")
+        self.lists_sort_order: str = option.get("listsSortOrder")
+        self.can_create_lists: bool = option.get("canCreateLists")
+        self.join_date: str = option.get("joinDate")
+        self.is_referrer_allowed: bool = option.get("isReferrerAllowed")
         self.about: str = option.get("about")
-        self.rawAbout: str = option.get("rawAbout")
+        self.raw_about: str = option.get("rawAbout")
         self.website: str = option.get("website")
         self.wishlist: str = option.get("wishlist")
         self.location: str = option.get("location")
         timeline_stats = option.get("timelineStats", {})
-        self.postsCount: int = option.get("postsCount", 0)
-        self.archivedPostsCount: int = option.get("archivedPostsCount", 0)
-        self.photosCount: int = timeline_stats.get("imageCount", 0)
-        self.videosCount: int = timeline_stats.get("videoCount", 0)
-        self.audiosCount: int = option.get("audiosCount", 0)
-        self.mediasCount: int = option.get("mediasCount", 0)
+        self.posts_count: int = option.get("postsCount", 0)
+        self.archived_posts_count: int = option.get("archivedPostsCount", 0)
+        self.photos_count: int = timeline_stats.get("imageCount", 0)
+        self.videos_count: int = timeline_stats.get("videoCount", 0)
+        self.audios_count: int = option.get("audiosCount", 0)
+        self.medias_count: int = option.get("mediasCount", 0)
         self.promotions: list = option.get("promotions")
-        self.lastSeen: Any = option.get("lastSeen")
-        self.favoritedCount: int = option.get("accountMediaLikes")
-        self.showPostsInFeed: bool = option.get("showPostsInFeed")
-        self.canReceiveChatMessage: bool = option.get("canReceiveChatMessage")
-        self.isPerformer: bool = bool(self.subscriptionBundles)
-        self.isRealPerformer: bool = option.get("isRealPerformer")
-        self.isSpotifyConnected: bool = option.get("isSpotifyConnected")
-        self.subscribersCount: int = option.get("subscribersCount")
-        self.hasPinnedPosts: bool = option.get("hasPinnedPosts")
-        self.canChat: bool = option.get("canChat")
-        self.callPrice: int = option.get("callPrice")
-        self.isPrivateRestriction: bool = option.get("isPrivateRestriction")
+        self.last_seen: Any = option.get("lastSeen")
+        self.favorited_count: int = option.get("accountMediaLikes")
+        self.show_posts_in_feed: bool = option.get("showPostsInFeed")
+        self.can_receive_chat_message: bool = option.get("canReceiveChatMessage")
+        self._is_performer: bool = bool(self.subscriptionBundles)
+        self.is_real_performer: bool = option.get("isRealPerformer")
+        self.is_spotify_connected: bool = option.get("isSpotifyConnected")
+        self.subscribers_count: int = option.get("subscribersCount")
+        self.has_pinned_posts: bool = option.get("hasPinnedPosts")
+        self.can_chat: bool = option.get("canChat")
+        self.call_price: int = option.get("callPrice")
+        self.is_private_restriction: bool = option.get("isPrivateRestriction")
         self.following: bool = option.get("following")
-        self.showSubscribersCount: bool = option.get("showSubscribersCount")
-        self.showMediaCount: bool = option.get("showMediaCount")
+        self.show_subscribers_count: bool = option.get("showSubscribersCount")
+        self.show_media_count: bool = option.get("showMediaCount")
         self.subscribed: bool = option.get("subscribed", False)
-        self.subscribedByData: Any = option.get("subscription")
-        self.subscribedOnData: Any = option.get("subscribedOnData")
-        self.canPromotion: bool = option.get("canPromotion")
-        self.canCreatePromotion: bool = option.get("canCreatePromotion")
-        self.canCreateTrial: bool = option.get("canCreateTrial")
-        self.isAdultContent: bool = option.get("isAdultContent")
+        self.subscribed_by_data: Any = option.get("subscription")
+        self.subscribed_on_data: Any = option.get("subscribedOnData")
+        self.can_promotion: bool = option.get("canPromotion")
+        self.can_create_promotion: bool = option.get("canCreatePromotion")
+        self.can_create_trial: bool = option.get("canCreateTrial")
+        self.is_adult_content: bool = option.get("isAdultContent")
         self.ignoring: int = option.get("ignoring", 0)
-        self.canTrialSend: bool = option.get("canTrialSend")
-        self.canAddPhone: bool = option.get("canAddPhone")
-        self.phoneLast4: Any = option.get("phoneLast4")
-        self.phoneMask: Any = option.get("phoneMask")
-        self.hasNewTicketReplies: dict = option.get("hasNewTicketReplies")
-        self.hasInternalPayments: bool = option.get("hasInternalPayments")
-        self.isCreditsEnabled: bool = option.get("isCreditsEnabled")
-        self.creditBalance: float = (
+        self.can_trial_send: bool = option.get("canTrialSend")
+        self.can_add_phone: bool = option.get("canAddPhone")
+        self.phone_last4: Any = option.get("phoneLast4")
+        self.phone_mask: Any = option.get("phoneMask")
+        self.has_new_ticket_replies: dict = option.get("hasNewTicketReplies")
+        self.has_internal_payments: bool = option.get("hasInternalPayments")
+        self.is_credits_enabled: bool = option.get("isCreditsEnabled")
+        self.credit_balance: float = (
             option["mainWallet"]["balance"] if "mainWallet" in option else 0
         )
-        self.isMakePayment: bool = option.get("isMakePayment")
-        self.isOtpEnabled: bool = option.get("isOtpEnabled")
+        self.is_make_payment: bool = option.get("isMakePayment")
+        self.is_otp_enabled: bool = option.get("isOtpEnabled")
         self.email: str = option.get("email")
-        self.isEmailChecked: bool = option.get("isEmailChecked")
-        self.isLegalApprovedAllowed: bool = option.get("isLegalApprovedAllowed")
-        self.isTwitterConnected: bool = option.get("isTwitterConnected")
-        self.twitterUsername: Any = option.get("twitterUsername")
-        self.isAllowTweets: bool = option.get("isAllowTweets")
-        self.isPaymentCardConnected: bool = option.get("isPaymentCardConnected")
-        self.referalUrl: str = option.get("referalUrl")
-        self.isVisibleOnline: bool = option.get("isVisibleOnline")
-        self.subscribesCount: int = option.get("subscribesCount")
-        self.canPinPost: bool = option.get("canPinPost")
-        self.hasNewAlerts: bool = option.get("hasNewAlerts")
-        self.hasNewHints: bool = option.get("hasNewHints")
-        self.hasNewChangedPriceSubscriptions: bool = option.get(
+        self.is_email_checked: bool = option.get("isEmailChecked")
+        self.is_legal_approved_allowed: bool = option.get("isLegalApprovedAllowed")
+        self.is_twitter_connected: bool = option.get("isTwitterConnected")
+        self.twitter_username: Any = option.get("twitterUsername")
+        self.is_allow_tweets: bool = option.get("isAllowTweets")
+        self.is_payment_card_connected: bool = option.get("isPaymentCardConnected")
+        self.referal_url: str = option.get("referalUrl")
+        self.is_visible_online: bool = option.get("isVisibleOnline")
+        self.subscribes_count: int = option.get("subscribesCount")
+        self.can_pin_post: bool = option.get("canPinPost")
+        self.has_new_alerts: bool = option.get("hasNewAlerts")
+        self.has_new_hints: bool = option.get("hasNewHints")
+        self.has_new_changed_price_subscriptions: bool = option.get(
             "hasNewChangedPriceSubscriptions"
         )
-        self.notificationsCount: int = option.get("notificationsCount")
-        self.chatMessagesCount: int = option.get("chatMessagesCount")
-        self.isWantComments: bool = option.get("isWantComments")
-        self.watermarkText: str = option.get("watermarkText")
-        self.customWatermarkText: Any = option.get("customWatermarkText")
-        self.hasWatermarkPhoto: bool = option.get("hasWatermarkPhoto")
-        self.hasWatermarkVideo: bool = option.get("hasWatermarkVideo")
-        self.canDelete: bool = option.get("canDelete")
-        self.isTelegramConnected: bool = option.get("isTelegramConnected")
-        self.advBlock: list = option.get("advBlock")
-        self.hasPurchasedPosts: bool = option.get("hasPurchasedPosts")
-        self.isEmailRequired: bool = option.get("isEmailRequired")
-        self.isPayoutLegalApproved: bool = option.get("isPayoutLegalApproved")
-        self.payoutLegalApproveState: str = option.get("payoutLegalApproveState")
-        self.payoutLegalApproveRejectReason: Any = option.get(
+        self.notifications_count: int = option.get("notificationsCount")
+        self.chat_messages_count: int = option.get("chatMessagesCount")
+        self.is_want_comments: bool = option.get("isWantComments")
+        self.watermark_text: str = option.get("watermarkText")
+        self.custom_watermark_text: Any = option.get("customWatermarkText")
+        self.has_watermark_photo: bool = option.get("hasWatermarkPhoto")
+        self.has_watermark_video: bool = option.get("hasWatermarkVideo")
+        self.can_delete: bool = option.get("canDelete")
+        self.is_telegram_connected: bool = option.get("isTelegramConnected")
+        self.adv_block: list = option.get("advBlock")
+        self.has_purchased_posts: bool = option.get("hasPurchasedPosts")
+        self.is_email_required: bool = option.get("isEmailRequired")
+        self.is_payout_legal_approved: bool = option.get("isPayoutLegalApproved")
+        self.payout_legal_approve_state: str = option.get("payoutLegalApproveState")
+        self.payout_legal_approve_reject_reason: Any = option.get(
             "payoutLegalApproveRejectReason"
         )
-        self.enabledImageEditorForChat: bool = option.get("enabledImageEditorForChat")
-        self.shouldReceiveLessNotifications: bool = option.get(
+        self.enabled_image_editor_for_chat: bool = option.get(
+            "enabledImageEditorForChat"
+        )
+        self.should_receive_less_notifications: bool = option.get(
             "shouldReceiveLessNotifications"
         )
-        self.canCalling: bool = option.get("canCalling")
-        self.paidFeed: bool = option.get("paidFeed")
-        self.canSendSms: bool = option.get("canSendSms")
-        self.canAddFriends: bool = option.get("canAddFriends")
-        self.isRealCardConnected: bool = option.get("isRealCardConnected")
-        self.countPriorityChat: int = option.get("countPriorityChat")
-        self.hasScenario: bool = option.get("hasScenario")
-        self.isWalletAutorecharge: bool = option.get("isWalletAutorecharge")
-        self.walletAutorechargeAmount: int = option.get("walletAutorechargeAmount")
-        self.walletAutorechargeMin: int = option.get("walletAutorechargeMin")
-        self.walletFirstRebills: bool = option.get("walletFirstRebills")
-        self.closeFriends: int = option.get("closeFriends")
-        self.canAlternativeWalletTopUp: bool = option.get("canAlternativeWalletTopUp")
-        self.needIVApprove: bool = option.get("needIVApprove")
-        self.ivStatus: Any = option.get("ivStatus")
-        self.ivFailReason: Any = option.get("ivFailReason")
-        self.canCheckDocsOnAddCard: bool = option.get("canCheckDocsOnAddCard")
-        self.faceIdAvailable: bool = option.get("faceIdAvailable")
-        self.ivCountry: Any = option.get("ivCountry")
-        self.ivForcedVerified: bool = option.get("ivForcedVerified")
-        self.ivFlow: str = option.get("ivFlow")
-        self.isVerifiedReason: bool = option.get("isVerifiedReason")
-        self.canReceiveManualPayout: bool = option.get("canReceiveManualPayout")
-        self.canReceiveStripePayout: bool = option.get("canReceiveStripePayout")
-        self.manualPayoutPendingDays: int = option.get("manualPayoutPendingDays")
-        self.isNeedConfirmPayout: bool = option.get("isNeedConfirmPayout")
-        self.canStreaming: bool = option.get("canStreaming")
-        self.isScheduledStreamsAllowed: bool = option.get("isScheduledStreamsAllowed")
-        self.canMakeExpirePosts: bool = option.get("canMakeExpirePosts")
-        self.trialMaxDays: int = option.get("trialMaxDays")
-        self.trialMaxExpiresDays: int = option.get("trialMaxExpiresDays")
-        self.messageMinPrice: int = option.get("messageMinPrice")
-        self.messageMaxPrice: int = option.get("messageMaxPrice")
-        self.postMinPrice: int = option.get("postMinPrice")
-        self.postMaxPrice: int = option.get("postMaxPrice")
-        self.streamMinPrice: int = option.get("streamMinPrice")
-        self.streamMaxPrice: int = option.get("streamMaxPrice")
-        self.canCreatePaidStream: bool = option.get("canCreatePaidStream")
-        self.callMinPrice: int = option.get("callMinPrice")
-        self.callMaxPrice: int = option.get("callMaxPrice")
-        self.subscribeMinPrice: float = option.get("subscribeMinPrice")
-        self.subscribeMaxPrice: int = option.get("subscribeMaxPrice")
-        self.bundleMaxPrice: int = option.get("bundleMaxPrice")
-        self.unclaimedOffersCount: int = option.get("unclaimedOffersCount")
-        self.claimedOffersCount: int = option.get("claimedOffersCount")
-        self.withdrawalPeriod: str = option.get("withdrawalPeriod")
-        self.canAddStory: bool = option.get("canAddStory")
-        self.canAddSubscriberByBundle: bool = option.get("canAddSubscriberByBundle")
-        self.isSuggestionsOptOut: bool = option.get("isSuggestionsOptOut")
-        self.canCreateFundRaising: bool = option.get("canCreateFundRaising")
-        self.minFundRaisingTarget: int = option.get("minFundRaisingTarget")
-        self.maxFundRaisingTarget: int = option.get("maxFundRaisingTarget")
-        self.disputesRatio: int = option.get("disputesRatio")
-        self.vaultListsSort: str = option.get("vaultListsSort")
-        self.vaultListsSortOrder: str = option.get("vaultListsSortOrder")
-        self.canCreateVaultLists: bool = option.get("canCreateVaultLists")
-        self.canMakeProfileLinks: bool = option.get("canMakeProfileLinks")
-        self.replyOnSubscribe: bool = option.get("replyOnSubscribe")
-        self.payoutType: str = option.get("payoutType")
-        self.minPayoutSumm: int = option.get("minPayoutSumm")
-        self.canHasW9Form: bool = option.get("canHasW9Form")
-        self.isVatRequired: bool = option.get("isVatRequired")
-        self.isCountryVatRefundable: bool = option.get("isCountryVatRefundable")
-        self.isCountryVatNumberCollect: bool = option.get("isCountryVatNumberCollect")
-        self.vatNumberName: str = option.get("vatNumberName")
-        self.isCountryWithVat: bool = option.get("isCountryWithVat")
-        self.connectedOfAccounts: list = option.get("connectedOfAccounts")
-        self.hasPassword: bool = option.get("hasPassword")
-        self.canConnectOfAccount: bool = option.get("canConnectOfAccount")
-        self.pinnedPostsCount: int = option.get("pinnedPostsCount")
-        self.maxPinnedPostsCount: int = option.get("maxPinnedPostsCount")
+        self.can_calling: bool = option.get("canCalling")
+        self.paid_feed: bool = option.get("paidFeed")
+        self.can_send_sms: bool = option.get("canSendSms")
+        self.can_add_friends: bool = option.get("canAddFriends")
+        self.is_real_card_connected: bool = option.get("isRealCardConnected")
+        self.count_priority_chat: int = option.get("countPriorityChat")
+        self.has_scenario: bool = option.get("hasScenario")
+        self.is_wallet_autorecharge: bool = option.get("isWalletAutorecharge")
+        self.wallet_autorecharge_amount: int = option.get("walletAutorechargeAmount")
+        self.wallet_autorecharge_min: int = option.get("walletAutorechargeMin")
+        self.wallet_first_rebills: bool = option.get("walletFirstRebills")
+        self.close_friends: int = option.get("closeFriends")
+        self.can_alternative_wallet_top_up: bool = option.get(
+            "canAlternativeWalletTopUp"
+        )
+        self.need_iv_approve: bool = option.get("needIVApprove")
+        self.iv_status: Any = option.get("ivStatus")
+        self.iv_fail_reason: Any = option.get("ivFailReason")
+        self.can_check_docs_on_add_card: bool = option.get("canCheckDocsOnAddCard")
+        self.face_id_available: bool = option.get("faceIdAvailable")
+        self.iv_country: Any = option.get("ivCountry")
+        self.iv_forced_verified: bool = option.get("ivForcedVerified")
+        self.iv_flow: str = option.get("ivFlow")
+        self.is_verified_reason: bool = option.get("isVerifiedReason")
+        self.can_receive_manual_payout: bool = option.get("canReceiveManualPayout")
+        self.can_receive_stripe_payout: bool = option.get("canReceiveStripePayout")
+        self.manual_payout_pending_days: int = option.get("manualPayoutPendingDays")
+        self.is_need_confirm_payout: bool = option.get("isNeedConfirmPayout")
+        self.can_streaming: bool = option.get("canStreaming")
+        self.is_scheduled_streams_allowed: bool = option.get(
+            "isScheduledStreamsAllowed"
+        )
+        self.can_make_expire_posts: bool = option.get("canMakeExpirePosts")
+        self.trial_max_days: int = option.get("trialMaxDays")
+        self.trial_max_expires_days: int = option.get("trialMaxExpiresDays")
+        self.message_min_price: int = option.get("messageMinPrice")
+        self.message_max_price: int = option.get("messageMaxPrice")
+        self.post_min_price: int = option.get("postMinPrice")
+        self.post_max_price: int = option.get("postMaxPrice")
+        self.stream_min_price: int = option.get("streamMinPrice")
+        self.stream_max_price: int = option.get("streamMaxPrice")
+        self.can_create_paid_stream: bool = option.get("canCreatePaidStream")
+        self.call_min_price: int = option.get("callMinPrice")
+        self.call_max_price: int = option.get("callMaxPrice")
+        self.subscribe_min_price: float = option.get("subscribeMinPrice")
+        self.subscribe_max_price: int = option.get("subscribeMaxPrice")
+        self.bundle_max_price: int = option.get("bundleMaxPrice")
+        self.unclaimed_offers_count: int = option.get("unclaimedOffersCount")
+        self.claimed_offers_count: int = option.get("claimedOffersCount")
+        self.withdrawal_period: str = option.get("withdrawalPeriod")
+        self.can_add_story: bool = option.get("canAddStory")
+        self.can_add_subscriber_by_bundle: bool = option.get("canAddSubscriberByBundle")
+        self.is_suggestions_opt_out: bool = option.get("isSuggestionsOptOut")
+        self.can_create_fund_raising: bool = option.get("canCreateFundRaising")
+        self.min_fund_raising_target: int = option.get("minFundRaisingTarget")
+        self.max_fund_raising_target: int = option.get("maxFundRaisingTarget")
+        self.disputes_ratio: int = option.get("disputesRatio")
+        self.vault_lists_sort: str = option.get("vaultListsSort")
+        self.vault_lists_sort_order: str = option.get("vaultListsSortOrder")
+        self.can_create_vault_lists: bool = option.get("canCreateVaultLists")
+        self.can_make_profile_links: bool = option.get("canMakeProfileLinks")
+        self.reply_on_subscribe: bool = option.get("replyOnSubscribe")
+        self.payout_type: str = option.get("payoutType")
+        self.min_payout_summ: int = option.get("minPayoutSumm")
+        self.can_has_w9_form: bool = option.get("canHasW9Form")
+        self.is_vat_required: bool = option.get("isVatRequired")
+        self.is_country_vat_refundable: bool = option.get("isCountryVatRefundable")
+        self.is_country_vat_number_collect: bool = option.get(
+            "isCountryVatNumberCollect"
+        )
+        self.vat_number_name: str = option.get("vatNumberName")
+        self.is_country_with_vat: bool = option.get("isCountryWithVat")
+        self.connected_of_accounts: list = option.get("connectedOfAccounts")
+        self.has_password: bool = option.get("hasPassword")
+        self.can_connect_of_account: bool = option.get("canConnectOfAccount")
+        self.pinned_posts_count: int = option.get("pinnedPostsCount")
+        self.max_pinned_posts_count: int = option.get("maxPinnedPostsCount")
         # Custom
-        authed.users.add(self)
+        found_user = authed.find_user(self.id)
+        if not found_user:
+            authed.add_user(self)
         self.is_blocked: bool = True if self.ignoring == 2 else False
         self.download_info: dict[str, Any] = {}
         self.duplicate_media = []
-        self.scrape_manager = ScrapeManager(authed.session_manager)
+        self.scrape_manager = ScrapeManager(authed.auth_session)
         self.__raw__ = option
         self.__db_user__: Any = None
-        StreamlinedUser.__init__(self, authed)
+        super().__init__(authed)
 
     def get_username(self):
         return self.username
@@ -251,47 +258,33 @@ class create_user(StreamlinedUser):
         else:
             return False
 
-    async def get_stories(
-        self, refresh: bool = True, limit: int = 100, offset: int = 0
-    ) -> list[create_story]:
-        result, status = await api_helper.default_data(self, refresh)
-        if status:
-            return result
-        link = [
-            endpoint_links(
-                identifier=self.id, global_limit=limit, global_offset=offset
-            ).stories_api
+    async def get_stories(self) -> list[create_story]:
+        link = endpoint_links(identifier=self.id).stories_api
+        result = await self.scrape_manager.scrape(link)
+        assert isinstance(result, dict)
+        final_results = [
+            create_story(x, self) for x in result["response"]["mediaStories"]
         ]
-        return []
-        results = await api_helper.scrape_endpoint_links(
-            link, self.get_session_manager()
-        )
-        results = [create_story(x) for x in results]
-        self.temp_scraped.Stories = results
-        return results
+        return final_results
 
     async def get_highlights(
         self, identifier="", refresh=True, limit=100, offset=0, hightlight_id=""
     ) -> list:
         api_type = "highlights"
-        if not refresh:
-            result = handle_refresh(self, api_type)
-            if result:
-                return result
         if not identifier:
             identifier = self.id
         if not hightlight_id:
             link = endpoint_links(
                 identifier=identifier, global_limit=limit, global_offset=offset
             ).list_highlights
-            results = await self.session_manager.json_request(link)
+            results = await self.get_requester().json_request(link)
             results = await remove_errors(results)
             results = [create_highlight(x) for x in results]
         else:
             link = endpoint_links(
                 identifier=hightlight_id, global_limit=limit, global_offset=offset
             ).highlight
-            results = await self.session_manager.json_request(link)
+            results = await self.get_requester().json_request(link)
             results = [create_story(x) for x in results["stories"]]
         return results
 
@@ -302,13 +295,10 @@ class create_user(StreamlinedUser):
         offset: int = 0,
         refresh: bool = True,
     ) -> list[create_post]:
-        result, status = await api_helper.default_data(self, refresh)
-        if status:
-            return result
         temp_results: list[Any] = []
         while True:
             link = endpoint_links(identifier=self.id, global_offset=offset).post_api
-            response = await self.get_session_manager().json_request(link)
+            response = await self.get_requester().json_request(link)
             data = response["response"]
             temp_posts = data.get("posts")
             if not temp_posts:
@@ -334,7 +324,7 @@ class create_user(StreamlinedUser):
         link = endpoint_links(
             identifier=identifier, global_limit=limit, global_offset=offset
         ).post_by_id
-        result = await self.get_session_manager().json_request(link)
+        result = await self.get_requester().json_request(link)
         if isinstance(result, dict):
             temp_result: dict[str, Any] = result
             final_result = post_model.create_post(temp_result, self, temp_result)
@@ -345,7 +335,7 @@ class create_user(StreamlinedUser):
         link = endpoint_links().groups_api
         response: ErrorDetails | dict[
             str, Any
-        ] = await self.get_session_manager().json_request(link)
+        ] = await self.get_requester().json_request(link)
         if isinstance(response, dict):
             final_response: dict[str, Any] = response["response"]
             return final_response
@@ -360,9 +350,6 @@ class create_user(StreamlinedUser):
         refresh: bool = True,
         inside_loop: bool = False,
     ):
-        result, status = await api_helper.default_data(self, refresh)
-        if status:
-            return result
         groups = await self.get_groups()
         if isinstance(groups, ErrorDetails):
             return []
@@ -382,7 +369,7 @@ class create_user(StreamlinedUser):
             ).message_api
             links.append(link)
 
-            results = await self.get_session_manager().bulk_requests(links)
+            results = await self.get_requester().bulk_requests(links)
             results = [await x.json() for x in results if x]
             results = await api_helper.remove_errors(results)
             results = api_helper.merge_dictionaries(results)
@@ -420,7 +407,7 @@ class create_user(StreamlinedUser):
             global_limit=limit,
             global_offset=offset,
         ).message_by_id
-        response = await self.session_manager.json_request(link)
+        response = await self.get_requester().json_request(link)
         if isinstance(response, dict):
             results = [x for x in response["list"] if x["id"] == message_id]
             result = results[0] if results else {}
@@ -431,11 +418,8 @@ class create_user(StreamlinedUser):
     async def get_archived_stories(
         self, refresh: bool = True, limit: int = 100, offset: int = 0
     ):
-        result, status = await api_helper.default_data(self, refresh)
-        if status:
-            return result
         link = endpoint_links(global_limit=limit, global_offset=offset).archived_stories
-        results = await self.get_session_manager().json_request(link)
+        results = await self.get_requester().json_request(link)
         results = await api_helper.remove_errors(results)
         results = [create_story(x) for x in results]
         return results
@@ -447,12 +431,9 @@ class create_user(StreamlinedUser):
         limit: int = 10,
         offset: int = 0,
     ):
-        result, status = await api_helper.default_data(self, refresh)
-        if status:
-            return result
         if links is None:
             links = []
-        api_count = self.archivedPostsCount
+        api_count = self.archived_posts_count
         if api_count and not links:
             link = endpoint_links(
                 identifier=self.id, global_limit=limit, global_offset=offset
@@ -492,7 +473,7 @@ class create_user(StreamlinedUser):
         link = endpoint_links(
             identifier=identifier, text=text, global_limit=limit, global_offset=offset
         ).search_chat
-        results = await self.session_manager.json_request(link)
+        results = await self.get_requester().json_request(link)
         return results
 
     async def search_messages(
@@ -504,24 +485,24 @@ class create_user(StreamlinedUser):
         link = endpoint_links(
             identifier=identifier, text=text, global_limit=limit, global_offset=offset
         ).search_messages
-        results = await self.session_manager.json_request(link)
+        results = await self.get_requester().json_request(link)
         return results
 
     async def like(self, category: str, identifier: int):
         link = endpoint_links(identifier=category, identifier2=identifier).like
-        results = await self.session_manager.json_request(link, method="POST")
+        results = await self.get_requester().json_request(link, method="POST")
         return results
 
     async def unlike(self, category: str, identifier: int):
         link = endpoint_links(identifier=category, identifier2=identifier).like
-        results = await self.session_manager.json_request(link, method="DELETE")
+        results = await self.get_requester().json_request(link, method="DELETE")
         return results
 
     async def subscription_price(self):
         """
         Returns subscription price. This includes the promotional price.
         """
-        for bundle in self.subscriptionBundles:
+        for bundle in self.subscription_bundles:
             return bundle["price"] / 1000
 
     async def buy_subscription(self):
@@ -537,9 +518,9 @@ class create_user(StreamlinedUser):
             "token": "",
             "unavailablePaymentGates": [],
         }
-        if self.subscriber.creditBalance >= subscription_price:
+        if self.subscriber.credit_balance >= subscription_price:
             link = endpoint_links().pay
-            result = await self.session_manager.json_request(
+            result = await self.get_requester().json_request(
                 link, method="POST", payload=x
             )
         else:
@@ -583,7 +564,7 @@ class create_user(StreamlinedUser):
 
     async def get_collections(self):
         link = endpoint_links(identifier=self.id).collections_api
-        results = await self.get_session_manager().json_request(link)
+        results = await self.get_requester().json_request(link)
         return results["response"]
 
     async def get_collection_content(self, collection: dict[str, Any], offset: int = 0):
@@ -592,7 +573,7 @@ class create_user(StreamlinedUser):
             link = endpoint_links(
                 identifier=collection["id"], global_limit=25, global_offset=offset
             ).collection_api
-            results = await self.get_session_manager().json_request(link)
+            results = await self.get_requester().json_request(link)
             response = results["response"]
             album_content = response["albumContent"]
             if not album_content:
@@ -614,10 +595,10 @@ class create_user(StreamlinedUser):
 
     def is_performer(self):
         status = False
-        if self.isPerformer:
+        if self.is_performer:
             status = True
-        elif self.isRealPerformer:
+        elif self.is_real_performer:
             status = True
-        elif self.canEarn:
+        elif self.can_earn:
             status = True
         return status
