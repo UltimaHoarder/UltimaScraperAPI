@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, TypeVar
 
 import ultima_scraper_api
 from ultima_scraper_api.apis import api_helper
@@ -34,6 +34,9 @@ class Packages:
                 raise ValueError("Site Doesn't Exist")
 
 
+T = TypeVar("T")
+
+
 class StreamlinedAPI:
     def __init__(
         self,
@@ -41,6 +44,7 @@ class StreamlinedAPI:
         config: UltimaScraperAPIConfig,
     ) -> None:
         from ultima_scraper_api.managers.job_manager.job_manager import JobManager
+        from ultima_scraper_api.managers.session_manager import SessionManager
 
         self.api = api
         self.config = config
@@ -48,37 +52,20 @@ class StreamlinedAPI:
         self.pool = api_helper.CustomPool()
 
         self.job_manager = JobManager()
+        self.session_manager = SessionManager(
+            self.api, proxies=self.config.settings.network.proxies
+        )
         self.packages = Packages(self.api.site_name)
 
     def add_auth(
         self,
-        authenticator: ultima_scraper_api.authenticator_types,
-        only_active: bool = False,
+        auth: ultima_scraper_api.auth_types,
     ) -> auth_types:
-        """Creates and appends an auth object to auths property
-
-        Args:
-            auth_json (dict[str, str], optional): []. Defaults to {}.
-            only_active (bool, optional): [description]. Defaults to False.
-
-        Returns:
-            create_auth: [Auth object]
-        """
-        packages = self.packages
-        auth = packages.CreateAuth(authenticator)  # type: ignore
-        if only_active and not auth.authenticator.auth_details.active:
-            return auth
-        auth.extras["settings"] = self.config
-        self.api.auths.append(auth)  # type: ignore
+        self.api.auths[auth.id] = auth  # type: ignore
         return auth
 
     def has_active_auths(self):
-        return bool([x for x in self.api.auths if x.is_authed()])
-
-    def get_auths_via_subscription_identifier(self, identifier: str):
-        for auth in self.api.auths:
-            if auth.username == identifier:
-                pass
+        return bool([x for x in self.api.auths if x.is_authed()])  # type: ignore
 
     def get_site_settings(self):
         return self.config.site_apis.get_settings(self.api.site_name)
@@ -88,7 +75,7 @@ class StreamlinedAPI:
 
     async def close_pools(self):
         for auth in self.api.auths:
-            await auth.session_manager.active_session.close()
+            await auth.auth_session.active_session.close()  # type: ignore
 
     class CategorizedContent:
         def __init__(self) -> None:

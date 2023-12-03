@@ -11,12 +11,13 @@ from typing import TYPE_CHECKING, Any, BinaryIO, Literal, Type, TypeVar
 
 import orjson
 import requests
-import ultima_scraper_api
-import ultima_scraper_api.classes.prepare_webhooks as prepare_webhooks
 from aiofiles import os as async_os
 from bs4 import BeautifulSoup
 from dateutil.relativedelta import relativedelta
 from mergedeep import Strategy, merge  # type: ignore
+
+import ultima_scraper_api
+import ultima_scraper_api.classes.prepare_webhooks as prepare_webhooks
 
 if TYPE_CHECKING:
     api_types = ultima_scraper_api.api_types
@@ -25,8 +26,6 @@ if TYPE_CHECKING:
 
 os_name = platform.system()
 
-if os_name == "Windows":
-    import ctypes
 
 try:
     from psutil import disk_usage
@@ -50,6 +49,8 @@ except ImportError:
             path = os.path.dirname(path)
 
         if os_name == "Windows":
+            import ctypes
+
             total_bytes = ctypes.c_ulonglong(0)
             free_bytes = ctypes.c_ulonglong(0)
             ctypes.windll.kernel32.GetDiskFreeSpaceExW(
@@ -172,43 +173,6 @@ def get_config(config_path: Path, config_class: Type[T]) -> tuple[T, bool]:
 from ultima_scraper_api.config import Settings
 
 
-async def process_webhooks(
-    api: "api_types",
-    category: str,
-    category_2: Literal["succeeded", "failed"],
-    global_settings: Settings,
-):
-    webhook_settings = global_settings.webhooks
-    global_webhooks = webhook_settings.global_webhooks
-    final_webhooks = global_webhooks
-    global_status = webhook_settings.global_status
-    final_webhook_status = global_status
-    webhook_hide_sensitive_info = True
-    if category == "auth_webhook":
-        category_webhook = webhook_settings.auth_webhook
-        webhook = category_webhook.get_webhook(category_2)
-        webhook_status = webhook.status
-        webhook_hide_sensitive_info = webhook.hide_sensitive_info
-        if webhook_status != None:
-            final_webhook_status = webhook_status
-        if webhook.webhooks:
-            final_webhooks = webhook.webhooks
-    elif webhook_settings.download_webhook:
-        category_webhook = webhook_settings.download_webhook
-        webhook = category_webhook.get_webhook(category_2)
-        webhook_status = webhook.status
-        if webhook_status != None:
-            final_webhook_status = webhook_status
-        webhook_hide_sensitive_info = webhook.hide_sensitive_info
-        if webhook.webhooks:
-            final_webhooks = webhook.webhooks
-    webhook_links = final_webhooks
-    if final_webhook_status:
-        for auth in api.auths:
-            await send_webhook(
-                auth, webhook_hide_sensitive_info, webhook_links, category, category_2
-            )
-
 
 def open_partial(path: Path) -> BinaryIO:
     prefix, extension = os.path.splitext(path)
@@ -246,7 +210,7 @@ async def send_webhook(
                     embed = message.embed()
                     embed.title = f"Downloaded: {subscription.username}"
                     embed.add_field("username", subscription.username)
-                    embed.add_field("post_count", subscription.user.postsCount)
+                    embed.add_field("post_count", subscription.user.posts_count)
                     embed.add_field("link", subscription.user.get_link())
                     embed.image.url = subscription.user.avatar
                     message.embeds.append(embed)
@@ -300,6 +264,13 @@ def module_chooser(domain: str, json_sites: dict[str, Any]):
 
 async def replace_path(old_string: str, new_string: str, path: Path):
     return Path(path.as_posix().replace(old_string, new_string))
+
+
+def get_current_month_dates():
+    current_date = datetime.today()
+    first_day = current_date.replace(day=1)
+    last_day = first_day + relativedelta(months=1, days=-1)
+    return first_day, last_day
 
 
 def date_between_cur_month(date_value: datetime):

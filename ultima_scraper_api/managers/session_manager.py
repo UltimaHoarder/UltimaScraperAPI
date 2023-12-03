@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import asyncio
 import hashlib
-import json
 import random
 import string
 import time
@@ -15,14 +14,13 @@ import python_socks
 import requests
 from aiohttp import ClientResponse, ClientSession
 from aiohttp.client_exceptions import (
-    ClientConnectorError,
     ClientOSError,
     ClientPayloadError,
     ClientResponseError,
     ContentTypeError,
     ServerDisconnectedError,
 )
-from aiohttp_socks import ProxyConnectionError, ProxyConnector, ProxyError, ProxyInfo
+from aiohttp_socks import ProxyConnectionError, ProxyConnector, ProxyInfo
 
 import ultima_scraper_api
 import ultima_scraper_api.apis.api_helper as api_helper
@@ -41,97 +39,20 @@ EXCEPTION_TEMPLATE = (
 
 
 class ProxyManager:
-    def __init__(self, session_manager: SessionManager) -> None:
-        self.session_manager = session_manager
-        self.proxies = [
-            ProxyInfo(*python_socks.parse_proxy_url(proxy)) for proxy in self.session_manager.proxies  # type: ignore
-        ]
+    def __init__(self) -> None:
+        self.proxies: list[ProxyInfo] = []
         self.current_proxy_index = 0
-
-    def create_connection(self, proxy: ProxyInfo | None = None):
-        if proxy is None:
-            proxy = self.proxies[0]
-        return ProxyConnector(**proxy._asdict())  # type: ignore
-
-    def get_current_proxy(self):
-        return self.proxies[self.current_proxy_index]
-
-    def add_proxy(self, proxy: str):
-        self.proxies.append(ProxyInfo(*python_socks.parse_proxy_url(proxy)))  # type: ignore
-
-    async def proxy_switcher(self):
-        if self.proxies:
-            self.current_proxy_index = (self.current_proxy_index + 1) % len(
-                self.proxies
-            )
-            await self.session_manager.active_session.close()
-            self.session_manager.active_session = (
-                self.session_manager.create_client_session(
-                    False, self.get_current_proxy()
-                )
-            )
-
-
-class SessionManager:
-    def __init__(
-        self,
-        auth: ultima_scraper_api.authenticator_types,
-        headers: dict[str, Any] = {},
-        proxies: list[str] = [],
-        max_threads: int = -1,
-        use_cookies: bool = True,
-    ) -> None:
-        max_threads = api_helper.calculate_max_threads(max_threads)
-        self.semaphore = asyncio.BoundedSemaphore(max_threads)
-        self.max_threads = max_threads
-        self.max_attempts = 10
-        self.kill = False
-        self.headers = headers
-        self.proxies: list[str] = (
-            proxies if proxies else auth.api.config.settings.network.proxies
-        )
-        self.proxy_manager = ProxyManager(self)
-        self.dynamic_rules = None
-        from ultima_scraper_api.apis.onlyfans.classes.extras import (
-            OnlyFansAuthenticator,
-        )
-
-        if isinstance(auth, OnlyFansAuthenticator):
-            self.dynamic_rules = auth.api.dynamic_rules
-        self.auth = auth
-        self.use_cookies: bool = use_cookies
-        self.active_session = self.create_client_session()
-        self.request_count = 0
-        # self.last_request_time: float | None = None
-        # self.rate_limit_wait_minutes = 6
-        self.lock = auth.api.lock
-        self.rate_limit_check = False
-        self.is_rate_limited = None
-        self.time2sleep = 0
-        asyncio.create_task(self.check_rate_limit())
-
-    def get_cookies(self):
-        from ultima_scraper_api.apis.fansly.fansly import FanslyAuthenticator
-
-        if isinstance(self.auth, FanslyAuthenticator):
-            final_cookies: dict[str, Any] = {}
-        else:
-            final_cookies = self.auth.auth_details.cookie.format()
-        return final_cookies
-
-    def add_proxies(self, proxies: list[str] = []):
-        for proxy in proxies:
-            self.proxy_manager.add_proxy(proxy)
 
     def test_proxies(self, proxies: list[str] = []):
         final_proxies: list[str] = []
 
         session = requests.Session()
-        proxies = proxies if proxies else self.proxies
         for proxy in proxies:
             url = "https://checkip.amazonaws.com"
             temp_proxies = {"https": proxy}
             try:
+                final_proxies.append(proxy)
+                return final_proxies
                 resp = session.get(url, proxies=temp_proxies)
                 ip = resp.text
                 ip = ip.strip()
@@ -140,17 +61,62 @@ class SessionManager:
                 continue
         return final_proxies
 
+    def create_connection(self, proxy: ProxyInfo):
+        return ProxyConnector(**proxy._asdict())  # type: ignore
+
+    def get_current_proxy(self):
+        return self.proxies[self.current_proxy_index]
+
+    def add_proxies(self, proxies: list[str] = []):
+        for proxy in proxies:
+            self._add_proxy(proxy)
+
+    def _add_proxy(self, proxy: str):
+        self.proxies.append(ProxyInfo(*python_socks.parse_proxy_url(proxy)))  # type: ignore
+
+
+class AuthedSession:
+    def __init__(
+        self,
+        auth: ultima_scraper_api.authenticator_types,
+        session_manager: SessionManager,
+        headers: dict[str, Any] = {},
+    ) -> None:
+        self.session_manager = session_manager
+        self.semaphore = session_manager.semaphore
+        self.auth = auth
+        self.headers = headers
+        self.active_session = self.create_client_session()
+
+    def get_session_manager(self):
+        return self.session_manager
+
+    def get_proxy_manager(self):
+        return self.session_manager.proxy_manager
+
+    def get_cookies(self):
+        from ultima_scraper_api.apis.fansly.authenticator import FanslyAuthenticator
+
+        if isinstance(self.auth, FanslyAuthenticator):
+            final_cookies: dict[str, Any] = {}
+        else:
+            final_cookies = self.auth.auth_details.cookie.format()
+        return final_cookies
+
     def create_client_session(
         self, test_proxies: bool = True, proxy: ProxyInfo | None = None
-    ):
+    ) -> ClientSession:
         limit = 0
-        if test_proxies and self.proxies:
-            self.proxies = self.test_proxies()
-            if not self.proxies:
+        session_manager = self.get_session_manager()
+        proxy_manager = self.get_proxy_manager()
+        raw_proxies = session_manager.proxies
+        if test_proxies and raw_proxies:
+            proxies = proxy_manager.test_proxies(raw_proxies)
+            if not proxies:
                 raise Exception("Unable to create session due to invalid proxies")
         connector = (
-            self.proxy_manager.create_connection(proxy)
-            if self.proxies
+            self.session_manager.proxy_manager.create_connection(proxy)
+            if proxy
             else aiohttp.TCPConnector(limit=limit)
         )
         final_cookies = self.get_cookies()
@@ -164,64 +130,16 @@ class SessionManager:
         )
         return client_session
 
-    def get_proxy(self) -> str:
-        proxies = self.proxies
-        proxy = self.proxies[randint(0, len(proxies) - 1)] if proxies else ""
-        return proxy
-
-    # async def limit_rate(self):
-    #     if self.auth.api.site_name == "OnlyFans":
-    #         # [OF] 1,000 requests every 5 minutes
-    #         # Can batch  =< 5,000 amount of requests, but will get rate limited and throw 429 error
-    #         MAX_REQUEST_LIMIT = 900  # 900 instead of 1,000 to be safe
-    #         rate_limit_wait_minutes = self.rate_limit_wait_minutes
-    #         RATE_LIMIT_WAIT_TIME = 60 * rate_limit_wait_minutes
-    #         if self.request_count >= MAX_REQUEST_LIMIT:
-    #             # Wait until 5 minutes have elapsed since last request
-    #             if self.last_request_time is not None:
-    #                 elapsed_time = time.time() - self.last_request_time
-    #                 if elapsed_time < RATE_LIMIT_WAIT_TIME:
-    #                     time2sleep = RATE_LIMIT_WAIT_TIME - elapsed_time
-    #                     print(time2sleep)
-    #                     await asyncio.sleep(time2sleep)
-    #             # Reset counter and timer
-    #             self.request_count = 0
-    #             self.last_request_time = None
-    #         self.request_count += 1
-    #         if self.last_request_time is None:
-    #             self.last_request_time = time.time()
-
-    async def check_rate_limit(self):
-        while True:
-            rate_limit_count = 1
-            async with self.lock:
-                while self.rate_limit_check:
-                    try:
-                        url = "https://onlyfans.com/api2/v2/init"
-                        headers = await self.session_rules(url)
-                        headers["accept"] = "application/json, text/plain, */*"
-                        headers["Connection"] = "keep-alive"
-                        proxy_manager = self.proxy_manager
-                        if proxy_manager.proxies:
-                            await proxy_manager.proxy_switcher()
-                            print(proxy_manager.get_current_proxy().host)
-
-                        result = await self.active_session.get(url, headers=headers)
-                        result.raise_for_status()
-                        self.rate_limit_check = False
-                        self.is_rate_limited = None
-                        break
-                    except EXCEPTION_TEMPLATE as _e:
-                        continue
-                    except ClientResponseError as _e:
-                        if _e.status == 429:
-                            # Still rate limited, wait 5 seconds and retry
-                            self.is_rate_limited = True
-                            rate_limit_count += 1
-                    except Exception as _e:
-                        pass
-                    await asyncio.sleep(self.time2sleep)
-                await asyncio.sleep(5)
+    async def proxy_switcher(self):
+        proxy_manager = self.get_proxy_manager()
+        if proxy_manager.proxies:
+            proxy_manager.current_proxy_index = (
+                proxy_manager.current_proxy_index + 1
+            ) % len(proxy_manager.proxies)
+            await self.active_session.close()
+            self.active_session = self.create_client_session(
+                False, proxy_manager.get_current_proxy()
+            )
 
     async def request(
         self,
@@ -231,8 +149,9 @@ class SessionManager:
         premade_settings: str = "json",
         custom_cookies: str = "",
     ):
+        session_manager = self.get_session_manager()
         while True:
-            if self.rate_limit_check:
+            if session_manager.rate_limit_check:
                 await asyncio.sleep(5)
                 continue
             headers = {}
@@ -276,8 +195,8 @@ class SessionManager:
                         return result
                     case 429:
                         pass
-                        if self.is_rate_limited is None:
-                            self.rate_limit_check = True
+                        if session_manager.is_rate_limited is None:
+                            session_manager.rate_limit_check = True
                         continue
                     case 500 | 502 | 503 | 504:
                         continue
@@ -291,9 +210,11 @@ class SessionManager:
     async def bulk_requests(self, urls: list[str]) -> list[ClientResponse | None]:
         return await asyncio.gather(*[self.request(url) for url in urls])
 
-    async def json_request(self, url: str, method: str = "GET"):
+    async def json_request(
+        self, url: str, method: str = "GET", payload: dict[str, Any] = {}
+    ) -> dict[str, Any]:
         while True:
-            response = await self.request(url, method)
+            response = await self.request(url, method, data=payload)
             json_resp: dict[Any, Any] = {}
             try:
                 if response.status == 200:
@@ -310,109 +231,19 @@ class SessionManager:
     async def bulk_json_requests(self, urls: list[str]) -> list[dict[Any, Any]]:
         return await asyncio.gather(*[self.json_request(url) for url in urls])
 
-    async def json_request_2(
-        self,
-        link: str,
-        session: ClientSession | None = None,
-        method: str = "GET",
-        stream: bool = False,
-        json_format: bool = True,
-        payload: dict[str, str | bool] | str = {},
-        _handle_error_details: bool = True,
-    ) -> Any:
-        import ultima_scraper_api.apis.fansly.classes as fansly_classes
-        import ultima_scraper_api.apis.onlyfans.classes as onlyfans_classes
-
-        async with self.semaphore:
-            headers = {}
-            custom_session = False
-            if not session:
-                custom_session = True
-                session = self.create_client_session()
-            headers = await self.session_rules(link)
-            headers["accept"] = "application/json, text/plain, */*"
-            headers["Connection"] = "keep-alive"
-            if isinstance(payload, str):
-                temp_payload = payload.encode()
-            else:
-                temp_payload = payload.copy()
-
-            request_method = None
-            result = None
-            if method == "HEAD":
-                request_method = session.head
-            elif method == "GET":
-                request_method = session.get
-            elif method == "POST":
-                request_method = session.post
-                headers["content-type"] = "application/json"
-                if isinstance(payload, str):
-                    temp_payload = payload.encode()
-                else:
-                    temp_payload = json.dumps(payload)
-            elif method == "DELETE":
-                request_method = session.delete
-            else:
-                return None
-            while True:
-                try:
-                    response = await request_method(
-                        link, headers=headers, data=temp_payload
-                    )
-                    if method == "HEAD":
-                        result = response
-                    else:
-                        if json_format and not stream:
-                            # qwsd = list(response.request_info.headers.items())
-                            result = await response.json()
-                            if "error" in result:
-                                extras: dict[str, Any] = {}
-                                extras["auth"] = self.auth
-                                extras["link"] = link
-                                if isinstance(
-                                    self.auth, onlyfans_classes.auth_model.AuthModel
-                                ):
-                                    handle_error = onlyfans_classes.extras.ErrorDetails
-                                else:
-                                    handle_error = fansly_classes.extras.ErrorDetails
-
-                                result = await handle_error(result).format(extras)
-                                if _handle_error_details:
-                                    await api_helper.handle_error_details(result)
-                        elif stream and not json_format:
-                            result = response
-                        else:
-                            result = await response.read()
-                    break
-                except (ClientConnectorError, ProxyError):
-                    break
-                except (
-                    ClientPayloadError,
-                    ContentTypeError,
-                    ClientOSError,
-                    ServerDisconnectedError,
-                    ProxyConnectionError,
-                    ConnectionResetError,
-                ) as _exception:
-                    continue
-                except Exception as _exception:
-                    pass
-            if custom_session:
-                await session.close()
-            return result
-
     async def session_rules(
-        self, link: str, signed_headers: dict[str, Any] = {}, custom_cookies: str = ""
+        self, link: str, custom_cookies: str = ""
     ) -> dict[str, Any]:
         import ultima_scraper_api.apis.fansly.classes as fansly_classes
         import ultima_scraper_api.apis.onlyfans.classes as onlyfans_classes
 
+        session_manager = self.get_session_manager()
         headers: dict[str, Any] = {}
         headers |= self.headers
         match self.auth.auth_details.__class__:
             case onlyfans_classes.extras.AuthDetails:
                 if "https://onlyfans.com/api2/v2/" in link:
-                    dynamic_rules = self.dynamic_rules
+                    dynamic_rules = session_manager.dynamic_rules
                     final_cookies = self.auth.auth_details.cookie.convert()
                     headers["app-token"] = dynamic_rules["app_token"]
                     headers["cookie"] = final_cookies
@@ -424,13 +255,12 @@ class SessionManager:
                     headers2 = self.create_signed_headers(link)
                     headers |= headers2
                     # t2s does not set for cdn links yet
-                    self.time2sleep = 5
+                    session_manager.time2sleep = 5
                 elif ".mpd" in link:
                     headers["cookie"] = custom_cookies
                 else:
                     if "/files/" not in link:
                         pass
-                    dynamic_rules = self.dynamic_rules
                     final_cookies = (
                         self.auth.auth_details.cookie.convert() + custom_cookies
                     )
@@ -457,7 +287,8 @@ class SessionManager:
             )
             headers["user-id"] = str(auth_id)
         path = path if not query else f"{path}?{query}"
-        dynamic_rules = self.dynamic_rules
+        session_manager = self.get_session_manager()
+        dynamic_rules = session_manager.dynamic_rules
         a = [dynamic_rules["static_param"], final_time, path, str(auth_id)]
         msg = "\n".join(a)
         message = msg.encode("utf-8")
@@ -471,3 +302,100 @@ class SessionManager:
         headers["sign"] = dynamic_rules["format"].format(sha_1_sign, abs(checksum))
         headers["time"] = final_time
         return headers
+
+
+class SessionManager:
+    def __init__(
+        self,
+        api: ultima_scraper_api.api_types,
+        proxies: list[str] = [],
+        max_threads: int = -1,
+        use_cookies: bool = True,
+    ) -> None:
+        from ultima_scraper_api.apis.onlyfans.onlyfans import OnlyFansAPI
+
+        max_threads = api_helper.calculate_max_threads(max_threads)
+        self.semaphore = asyncio.BoundedSemaphore(max_threads)
+        self.max_threads = max_threads
+        self.max_attempts = 10
+        self.kill = False
+        self.test_session = api.login(guest=True)
+        self.authed_sessions: list[AuthedSession] = []
+        self.proxy_manager = ProxyManager()
+        self.dynamic_rules: dict[str, Any] = {}
+        if isinstance(api, OnlyFansAPI):
+            self.dynamic_rules = api.dynamic_rules
+
+        self.use_cookies: bool = use_cookies
+        self.request_count = 0
+        # self.last_request_time: float | None = None
+        # self.rate_limit_wait_minutes = 6
+        self.proxies = proxies
+        self.lock = self.lock = asyncio.Lock()
+        self.rate_limit_check = False
+        self.is_rate_limited = None
+        self.time2sleep = 0
+        asyncio.create_task(self.check_rate_limit())
+
+    def created_authed_session(
+        self, authenticator: ultima_scraper_api.authenticator_types
+    ):
+        return AuthedSession(authenticator, self)
+
+    def get_proxy(self) -> str:
+        proxies = self.proxies
+        proxy = self.proxies[randint(0, len(proxies) - 1)] if proxies else ""
+        return proxy
+
+    # async def limit_rate(self):
+    #     if self.auth.api.site_name == "OnlyFans":
+    #         # [OF] 1,000 requests every 5 minutes
+    #         # Can batch  =< 5,000 amount of requests, but will get rate limited and throw 429 error
+    #         MAX_REQUEST_LIMIT = 900  # 900 instead of 1,000 to be safe
+    #         rate_limit_wait_minutes = self.rate_limit_wait_minutes
+    #         RATE_LIMIT_WAIT_TIME = 60 * rate_limit_wait_minutes
+    #         if self.request_count >= MAX_REQUEST_LIMIT:
+    #             # Wait until 5 minutes have elapsed since last request
+    #             if self.last_request_time is not None:
+    #                 elapsed_time = time.time() - self.last_request_time
+    #                 if elapsed_time < RATE_LIMIT_WAIT_TIME:
+    #                     time2sleep = RATE_LIMIT_WAIT_TIME - elapsed_time
+    #                     print(time2sleep)
+    #                     await asyncio.sleep(time2sleep)
+    #             # Reset counter and timer
+    #             self.request_count = 0
+    #             self.last_request_time = None
+    #         self.request_count += 1
+    #         if self.last_request_time is None:
+    #             self.last_request_time = time.time()
+
+    async def check_rate_limit(self):
+        while True:
+            rate_limit_count = 1
+            async with self.lock:
+                while self.rate_limit_check:
+                    import requests
+
+                    try:
+                        url = "https://onlyfans.com"
+                        # proxy_manager = self.proxy_manager
+                        # if proxy_manager.proxies:
+                        #     await proxy_manager.proxy_switcher()
+                        #     print(proxy_manager.get_current_proxy().host)
+
+                        result = requests.get(url)
+                        result.raise_for_status()
+                        self.rate_limit_check = False
+                        self.is_rate_limited = None
+                        break
+                    except EXCEPTION_TEMPLATE as _e:
+                        continue
+                    except requests.HTTPError as _e:
+                        if _e.response.status_code == 429:
+                            # Still rate limited, wait 5 seconds and retry
+                            self.is_rate_limited = True
+                            rate_limit_count += 1
+                    except Exception as _e:
+                        pass
+                    await asyncio.sleep(self.time2sleep)
+                await asyncio.sleep(5)

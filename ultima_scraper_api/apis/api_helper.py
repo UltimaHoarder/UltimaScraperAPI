@@ -8,8 +8,9 @@ from multiprocessing.pool import Pool
 from typing import TYPE_CHECKING, Any, Optional
 from urllib.parse import urlparse
 
-import ultima_scraper_api
 from mergedeep.mergedeep import Strategy, merge  # type: ignore
+
+import ultima_scraper_api
 
 if TYPE_CHECKING:
     auth_types = ultima_scraper_api.auth_types
@@ -91,99 +92,6 @@ async def get_function_name(
     if convert_to_api_type:
         return function_that_called.split("_")[-1].capitalize()
     return function_that_called
-
-
-async def handle_refresh(
-    api: auth_types | user_types,
-    api_type: str,
-    refresh: bool,
-    function_that_called: str,
-):
-    result: list[Any] = []
-    # If refresh is False, get already set data
-    if not api_type and not refresh:
-        api_type = (
-            await get_function_name(function_that_called, True)
-            if not api_type
-            else api_type
-        )
-        try:
-            # We assume the class type is create_user
-            result = getattr(api.scrape_manager.scraped, api_type)
-        except AttributeError:
-            # we assume the class type is create_auth
-            api_type = api_type.lower()
-            result = getattr(api, api_type)
-
-    return result
-
-
-async def default_data(
-    api: auth_types | user_types, refresh: bool = False, api_type: str = ""
-):
-    status: bool = False
-    result: list[Any] = []
-    function_that_called = inspect.stack()[1].function
-    auth_types = ultima_scraper_api.auth_types
-
-    if isinstance(api, auth_types):
-        # create_auth class
-        auth = api
-        match function_that_called:
-            case function_that_called if function_that_called in [
-                "get_paid_content",
-                "get_chats",
-                "get_lists_users",
-                "get_subscriptions",
-            ]:
-                if not auth.get_auth_details().active or not refresh:
-                    result = await handle_refresh(
-                        auth, api_type, refresh, function_that_called
-                    )
-                    status = True
-            case "get_mass_messages":
-                if not auth.get_auth_details().active or not auth.user.isPerformer:
-                    result = await handle_refresh(
-                        auth, api_type, refresh, function_that_called
-                    )
-                    status = True
-            case _:
-                result = await handle_refresh(
-                    auth, api_type, refresh, function_that_called
-                )
-                if result:
-                    status = True
-    else:
-        # create_user class
-        user = api
-        match function_that_called:
-            case "get_stories":
-                if not user.hasStories:
-                    result = await handle_refresh(
-                        user, api_type, refresh, function_that_called
-                    )
-                    status = True
-            case "get_messages":
-                if user.is_me():
-                    result = await handle_refresh(
-                        user, api_type, refresh, function_that_called
-                    )
-                    status = True
-            case function_that_called if function_that_called in [
-                "get_archived_stories"
-            ]:
-                if not (user.is_me() and user.isPerformer):
-                    result = await handle_refresh(
-                        user, api_type, refresh, function_that_called
-                    )
-                    status = True
-            case _:
-                result = await handle_refresh(
-                    user, api_type, refresh, function_that_called
-                )
-                if result:
-                    status = True
-    return result, status
 
 
 def merge_dictionaries(items: list[dict[str, Any]]):

@@ -1,15 +1,17 @@
 import asyncio
 from itertools import chain
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from ultima_scraper_api.apis.api_helper import handle_error_details
-from ultima_scraper_api.managers.session_manager import SessionManager
+
+if TYPE_CHECKING:
+    from ultima_scraper_api.managers.session_manager import AuthedSession
 
 
 class ContentManager:
-    def __init__(self, session_manager: SessionManager) -> None:
-        self.session_manager = session_manager
-        self.categorized = session_manager.auth.api.CategorizedContent()
+    def __init__(self, auth_session: "AuthedSession") -> None:
+        self.auth_session = auth_session
+        self.categorized = auth_session.auth.api.CategorizedContent()
 
     def get_contents(self, content_type: str):
         return getattr(self.categorized, content_type)
@@ -29,10 +31,10 @@ class ContentManager:
 
 
 class ScrapeManager:
-    def __init__(self, session_manager: SessionManager) -> None:
-        self.session_manager = session_manager
+    def __init__(self, auth_session: "AuthedSession") -> None:
+        self.auth_session = auth_session
         self.handle_errors = True
-        self.scraped = session_manager.auth.api.ContentTypes()
+        self.scraped = auth_session.auth.api.ContentTypes()
 
     async def bulk_scrape(self, urls: list[str]):
         result = await asyncio.gather(
@@ -42,9 +44,9 @@ class ScrapeManager:
         return final_result
 
     async def scrape(self, url: str):
-        session_manager = self.session_manager
-        async with session_manager.semaphore:
-            result = await session_manager.request(url)
+        auth_session = self.auth_session
+        async with auth_session.semaphore:
+            result = await auth_session.request(url)
             async with result as response:
                 if result.status != 404:
                     json_res = await response.json()
@@ -57,11 +59,11 @@ class ScrapeManager:
         import ultima_scraper_api.apis.fansly.classes as fansly_classes
         import ultima_scraper_api.apis.onlyfans.classes as onlyfans_classes
 
-        session_manager = self.session_manager
-        auth = session_manager.auth
+        auth_session = self.auth_session
+        auth = auth_session.auth
         if "error" in json_res:
             extras: dict[str, Any] = {}
-            extras["auth"] = session_manager.auth
+            extras["auth"] = auth_session.auth
             extras["link"] = url
             if isinstance(auth, onlyfans_classes.auth_model.AuthModel):
                 handle_error_ = onlyfans_classes.extras.ErrorDetails
@@ -74,7 +76,7 @@ class ScrapeManager:
         return json_res
 
     async def handle_refresh(self, item: Any):
-        abc = getattr(self.session_manager.auth, f"get_{item.responseType}")
+        abc = getattr(self.auth_session.auth, f"get_{item.responseType}")
         return abc
 
     def set_scraped(self, name: str, scraped: list[Any]):

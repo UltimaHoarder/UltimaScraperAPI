@@ -1,11 +1,11 @@
 from __future__ import annotations
 
-import copy
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Generic, TypeVar
 
-import dill
+
 from ultima_scraper_api.managers.job_manager.jobs.custom_job import CustomJob
 from ultima_scraper_api.managers.scrape_manager import ContentManager
+from ultima_scraper_api.managers.session_manager import AuthedSession, SessionManager
 
 if TYPE_CHECKING:
     import ultima_scraper_api.apis.fansly.classes as fansly_classes
@@ -56,8 +56,12 @@ class Cache:
         self.posts = CacheStats()
 
 
-class StreamlinedUser:
-    def __init__(self, authed: auth_types) -> None:
+T = TypeVar("T")
+TAPI = TypeVar("TAPI")
+
+
+class StreamlinedUser(Generic[T, TAPI]):
+    def __init__(self, authed: T) -> None:
         self.__authed = authed
         self.cache = Cache()
         self.jobs: list[CustomJob] = []
@@ -65,7 +69,7 @@ class StreamlinedUser:
         self.scrape_whitelist: list[int | str] = []
         self.active: bool = True
         self.aliases: list[str] = []
-        self.content_manager = ContentManager(authed.session_manager)
+        self.content_manager = ContentManager(authed.auth_session)  # type: ignore
 
     def get_authed(self):
         return self.__authed
@@ -87,11 +91,14 @@ class StreamlinedUser:
         incomplete_jobs = self.get_incomplete_jobs()
         return None if not incomplete_jobs else incomplete_jobs[0]
 
-    def get_session_manager(self):
-        return self.__authed.session_manager
+    def get_requester(self) -> AuthedSession:
+        return self.__authed.auth_session  # type: ignore
 
-    def get_api(self):
-        return self.__authed.api
+    def get_session_manager(self) -> SessionManager:
+        return self.__authed.auth_session.get_session_manager()  # type: ignore
+
+    def get_api(self) -> TAPI:
+        return self.__authed.get_api()  # type: ignore
 
     def is_active(self):
         return self.active

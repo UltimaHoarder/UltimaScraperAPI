@@ -9,7 +9,7 @@ class BackgroundTask:
         self.queue: asyncio.Queue[Any] = asyncio.Queue()
         self.thread: Optional[threading.Thread] = None
 
-    def worker(self, work, args):
+    def worker(self, work: Any, args: Any):
         new_loop = asyncio.new_event_loop()
         asyncio.set_event_loop(new_loop)
         new_loop.run_until_complete(work(args))

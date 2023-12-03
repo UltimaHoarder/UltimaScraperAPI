@@ -1,4 +1,3 @@
-from datetime import datetime
 from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
@@ -23,4 +22,4 @@ class BaseSubscriptionModel:
         return self.subscriber.get_api()
 
     def get_authed(self):
-        return self.subscriber.get_authed()
+        return self.user.get_authed()
