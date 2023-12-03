@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "ultima-scraper-api"
-version = "2.1.0"
+version = "2.1.1"
 description = ""
 authors = [
     "UltimaHoarder <1285176+UltimaHoarder@users.noreply.github.com>",
