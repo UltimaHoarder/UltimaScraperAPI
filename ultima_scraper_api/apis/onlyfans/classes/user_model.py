@@ -442,10 +442,14 @@ class create_user(StreamlinedUser["AuthModel", "OnlyFansAPI"]):
         return final_result
 
     async def get_archived_stories(self, limit: int = 100, offset: int = 0):
-        link = endpoint_links(global_limit=limit, global_offset=offset).archived_stories
-        results = await self.get_requester().json_request(link)
-        results = [create_story(x, self) for x in results["list"]]
-        return results
+        final_results: list[create_story] = []
+        if self.archived_posts_count:
+            link = endpoint_links(
+                global_limit=limit, global_offset=offset
+            ).archived_stories
+            results = await self.get_requester().json_request(link)
+            final_results = [create_story(x, self) for x in results["list"]]
+        return final_results
 
     async def get_archived_posts(
         self,

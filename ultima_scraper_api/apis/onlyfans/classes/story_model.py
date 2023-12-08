@@ -16,7 +16,7 @@ class create_story(SiteContent):
         self.viewersCount: int = option.get("viewersCount")
         self.viewers: list = option.get("viewers")
         self.canLike: bool = option["canLike"]
-        self.mediaCount: int = option.get("mediaCount")
+        self.media_count: int = option.get("mediaCount")
         self.is_watched: bool = option["isWatched"]
         self.is_liked: bool = option["isLiked"]
         self.canDelete: bool = option.get("canDelete")

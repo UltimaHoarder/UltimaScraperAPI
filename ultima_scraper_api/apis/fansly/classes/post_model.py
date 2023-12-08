@@ -34,7 +34,7 @@ class create_post(SiteContent):
         self.canEdit: bool = option.get("canEdit")
         self.isPinned: bool = option.get("isPinned")
         self.favoritesCount: int = option.get("favoritesCount")
-        self.mediaCount: int = option.get("mediaCount")
+        self.media_count: int = option.get("mediaCount")
         self.isMediaReady: bool = option.get("isMediaReady")
         self.voting: list = option.get("voting")
         self.isOpened: bool = option.get("isOpened")

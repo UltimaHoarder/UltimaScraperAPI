@@ -22,7 +22,7 @@ class create_message(SiteContent):
         self.isFree: Optional[bool] = option.get("isFree")
         self.price: Optional[float] = option.get("price")
         self.isMediaReady: Optional[bool] = option.get("isMediaReady")
-        self.mediaCount: Optional[int] = option.get("mediaCount")
+        self.media_count: Optional[int] = option.get("mediaCount")
         self.media: list[dict[str, Any]] = option.get("media", [])
         self.previews: list[dict[str, Any]] = option.get("previews", [])
         self.isTip: Optional[bool] = option.get("isTip")

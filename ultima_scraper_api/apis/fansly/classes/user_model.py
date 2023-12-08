@@ -80,7 +80,7 @@ class create_user(StreamlinedUser["AuthModel", "FanslyAPI"]):
         self.favorited_count: int = option.get("accountMediaLikes")
         self.show_posts_in_feed: bool = option.get("showPostsInFeed")
         self.can_receive_chat_message: bool = option.get("canReceiveChatMessage")
-        self._is_performer: bool = bool(self.subscriptionBundles)
+        self._is_performer: bool = bool(self.subscription_bundles)
         self.is_real_performer: bool = option.get("isRealPerformer")
         self.is_spotify_connected: bool = option.get("isSpotifyConnected")
         self.subscribers_count: int = option.get("subscribersCount")
