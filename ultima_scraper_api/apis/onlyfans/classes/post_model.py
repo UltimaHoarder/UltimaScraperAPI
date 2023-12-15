@@ -17,7 +17,7 @@ class create_post(SiteContent):
         SiteContent.__init__(self, option, user)
         self.responseType: str = option["responseType"]
         text: str = option.get("text", "")
-        self.text = str(clean_text(text) or "")
+        self.text = str(clean_text(text, False) or "")
         raw_text: str = option.get("rawText", "")
         self.rawText = str(raw_text or "")
         self.lockedText: bool = option.get("lockedText", False)
