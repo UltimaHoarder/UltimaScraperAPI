@@ -6,6 +6,7 @@ from typing import TYPE_CHECKING, Any
 from ultima_scraper_api.apis.onlyfans import SiteContent
 from ultima_scraper_api.apis.onlyfans.classes.comment_model import CommentModel
 from ultima_scraper_api.apis.onlyfans.classes.extras import endpoint_links
+from ultima_scraper_api.helpers.main_helper import clean_text
 
 if TYPE_CHECKING:
     from ultima_scraper_api.apis.onlyfans.classes.user_model import create_user
@@ -16,7 +17,7 @@ class create_post(SiteContent):
         SiteContent.__init__(self, option, user)
         self.responseType: str = option["responseType"]
         text: str = option.get("text", "")
-        self.text = str(text or "")
+        self.text = str(clean_text(text) or "")
         raw_text: str = option.get("rawText", "")
         self.rawText = str(raw_text or "")
         self.lockedText: bool = option.get("lockedText", False)
