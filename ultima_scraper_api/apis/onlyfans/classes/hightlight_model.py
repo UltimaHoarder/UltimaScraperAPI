@@ -16,3 +16,4 @@ class create_highlight(SiteContent):
         self.cover: str = option["cover"]
         self.storiesCount: int = option["storiesCount"]
         self.createdAt: str = option["createdAt"]
+        user.scrape_manager.scraped.Highlights[self.id] = self

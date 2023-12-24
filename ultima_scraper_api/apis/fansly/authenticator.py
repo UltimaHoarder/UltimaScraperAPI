@@ -3,7 +3,7 @@ from typing import Any
 from user_agent import generate_user_agent
 
 from ultima_scraper_api.apis import api_helper
-from ultima_scraper_api.apis.fansly.classes.auth_model import AuthModel
+from ultima_scraper_api.apis.fansly.classes.auth_model import FanslyAuthModel
 from ultima_scraper_api.apis.fansly.classes.extras import (
     AuthDetails,
     ErrorDetails,
@@ -42,9 +42,9 @@ class FanslyAuthenticator:
         await self.auth_session.active_session.close()
 
     def create_auth(self):
-        return AuthModel(self)
+        return FanslyAuthModel(self)
 
-    def create_user(self, auth: AuthModel):
+    def create_user(self, auth: FanslyAuthModel):
         assert self.__raw__ is not None
         return create_user(self.__raw__["response"]["account"], auth)
 

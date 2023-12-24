@@ -1,8 +1,21 @@
 import copy
 import math
+from datetime import datetime
 from pathlib import Path
 from typing import Any, Literal, Optional, Union
-from urllib.parse import parse_qs, urlparse
+from urllib.parse import parse_qs, parse_qsl, urlencode, urlparse, urlunparse
+
+from ultima_scraper_api.apis.onlyfans import SubscriptionType
+
+
+def format_url(url: str):
+    parsed = urlparse(url)
+    query_params = dict(parse_qsl(parsed.query))
+
+    encoded_params = urlencode(query_params)
+    base_url = urlunparse((parsed.scheme, parsed.netloc, parsed.path, "", "", ""))
+    url = f"{base_url}?{encoded_params}"
+    return url
 
 
 class ErrorDetails:
@@ -164,12 +177,9 @@ class endpoint_links(object):
         self.mass_message = (
             f"https://onlyfans.com/api2/v2/messages/queue/{identifier}?format=scheduled"
         )
-        self.stories_api = f"https://onlyfans.com/api2/v2/users/{identifier}/stories?limit=100&offset=0&order=desc"
+        self.stories_api = f"{full_url_path}/users/{identifier}/stories"
         self.list_highlights = f"https://onlyfans.com/api2/v2/users/{identifier}/stories/highlights?limit=100&offset=0&order=desc"
         self.highlight = f"https://onlyfans.com/api2/v2/stories/highlights/{identifier}"
-        self.list_posts_api = self.list_posts(identifier)
-        self.archived_posts = f"https://onlyfans.com/api2/v2/users/{identifier}/posts/archived?limit={global_limit}&offset={global_offset}&order=publish_date_desc"
-        self.archived_stories = f"https://onlyfans.com/api2/v2/stories/archive/?limit=100&offset=0&order=publish_date_desc"
         self.paid_api = f"https://onlyfans.com/api2/v2/posts/paid?limit={global_limit}&offset={global_offset}&format=infinite"
         self.pay = f"https://onlyfans.com/api2/v2/payments/pay"
         self.subscribe = f"https://onlyfans.com/api2/v2/users/{identifier}/subscribe"
@@ -178,19 +188,33 @@ class endpoint_links(object):
         self.transactions = (
             f"https://onlyfans.com/api2/v2/payments/all/transactions?limit=10&offset=0"
         )
-        self.subscription_count = f"{full_url_path}/subscriptions/count/all"
         self.socials = f"{full_url_path}/users/{identifier}/social/buttons"
         self.spotify = f"{full_url_path}/users/{identifier}/social/spotify"
         self.two_factor = f"{full_url_path}/users/otp/check"
         self.block = f"{full_url_path}/users/{identifier}/block"
 
+    def list_archived_stories(
+        self,
+        limit: int = 100,
+        marker_offset: int = 0,
+        sort_order: Literal["publish_date_desc"] = "publish_date_desc",
+    ):
+        return f"{self.full_url_path}/stories/archive/?limit={limit}&marker={marker_offset}&order={sort_order}"
+
     def list_posts(
         self,
-        content_id: Optional[int | str],
-        global_limit: int = 10,
-        global_offset: int = 0,
+        identifier: int | str,
+        label: str = "",
+        limit: int = 10,
+        offset: int = 0,
+        after_date: datetime | float | None = None,
     ):
-        return f"{self.full_url_path}/users/{content_id}/posts?limit={global_limit}&offset={global_offset}&order=publish_date_desc&skip_users_dups=0"
+        url = (
+            f"{self.full_url_path}/users/{identifier}/posts?limit={limit}&offset={offset}&order=publish_date_desc&skip_users_dups=0&label={label}"
+            if not after_date
+            else f"{self.full_url_path}/users/{identifier}/posts?limit={limit}&afterPublishTime={after_date.timestamp() if isinstance(after_date, datetime) else after_date}&order=publish_date_desc&format=infinite"
+        )
+        return url
 
     def list_messages(
         self,
@@ -212,6 +236,52 @@ class endpoint_links(object):
     ):
         content_type = f"{content_type}s" if content_type[0] != "s" else content_type
         return f"{self.full_url_path}/{content_type}/{content_id}/comments?limit={global_limit}&offset={global_offset}&sort={sort_order}"
+
+    def list_vault_lists(
+        self,
+        limit: int = 10,
+        offset: int = 0,
+        sort_order: Literal["asc", "desc"] = "desc",
+    ):
+        return f"{self.full_url_path}/vault/lists?view=main&limit={limit}&offset={offset}&order={sort_order}"
+
+    def list_vault_media(
+        self,
+        list_id: int | str,
+        limit: int = 10,
+        offset: int = 0,
+        field: str = "recent",
+        sort_order: Literal["asc", "desc"] = "desc",
+    ):
+        return f"{self.full_url_path}/vault/media?limit={limit}&offset={offset}&order={sort_order}&field={field}&list={list_id}"
+
+    def list_subscriptions(
+        self,
+        limit: int = 20,
+        offset: int = 0,
+        sub_type: SubscriptionType = "all",
+        filter: str = "",
+    ):
+        url = format_url(
+            f"{self.full_url_path}/subscriptions/subscribes?limit={limit}&offset={offset}&type={sub_type}&filter[{filter}]=1"
+        )
+        return url
+
+    def subscription_count(
+        self, sub_type: SubscriptionType = "all", filter_value: str | None = None
+    ):
+        base_url = f"{self.full_url_path}/subscriptions/count/{sub_type}"
+        if filter_value:
+            base_url = f"{self.full_url_path}/subscriptions/subscribes/count"
+            url = f"{base_url}?type={sub_type}&filter[{filter_value}]=1"
+        else:
+            url = base_url
+        parsed = urlparse(url)
+        query_params = dict(parse_qsl(parsed.query))
+
+        encoded_params = urlencode(query_params)
+        url = f"{base_url}?{encoded_params}"
+        return url
 
     def create_links(self, url: str, api_count: int, limit: int = 10, offset: int = 0):
         """

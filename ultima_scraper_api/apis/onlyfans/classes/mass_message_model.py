@@ -26,7 +26,7 @@ class MassMessageStatModel:
         self.created_at: datetime = datetime.fromisoformat(options["date"])
         self.expires_at = self.created_at + timedelta(0, self.unsend_seconds)
 
-        self.mass_message: "MassMessageModel" | None = None
+        self.mass_message: MassMessageModel | None = None
         self.author = user
         self.__raw__ = options
 
@@ -45,6 +45,10 @@ class MassMessageModel(SiteContent):
         mass_message_stat: MassMessageStatModel | None = None,
     ) -> None:
         SiteContent.__init__(self, options, user)
+        if not user.is_authed_user():
+            self.id: int = options["queueId"]
+        else:
+            assert options["isFromQueue"]
         self.mass_message_stat = mass_message_stat
         self.text: str = options.get("text", "")
         self.raw_text: str = options.get("rawText", "")
@@ -57,3 +61,4 @@ class MassMessageModel(SiteContent):
             if self.mass_message_stat
             else self.created_at + timedelta(0, self.unsend_seconds)
         )
+        self.get_author().scrape_manager.scraped.MassMessages[self.id] = self

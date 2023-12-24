@@ -1,6 +1,6 @@
 import asyncio
 from itertools import chain
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, Generic, TypeVar
 
 from ultima_scraper_api.apis.api_helper import handle_error_details
 
@@ -8,33 +8,15 @@ if TYPE_CHECKING:
     from ultima_scraper_api.managers.session_manager import AuthedSession
 
 
-class ContentManager:
-    def __init__(self, auth_session: "AuthedSession") -> None:
-        self.auth_session = auth_session
-        self.categorized = auth_session.auth.api.CategorizedContent()
-
-    def get_contents(self, content_type: str):
-        return getattr(self.categorized, content_type)
-
-    def set_content(self, content_type: str, scraped: list[Any]):
-        for content in scraped:
-            content_item = getattr(self.categorized, content_type)
-            content_item[content.content_id] = content
-
-    def find_content(self, content_id: int, content_type: str):
-        found_content = None
-        try:
-            found_content = getattr(self.categorized, content_type)[content_id]
-        except KeyError:
-            pass
-        return found_content
+TAPI = TypeVar("TAPI")
+TCC = TypeVar("TCC")
 
 
-class ScrapeManager:
-    def __init__(self, auth_session: "AuthedSession") -> None:
-        self.auth_session = auth_session
+class ScrapeManager(Generic[TAPI, TCC]):
+    def __init__(self, authed: TAPI) -> None:
+        self.auth_session: AuthedSession = authed.auth_session  # type: ignore
+        self.scraped: TCC = authed.api.CategorizedContent()  # type: ignore
         self.handle_errors = True
-        self.scraped = auth_session.auth.api.ContentTypes()
 
     async def bulk_scrape(self, urls: list[str]):
         result = await asyncio.gather(
@@ -65,7 +47,7 @@ class ScrapeManager:
             extras: dict[str, Any] = {}
             extras["auth"] = auth_session.auth
             extras["link"] = url
-            if isinstance(auth, onlyfans_classes.auth_model.AuthModel):
+            if isinstance(auth, onlyfans_classes.auth_model.OnlyFansAuthModel):
                 handle_error_ = onlyfans_classes.extras.ErrorDetails
             else:
                 handle_error_ = fansly_classes.extras.ErrorDetails

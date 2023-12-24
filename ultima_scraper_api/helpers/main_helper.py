@@ -5,19 +5,18 @@ import platform
 import re
 import shutil
 import subprocess
-from datetime import datetime
+from datetime import datetime, timedelta
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, BinaryIO, Literal, Type, TypeVar
+from typing import TYPE_CHECKING, Any, BinaryIO, Type, TypeVar
 
 import orjson
 import requests
+import ultima_scraper_api
+import ultima_scraper_api.classes.prepare_webhooks as prepare_webhooks
 from aiofiles import os as async_os
 from bs4 import BeautifulSoup
 from dateutil.relativedelta import relativedelta
 from mergedeep import Strategy, merge  # type: ignore
-
-import ultima_scraper_api
-import ultima_scraper_api.classes.prepare_webhooks as prepare_webhooks
 
 if TYPE_CHECKING:
     api_types = ultima_scraper_api.api_types
@@ -173,7 +172,6 @@ def get_config(config_path: Path, config_class: Type[T]) -> tuple[T, bool]:
 from ultima_scraper_api.config import Settings
 
 
-
 def open_partial(path: Path) -> BinaryIO:
     prefix, extension = os.path.splitext(path)
     while True:
@@ -202,7 +200,7 @@ async def send_webhook(
             message = orjson.loads(json.dumps(message, default=lambda o: o.__dict__))
             requests.post(webhook_link, json=message)
     if category == "download_webhook":
-        subscriptions = await item.get_subscriptions(refresh=False)
+        subscriptions = await item.get_subscriptions()
         for subscription in subscriptions:
             if await subscription.user.if_scraped():
                 for webhook_link in webhook_links:
@@ -271,6 +269,21 @@ def get_current_month_dates():
     first_day = current_date.replace(day=1)
     last_day = first_day + relativedelta(months=1, days=-1)
     return first_day, last_day
+
+
+def get_date_range_past_days(days: int = 31):
+    current_date = datetime.today()
+    first_day = current_date - timedelta(days=days)
+    return first_day, current_date
+
+
+def date_between_custom_range(
+    date_value: datetime, start_date: datetime, end_date: datetime
+):
+    if start_date.date() < date_value.date() < end_date.date():
+        return True
+    else:
+        return False
 
 
 def date_between_cur_month(date_value: datetime):

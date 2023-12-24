@@ -1,5 +1,4 @@
 from contextlib import asynccontextmanager
-from pathlib import Path
 from typing import TYPE_CHECKING, Any, Literal
 
 from ultima_scraper_api.apis.api_streamliner import StreamlinedAPI
@@ -10,7 +9,7 @@ from ultima_scraper_api.apis.fansly.classes.story_model import create_story
 from ultima_scraper_api.config import UltimaScraperAPIConfig
 
 if TYPE_CHECKING:
-    from ultima_scraper_api.apis.fansly.classes.auth_model import AuthModel
+    from ultima_scraper_api.apis.fansly.classes.auth_model import FanslyAuthModel
 
 
 class FanslyAPI(StreamlinedAPI):
@@ -19,7 +18,7 @@ class FanslyAPI(StreamlinedAPI):
     ) -> None:
         self.site_name: Literal["Fansly"] = "Fansly"
         StreamlinedAPI.__init__(self, self, config)
-        self.auths: dict[int, "AuthModel"] = {}
+        self.auths: dict[int, "FanslyAuthModel"] = {}
         self.endpoint_links = endpoint_links
         from ultima_scraper_api.apis.fansly.authenticator import FanslyAuthenticator
 
@@ -76,7 +75,7 @@ class FanslyAPI(StreamlinedAPI):
             if not auth.is_authed():
                 await self.remove_auth(auth)
 
-    async def remove_auth(self, auth: "AuthModel"):
+    async def remove_auth(self, auth: "FanslyAuthModel"):
         await auth.get_requester().active_session.close()
         del self.auths[auth.id]
 
@@ -142,14 +141,12 @@ class FanslyAPI(StreamlinedAPI):
                 final_value = final_value.capitalize()
             return final_value
 
-    class ContentTypes:
+    class CategorizedContent:
         def __init__(self) -> None:
-            self.Stories = []
-            self.Posts = []
-            self.Chats = []
-            self.Messages = []
-            self.Highlights = []
-            self.MassMessages = []
+            self.Stories: dict[int, create_story] = {}
+            self.Posts: dict[int, create_post] = {}
+            self.Chats: dict[int, Any] = {}
+            self.Messages: dict[int, create_message] = {}
 
         def __iter__(self):
             for attr, value in self.__dict__.items():
@@ -157,24 +154,6 @@ class FanslyAPI(StreamlinedAPI):
 
         def get_keys(self):
             return [item[0] for item in self]
-
-        def path_to_key(self, value: Path):
-            for content_type, _ in self:
-                for part in value.parts:
-                    if content_type.lower() == part.lower():
-                        return content_type
-
-        def convert_to_key(self, value: str):
-            match value.lower():
-                case "story":
-                    final_value = "Stories"
-                case "post":
-                    final_value = "Posts"
-                case "message":
-                    final_value = "Messages"
-                case _:
-                    raise Exception("convert_to_key not found")
-            return final_value
 
     class MediaTypes:
         def __init__(self) -> None:

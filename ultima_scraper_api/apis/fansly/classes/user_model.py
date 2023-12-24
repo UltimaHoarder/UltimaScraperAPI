@@ -15,15 +15,15 @@ from ultima_scraper_api.managers.scrape_manager import ScrapeManager
 
 if TYPE_CHECKING:
     from ultima_scraper_api import FanslyAPI
-    from ultima_scraper_api.apis.fansly.classes.auth_model import AuthModel
+    from ultima_scraper_api.apis.fansly.classes.auth_model import FanslyAuthModel
     from ultima_scraper_api.apis.fansly.classes.post_model import create_post
 
 
-class create_user(StreamlinedUser["AuthModel", "FanslyAPI"]):
+class create_user(StreamlinedUser["FanslyAuthModel", "FanslyAPI"]):
     def __init__(
         self,
         option: dict[str, Any],
-        authed: AuthModel,
+        authed: FanslyAuthModel,
     ) -> None:
         self.avatar: Any = option.get("avatar")
         self.avatar_thumbs: Any = option.get("avatarThumbs")
@@ -234,7 +234,9 @@ class create_user(StreamlinedUser["AuthModel", "FanslyAPI"]):
         self.is_blocked: bool = True if self.ignoring == 2 else False
         self.download_info: dict[str, Any] = {}
         self.duplicate_media = []
-        self.scrape_manager = ScrapeManager(authed.auth_session)
+        self.scrape_manager = ScrapeManager[
+            "FanslyAuthModel", authed.get_api().CategorizedContent
+        ](authed)
         self.__raw__ = option
         self.__db_user__: Any = None
         super().__init__(authed)
@@ -245,12 +247,6 @@ class create_user(StreamlinedUser["AuthModel", "FanslyAPI"]):
     def get_link(self):
         link = f"https://fansly.com/{self.username}"
         return link
-
-    def is_me(self) -> bool:
-        status = False
-        if self.email:
-            status = True
-        return status
 
     def is_authed_user(self):
         if self.id == self.get_authed().id:

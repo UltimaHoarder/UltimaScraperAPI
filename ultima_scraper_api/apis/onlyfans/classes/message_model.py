@@ -27,8 +27,8 @@ class create_message(SiteContent):
         self.previews: list[dict[str, Any]] = option.get("previews", [])
         self.isTip: Optional[bool] = option.get("isTip")
         self.isReportedByMe: Optional[bool] = option.get("isReportedByMe")
-        self.isFromQueue: Optional[bool] = option.get("isFromQueue")
-        self.queueId: Optional[int] = option.get("queueId")
+        self.is_from_queue: Optional[bool] = option.get("isFromQueue")
+        self.queue_id: Optional[int] = option.get("queueId")
         self.canUnsendQueue: Optional[bool] = option.get("canUnsendQueue")
         self.unsendSecondsQueue: Optional[int] = option.get("unsendSecondsQueue")
         self.isOpened: Optional[bool] = option.get("isOpened")
@@ -40,6 +40,7 @@ class create_message(SiteContent):
         self.canReport: Optional[bool] = option.get("canReport")
         self.created_at: datetime = datetime.fromisoformat(option["createdAt"])
         self.changedAt: Optional[str] = option.get("changedAt")
+        author.scrape_manager.scraped.Messages[self.id] = self
 
     def get_author(self):
         return self.author
@@ -67,3 +68,8 @@ class create_message(SiteContent):
             link, method="POST", payload=x
         )
         return result
+
+    def is_mass_message(self):
+        if self.is_from_queue:
+            return True
+        return False

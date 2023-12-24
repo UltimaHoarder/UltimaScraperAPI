@@ -2,9 +2,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Generic, TypeVar
 
-
 from ultima_scraper_api.managers.job_manager.jobs.custom_job import CustomJob
-from ultima_scraper_api.managers.scrape_manager import ContentManager
 from ultima_scraper_api.managers.session_manager import AuthedSession, SessionManager
 
 if TYPE_CHECKING:
@@ -12,7 +10,8 @@ if TYPE_CHECKING:
     import ultima_scraper_api.apis.onlyfans.classes as onlyfans_classes
 
     auth_types = (
-        onlyfans_classes.auth_model.AuthModel | fansly_classes.auth_model.AuthModel
+        onlyfans_classes.auth_model.OnlyFansAuthModel
+        | fansly_classes.auth_model.FanslyAuthModel
     )
 
 
@@ -54,6 +53,7 @@ class Cache:
         from ultima_scraper_api.apis.auth_streamliner import CacheStats
 
         self.posts = CacheStats()
+        self.messages = CacheStats()
 
 
 T = TypeVar("T")
@@ -69,7 +69,6 @@ class StreamlinedUser(Generic[T, TAPI]):
         self.scrape_whitelist: list[int | str] = []
         self.active: bool = True
         self.aliases: list[str] = []
-        self.content_manager = ContentManager(authed.auth_session)  # type: ignore
 
     def get_authed(self):
         return self.__authed

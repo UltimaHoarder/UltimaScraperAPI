@@ -30,6 +30,7 @@ class Cache:
         self.paid_content = CacheStats()
         self.mass_message_stats = CacheStats()
         self.mass_messages = CacheStats()
+        self.subscriptions = CacheStats()
 
 
 T = TypeVar("T")

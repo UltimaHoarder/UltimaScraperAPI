@@ -52,6 +52,7 @@ class create_post(SiteContent):
         self.created_at: datetime = datetime.fromisoformat(option["postedAt"])
         self.postedAtPrecise: str = option["postedAtPrecise"]
         self.expiredAt: Any = option.get("expiredAt")
+        user.scrape_manager.scraped.Posts[self.id] = self
 
     def get_author(self):
         return self.author

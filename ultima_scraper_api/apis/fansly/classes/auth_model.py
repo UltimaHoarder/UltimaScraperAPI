@@ -23,7 +23,9 @@ if TYPE_CHECKING:
     from ultima_scraper_api.apis.onlyfans.classes.only_drm import OnlyDRM
 
 
-class AuthModel(StreamlinedAuth["FanslyAuthenticator", "FanslyAPI", "AuthDetails"]):
+class FanslyAuthModel(
+    StreamlinedAuth["FanslyAuthenticator", "FanslyAPI", "AuthDetails"]
+):
     def __init__(
         self,
         authenticator: FanslyAuthenticator,
@@ -35,7 +37,6 @@ class AuthModel(StreamlinedAuth["FanslyAuthenticator", "FanslyAPI", "AuthDetails
         self.id = self.user.id
         self.username = self.user.username
         self.lists = []
-        self.links = self.api.ContentTypes()
         self.subscriptions: list[SubscriptionModel] = []
         self.followed_users: list[create_user] = []
         self.chats = None
@@ -47,6 +48,23 @@ class AuthModel(StreamlinedAuth["FanslyAuthenticator", "FanslyAPI", "AuthDetails
         self.guest = self.authenticator.guest
         self.drm: OnlyDRM | None = None
         self.update()
+
+    def find_user(self, identifier: int | str):
+        if isinstance(identifier, int):
+            user = self.users.get(identifier)
+        else:
+            for user in self.users.values():
+                if user.username.lower() == identifier.lower():
+                    break
+            else:
+                user = None
+        return user
+
+    def resolve_user(self, user_dict: dict[str, Any]):
+        user = self.find_user(user_dict["id"])
+        if not user:
+            user = create_user(user_dict, self)
+        return user
 
     def get_pool(self):
         return self.api.pool
@@ -123,23 +141,6 @@ class AuthModel(StreamlinedAuth["FanslyAuthenticator", "FanslyAPI", "AuthDetails
                 response = create_user(response["response"][0], self)
             return response
 
-    def find_user(self, identifier: int | str):
-        if isinstance(identifier, int):
-            user = self.users.get(identifier)
-        else:
-            for user in self.users.values():
-                if user.username.lower() == identifier.lower():
-                    break
-            else:
-                user = None
-        return user
-
-    def resolve_user(self, user_dict: dict[str, Any]):
-        user = self.find_user(user_dict["id"])
-        if not user:
-            user = create_user(user_dict, self)
-        return user
-
     async def get_lists_users(
         self,
         identifier: int | str,
@@ -191,11 +192,11 @@ class AuthModel(StreamlinedAuth["FanslyAuthenticator", "FanslyAPI", "AuthDetails
                     create_user(x, self) for x in temp_followings["response"]
                 ]
             for following in final_followings:
-                if not following.subscribedByData:
+                if not following.subscribed_by_data:
                     new_date = datetime.now() + relativedelta(years=10)
                     new_date = int(new_date.timestamp() * 1000)
-                    following.subscribedByData = {}
-                    following.subscribedByData["endsAt"] = new_date
+                    following.subscribed_by_data = {}
+                    following.subscribed_by_data["endsAt"] = new_date
         self.followed_users = final_followings
         return final_followings
 

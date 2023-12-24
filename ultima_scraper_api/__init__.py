@@ -6,11 +6,16 @@ from ultima_scraper_api.apis.fansly.authenticator import FanslyAuthenticator
 from ultima_scraper_api.apis.fansly.fansly import FanslyAPI
 from ultima_scraper_api.apis.onlyfans.authenticator import OnlyFansAuthenticator
 from ultima_scraper_api.apis.onlyfans.onlyfans import OnlyFansAPI
+from typing import Literal
 
 SUPPORTED_SITES = ["OnlyFans", "Fansly"]
+SITE_LITERALS = Literal["OnlyFans", "Fansly"]
 api_types = OnlyFansAPI | FanslyAPI
 authenticator_types = OnlyFansAuthenticator | FanslyAuthenticator
-auth_types = onlyfans_classes.auth_model.AuthModel | fansly_classes.auth_model.AuthModel
+auth_types = (
+    onlyfans_classes.auth_model.OnlyFansAuthModel
+    | fansly_classes.auth_model.FanslyAuthModel
+)
 user_types = (
     onlyfans_classes.user_model.create_user | fansly_classes.user_model.create_user
 )

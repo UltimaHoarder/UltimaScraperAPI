@@ -1,11 +1,11 @@
 from contextlib import asynccontextmanager
-from pathlib import Path
 from typing import TYPE_CHECKING, Any, Literal
 
 import requests
 
 from ultima_scraper_api.apis.api_streamliner import StreamlinedAPI
 from ultima_scraper_api.apis.onlyfans.classes.extras import AuthDetails, endpoint_links
+from ultima_scraper_api.apis.onlyfans.classes.hightlight_model import create_highlight
 from ultima_scraper_api.apis.onlyfans.classes.mass_message_model import MassMessageModel
 from ultima_scraper_api.apis.onlyfans.classes.message_model import create_message
 from ultima_scraper_api.apis.onlyfans.classes.post_model import create_post
@@ -15,7 +15,7 @@ from ultima_scraper_api.config import UltimaScraperAPIConfig
 from ultima_scraper_api.helpers.main_helper import is_pascal_case
 
 if TYPE_CHECKING:
-    from ultima_scraper_api.apis.onlyfans.classes.auth_model import AuthModel
+    from ultima_scraper_api.apis.onlyfans.classes.auth_model import OnlyFansAuthModel
 
 
 class OnlyFansAPI(StreamlinedAPI):
@@ -27,7 +27,7 @@ class OnlyFansAPI(StreamlinedAPI):
         dynamic_rules_url = getattr(site_settings, "dynamic_rules_url")
         self.dynamic_rules = requests.get(dynamic_rules_url).json()
         StreamlinedAPI.__init__(self, self, config)
-        self.auths: dict[int, "AuthModel"] = {}
+        self.auths: dict[int, "OnlyFansAuthModel"] = {}
         self.endpoint_links = endpoint_links
         from ultima_scraper_api.apis.onlyfans.authenticator import OnlyFansAuthenticator
 
@@ -79,7 +79,7 @@ class OnlyFansAPI(StreamlinedAPI):
             if not auth.is_authed():
                 await self.remove_auth(auth)
 
-    async def remove_auth(self, auth: "AuthModel"):
+    async def remove_auth(self, auth: "OnlyFansAuthModel"):
         await auth.get_requester().active_session.close()
         del self.auths[auth.id]
 
@@ -152,14 +152,14 @@ class OnlyFansAPI(StreamlinedAPI):
                     raise Exception("key not found")
             return final_value
 
-    class ContentTypes:
+    class CategorizedContent:
         def __init__(self) -> None:
-            self.Stories = []
-            self.Posts = []
-            self.Chats = []
-            self.Messages = []
-            self.Highlights = []
-            self.MassMessages = []
+            self.MassMessages: dict[int, MassMessageModel] = {}
+            self.Stories: dict[int, create_story] = {}
+            self.Posts: dict[int, create_post] = {}
+            self.Chats: dict[int, Any] = {}
+            self.Messages: dict[int, create_message] = {}
+            self.Highlights: dict[int, create_highlight] = {}
 
         def __iter__(self):
             for attr, value in self.__dict__.items():
@@ -167,29 +167,6 @@ class OnlyFansAPI(StreamlinedAPI):
 
         def get_keys(self):
             return [item[0] for item in self]
-
-        async def response_type_to_key(self, value: str):
-            result = [x[0] for x in self if x[0].lower() == f"{value}s"]
-            if result:
-                return result[0]
-
-        def path_to_key(self, value: Path):
-            for content_type, _ in self:
-                for part in value.parts:
-                    if content_type.lower() == part.lower():
-                        return content_type
-
-        def convert_to_key(self, value: str):
-            match value.lower():
-                case "story":
-                    final_value = "Stories"
-                case "post":
-                    final_value = "Posts"
-                case "message":
-                    final_value = "Messages"
-                case _:
-                    raise Exception("convert_to_key not found")
-            return final_value
 
     class MediaTypes:
         def __init__(self) -> None:

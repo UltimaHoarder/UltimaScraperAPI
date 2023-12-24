@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any, TypeVar
+from typing import TYPE_CHECKING, TypeVar
 
 import ultima_scraper_api
 from ultima_scraper_api.apis import api_helper
@@ -19,17 +19,19 @@ class Packages:
 
                 self.AuthDetails = AuthDetails
                 from ultima_scraper_api.apis.onlyfans.classes.auth_model import (
-                    AuthModel,
+                    OnlyFansAuthModel,
                 )
 
-                self.CreateAuth = AuthModel
+                self.CreateAuth = OnlyFansAuthModel
             case "fansly":
                 from ultima_scraper_api.apis.fansly.classes.extras import AuthDetails
 
                 self.AuthDetails = AuthDetails
-                from ultima_scraper_api.apis.fansly.classes.auth_model import AuthModel
+                from ultima_scraper_api.apis.fansly.classes.auth_model import (
+                    FanslyAuthModel,
+                )
 
-                self.CreateAuth = AuthModel
+                self.CreateAuth = FanslyAuthModel
             case _:
                 raise ValueError("Site Doesn't Exist")
 
@@ -76,15 +78,3 @@ class StreamlinedAPI:
     async def close_pools(self):
         for auth in self.api.auths:
             await auth.auth_session.active_session.close()  # type: ignore
-
-    class CategorizedContent:
-        def __init__(self) -> None:
-            self.Stories: dict[int, Any] = {}
-            self.Posts: dict[int, Any] = {}
-            self.Chats: dict[int, Any] = {}
-            self.Messages: dict[int, Any] = {}
-            self.Highlights: dict[int, Any] = {}
-            self.MassMessages: dict[int, Any] = {}
-
-        def find_content(self, content_id: int, content_type: str):
-            return getattr(self, content_type)[content_id]

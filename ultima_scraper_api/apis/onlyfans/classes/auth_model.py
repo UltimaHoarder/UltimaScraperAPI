@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import asyncio
-import math
 from itertools import chain, product
 from typing import TYPE_CHECKING, Any
 
@@ -18,7 +17,8 @@ from ultima_scraper_api.apis.onlyfans.classes.post_model import create_post
 from ultima_scraper_api.apis.onlyfans.classes.subscription_model import (
     SubscriptionModel,
 )
-from ultima_scraper_api.apis.onlyfans.classes.user_model import create_user
+from ultima_scraper_api.apis.onlyfans.classes.user_model import create_user, recursion
+from ultima_scraper_api.apis.onlyfans.classes.vault import VaultListModel
 
 if TYPE_CHECKING:
     from ultima_scraper_api.apis.onlyfans.authenticator import OnlyFansAuthenticator
@@ -27,7 +27,9 @@ if TYPE_CHECKING:
     from ultima_scraper_api.apis.onlyfans.onlyfans import OnlyFansAPI
 
 
-class AuthModel(StreamlinedAuth["OnlyFansAuthenticator", "OnlyFansAPI", "AuthDetails"]):
+class OnlyFansAuthModel(
+    StreamlinedAuth["OnlyFansAuthenticator", "OnlyFansAPI", "AuthDetails"]
+):
     def __init__(
         self,
         authenticator: OnlyFansAuthenticator,
@@ -39,7 +41,6 @@ class AuthModel(StreamlinedAuth["OnlyFansAuthenticator", "OnlyFansAPI", "AuthDet
         self.id = self.user.id
         self.username = self.user.username
         self.lists: list[dict[str, Any]] = []
-        self.links = self.api.ContentTypes()
         self.subscriptions: list[SubscriptionModel] = []
         self.chats: list[ChatModel] = []
         self.archived_stories = {}
@@ -99,10 +100,26 @@ class AuthModel(StreamlinedAuth["OnlyFansAuthenticator", "OnlyFansAPI", "AuthDet
 
     async def get_lists(self, refresh: bool = True, limit: int = 100, offset: int = 0):
         link = endpoint_links(global_limit=limit, global_offset=offset).lists
-        json_resp: list[dict[str, Any]] = await self.auth_session.json_request(
-            link
-        )  # type:ignore
+        json_resp: list[dict[str, Any]] = await self.get_requester().json_request(link)
         self.lists = json_resp
+        return json_resp
+
+    async def get_vault_lists(self, limit: int = 100, offset: int = 0):
+        link = endpoint_links().list_vault_lists(limit=limit, offset=offset)
+        json_resp: list[dict[str, Any]] = await self.get_requester().json_request(link)
+        self.vault = VaultListModel(json_resp, self.user)
+        return self.vault
+
+    async def get_vault_media(
+        self, list_id: int | None = None, limit: int = 100, offset: int = 0
+    ):
+        json_resp = await recursion(
+            category="list_vault_media",
+            identifier=list_id,
+            requester=self.get_requester(),
+            limit=limit,
+            offset=offset,
+        )
         return json_resp
 
     async def get_blacklist(self, local_blacklists: list[str]):
@@ -160,52 +177,40 @@ class AuthModel(StreamlinedAuth["OnlyFansAuthenticator", "OnlyFansAPI", "AuthDet
             results.extend(results2)  # type: ignore
         return results
 
-    async def get_subscription(
-        self, identifier: int | str = "", custom_list: list[SubscriptionModel] = []
-    ) -> SubscriptionModel | None:
-        subscriptions = (
-            await self.get_subscriptions(refresh=False)
-            if not custom_list
-            else custom_list
-        )
-        valid = None
-        for subscription in subscriptions:
-            if (
-                identifier == subscription.user.username
-                or identifier == subscription.user.id
-            ):
-                valid = subscription
-                break
-        return valid
-
     async def get_subscriptions(
         self,
-        refresh: bool = True,
         identifiers: list[int | str] = [],
         limit: int = 20,
         sub_type: SubscriptionType = "all",
+        filter_by: str = "",
     ):
-        url = endpoint_links().subscription_count
-        subscriptions_count = await self.auth_session.json_request(url)
-        subscriptions_info = subscriptions_count["subscriptions"]
-        match sub_type:
-            case "all":
-                subscription_type_count = subscriptions_info[sub_type]
-            case "active":
-                subscription_type_count = subscriptions_info[sub_type]
-            case "expired":
-                subscription_type_count = subscriptions_info[sub_type]
-            case _:
-                raise ValueError(f"Invalid subscription type: {sub_type}")
-        ceil = math.ceil(subscription_type_count / limit)
-        a = list(range(ceil))
-        urls: list[str] = []
-        for b in a:
-            b = b * limit
-            link = endpoint_links(
-                identifier=sub_type, global_limit=limit, global_offset=b
-            ).subscriptions
-            urls.append(link)
+        if not self.cache.subscriptions.is_released():
+            return self.subscriptions
+        url = endpoint_links().subscription_count(
+            sub_type=sub_type, filter_value=filter_by
+        )
+        result = await self.auth_session.json_request(url)
+        if not filter_by:
+            subscriptions_info = result["subscriptions"]
+            match sub_type:
+                case "all":
+                    subscription_type_count = subscriptions_info[sub_type]
+                case "active":
+                    subscription_type_count = subscriptions_info[sub_type]
+                case "expired":
+                    subscription_type_count = subscriptions_info[sub_type]
+                case _:
+                    raise ValueError(f"Invalid subscription type: {sub_type}")
+        else:
+            subscription_type_count = result["count"]
+        url = endpoint_links().list_subscriptions(
+            limit=limit, sub_type=sub_type, filter=filter_by
+        )
+        urls = endpoint_links().create_links(
+            url,
+            api_count=subscription_type_count,
+            limit=limit,
+        )
 
         subscription_responses = await self.auth_session.bulk_json_requests(urls)
         raw_subscriptions = [

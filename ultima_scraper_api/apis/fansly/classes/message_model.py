@@ -4,7 +4,6 @@ from datetime import datetime
 from typing import TYPE_CHECKING, Any, Optional
 
 from ultima_scraper_api.apis.fansly import SiteContent
-from ultima_scraper_api.apis.fansly.classes.extras import endpoint_links
 
 if TYPE_CHECKING:
     from ultima_scraper_api.apis.fansly.classes.user_model import create_user
@@ -30,7 +29,7 @@ class create_message(SiteContent):
         self.isReportedByMe: Optional[bool] = option.get("isReportedByMe")
         self.fromUser = user.get_authed().resolve_user(option["senderId"])
         self.isFromQueue: Optional[bool] = option.get("isFromQueue")
-        self.queueId: Optional[int] = option.get("queueId")
+        self.queue_id: Optional[int] = option.get("queueId")
         self.canUnsendQueue: Optional[bool] = option.get("canUnsendQueue")
         self.unsendSecondsQueue: Optional[int] = option.get("unsendSecondsQueue")
         self.isOpened: Optional[bool] = option.get("isOpened")
@@ -85,22 +84,6 @@ class create_message(SiteContent):
             self.author.get_authed() if self.author.id == self.user.id else self.user
         )
         return receiver
-
-    async def buy_message(self):
-        """
-        This function will buy a ppv message from a model.
-        """
-        message_price = self.price
-        x = {
-            "amount": message_price,
-            "messageId": self.id,
-            "paymentType": "message",
-            "token": "",
-            "unavailablePaymentGates": [],
-        }
-        link = endpoint_links().pay
-        result = await self.user.get_requester().json_request(link)
-        return result
 
     async def link_picker(self, media: dict[Any, Any], target_quality: str):
         # There are two media results at play here.
