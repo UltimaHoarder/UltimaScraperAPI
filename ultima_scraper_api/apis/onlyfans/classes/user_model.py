@@ -17,7 +17,6 @@ if TYPE_CHECKING:
     from ultima_scraper_api import OnlyFansAPI
     from ultima_scraper_api.apis.onlyfans.classes.auth_model import OnlyFansAuthModel
     from ultima_scraper_api.apis.onlyfans.classes.post_model import create_post
-    from ultima_scraper_api.apis.onlyfans.classes.user_model import create_user
     from ultima_scraper_api.managers.session_manager import AuthedSession
 
 
@@ -431,7 +430,7 @@ class create_user(StreamlinedUser["OnlyFansAuthModel", "OnlyFansAPI"]):
 
     async def get_messages(
         self,
-        limit: int = 10,
+        limit: int = 20,
         offset_id: int | None = None,
         cutoff_id: int | None = None,
     ):
@@ -477,8 +476,8 @@ class create_user(StreamlinedUser["OnlyFansAuthModel", "OnlyFansAPI"]):
             self.cache.messages.activate()
         return final_results
 
-    async def get_mass_messages(self):
-        messages = await self.get_messages()
+    async def get_mass_messages(self, message_cutoff_id: int | None = None):
+        messages = await self.get_messages(cutoff_id=message_cutoff_id)
         paid_messages = [
             x
             for x in await self.get_paid_contents()

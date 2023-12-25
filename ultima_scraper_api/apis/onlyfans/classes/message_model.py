@@ -5,6 +5,7 @@ from typing import TYPE_CHECKING, Any, Optional
 
 from ultima_scraper_api.apis.onlyfans import SiteContent
 from ultima_scraper_api.apis.onlyfans.classes.extras import endpoint_links
+from ultima_scraper_api.apis.onlyfans.classes.mass_message_model import MassMessageModel
 
 if TYPE_CHECKING:
     from ultima_scraper_api.apis.onlyfans.classes.user_model import create_user
@@ -27,7 +28,7 @@ class create_message(SiteContent):
         self.previews: list[dict[str, Any]] = option.get("previews", [])
         self.isTip: Optional[bool] = option.get("isTip")
         self.isReportedByMe: Optional[bool] = option.get("isReportedByMe")
-        self.is_from_queue: Optional[bool] = option.get("isFromQueue")
+        self.is_from_queue: bool | None = option.get("isFromQueue")
         self.queue_id: Optional[int] = option.get("queueId")
         self.canUnsendQueue: Optional[bool] = option.get("canUnsendQueue")
         self.unsendSecondsQueue: Optional[int] = option.get("unsendSecondsQueue")
@@ -41,6 +42,8 @@ class create_message(SiteContent):
         self.created_at: datetime = datetime.fromisoformat(option["createdAt"])
         self.changedAt: Optional[str] = option.get("changedAt")
         author.scrape_manager.scraped.Messages[self.id] = self
+        if self.is_from_queue:
+            MassMessageModel(option, self.user)
 
     def get_author(self):
         return self.author
