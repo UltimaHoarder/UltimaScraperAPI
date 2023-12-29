@@ -2,17 +2,17 @@ import asyncio
 from pathlib import Path
 
 import ultima_scraper_api
-from ultima_scraper_api import FanslyAPI, OnlyFansAPI, UltimaScraperAPIConfig
+from ultima_scraper_api import OnlyFansAPI, UltimaScraperAPIConfig
 
 FULL_TEST = False
 
 
-import inflection
-import orjson
-
-from ultima_scraper_api.apis.fansly.classes.user_model import create_user
-
 # def convert_to_snake_case():
+#     import inflection
+#     # import orjson
+
+#     from ultima_scraper_api.apis.fansly.classes.user_model import create_user
+
 #     # json = orjson.loads(Path("test.json").read_bytes())
 #     # me_json, performer_json = json[0], json[1]
 #     # missing_keys = set(me_json.keys()) - set(performer_json.keys())
