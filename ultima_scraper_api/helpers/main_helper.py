@@ -11,12 +11,13 @@ from typing import TYPE_CHECKING, Any, BinaryIO, Type, TypeVar
 
 import orjson
 import requests
-import ultima_scraper_api
-import ultima_scraper_api.classes.prepare_webhooks as prepare_webhooks
 from aiofiles import os as async_os
 from bs4 import BeautifulSoup
 from dateutil.relativedelta import relativedelta
 from mergedeep import Strategy, merge  # type: ignore
+
+import ultima_scraper_api
+import ultima_scraper_api.classes.prepare_webhooks as prepare_webhooks
 
 if TYPE_CHECKING:
     api_types = ultima_scraper_api.api_types
@@ -280,7 +281,7 @@ def get_date_range_past_days(days: int = 31):
 def date_between_custom_range(
     date_value: datetime, start_date: datetime, end_date: datetime
 ):
-    if start_date.date() < date_value.date() < end_date.date():
+    if start_date < date_value < end_date:
         return True
     else:
         return False
