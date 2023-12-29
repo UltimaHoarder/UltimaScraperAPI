@@ -377,21 +377,22 @@ class SessionManager:
                     import requests
 
                     try:
-                        url = "https://onlyfans.com"
+                        url = "https://onlyfans.com/api2/v2/init"
                         # proxy_manager = self.proxy_manager
                         # if proxy_manager.proxies:
                         #     await proxy_manager.proxy_switcher()
                         #     print(proxy_manager.get_current_proxy().host)
 
                         result = requests.get(url)
-                        result.raise_for_status()
+                        if result.status_code == 429:
+                            result.raise_for_status()
                         self.rate_limit_check = False
                         self.is_rate_limited = None
                         break
                     except EXCEPTION_TEMPLATE as _e:
                         continue
                     except requests.HTTPError as _e:
-                        if _e.response.status_code == 429:
+                        if _e.response and _e.response.status_code == 429:
                             # Still rate limited, wait 5 seconds and retry
                             self.is_rate_limited = True
                             rate_limit_count += 1
