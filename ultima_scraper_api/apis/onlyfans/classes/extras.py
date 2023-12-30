@@ -263,7 +263,7 @@ class endpoint_links(object):
         filter: str = "",
     ):
         url = format_url(
-            f"{self.full_url_path}/subscriptions/subscribes?limit={limit}&offset={offset}&type={sub_type}&filter[{filter}]=1"
+            f"{self.full_url_path}/subscriptions/subscribes?limit={limit}&offset={offset}&type={sub_type}&filter[{filter}]=1&format=infinite"
         )
         return url
 

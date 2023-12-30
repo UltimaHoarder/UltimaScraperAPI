@@ -21,21 +21,29 @@ if TYPE_CHECKING:
 
 
 async def recursion(
-    category: Literal["list_posts", "list_vault_media"],
-    identifier: int | str,
+    category: Literal["list_posts", "list_vault_media", "list_subscriptions"],
     requester: AuthedSession,
-    limit: int,
+    identifier: int | str | None = None,
+    query_type: str | None = None,
+    limit: int = 10,
     offset: int = 0,
     after_date: datetime | float | None = None,
 ):
     match category:
         case "list_posts":
+            assert identifier
             link = endpoint_links().list_posts(
                 identifier=identifier, limit=limit, after_date=after_date
             )
         case "list_vault_media":
+            assert identifier
             link = endpoint_links().list_vault_media(
                 list_id=identifier, limit=limit, offset=offset
+            )
+        case "list_subscriptions":
+            assert query_type
+            link = endpoint_links().list_subscriptions(
+                limit=limit, offset=offset, sub_type=query_type
             )
 
     results = await requester.json_request(link)
@@ -44,8 +52,9 @@ async def recursion(
     if results["hasMore"]:
         results2 = await recursion(
             category,
+            requester,
             identifier=identifier,
-            requester=requester,
+            query_type=query_type,
             limit=limit,
             offset=offset + limit,
             after_date=after_date,

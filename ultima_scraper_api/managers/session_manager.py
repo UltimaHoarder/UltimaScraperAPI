@@ -194,7 +194,6 @@ class AuthedSession:
                         assert result
                         return result
                     case 429:
-                        pass
                         if session_manager.is_rate_limited is None:
                             session_manager.rate_limit_check = True
                         continue

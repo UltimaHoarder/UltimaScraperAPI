@@ -180,12 +180,14 @@ class OnlyFansAuthModel(
     async def get_subscriptions(
         self,
         identifiers: list[int | str] = [],
-        limit: int = 20,
+        limit: int = 100,
         sub_type: SubscriptionType = "all",
         filter_by: str = "",
     ):
         if not self.cache.subscriptions.is_released():
             return self.subscriptions
+        from ultima_scraper_api.apis.onlyfans.classes.user_model import recursion
+
         url = endpoint_links().subscription_count(
             sub_type=sub_type, filter_value=filter_by
         )
@@ -216,8 +218,16 @@ class OnlyFansAuthModel(
         raw_subscriptions = [
             raw_subscription
             for temp_raw_subscriptions in subscription_responses
-            for raw_subscription in temp_raw_subscriptions
+            for raw_subscription in temp_raw_subscriptions["list"]
         ]
+
+        raw_subscriptions += await recursion(
+            "list_subscriptions",
+            self.auth_session,
+            query_type=sub_type,
+            limit=limit,
+            offset=len(urls) * limit,
+        )
 
         async def assign_user_to_sub(raw_subscription: dict[str, Any]):
             user = await self.get_user(raw_subscription["username"])
