@@ -107,7 +107,7 @@ class OnlyDRM:
         pssh = PSSH(raw_pssh)
         challenge = self.cdm.get_license_challenge(self.session_id, pssh)
         url = endpoint_links().drm_resolver(
-            media_item["id"], content_item["responseType"], content_item["id"]
+            media_item["id"], content_item.get("responseType"), content_item.get("id")
         )
         licence = await self.authed.get_requester().request(
             url, method="POST", data=challenge
