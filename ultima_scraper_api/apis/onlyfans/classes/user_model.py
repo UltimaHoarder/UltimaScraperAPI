@@ -462,7 +462,7 @@ class create_user(StreamlinedUser["OnlyFansAuthModel", "OnlyFansAPI"]):
         Returns:
             list[message_model.create_message]: A list of message objects.
         """
-        if not self.cache.messages.is_released():
+        if not self.cache.messages.is_released() or self.is_deleted:
             return list(self.scrape_manager.scraped.Messages.values())
         final_results: list[message_model.create_message] = []
         if self.is_authed_user() or self.is_deleted:
