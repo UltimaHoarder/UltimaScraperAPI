@@ -586,7 +586,7 @@ class create_user(StreamlinedUser["FanslyAuthModel", "FanslyAPI"]):
     async def get_header(self):
         return self.header["locations"][0]["location"] if self.header else None
 
-    async def is_subscribed(self):
+    def is_subscribed(self):
         pass
 
     def is_performer(self):

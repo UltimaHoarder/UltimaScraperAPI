@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import sys
 from datetime import datetime
 from typing import TYPE_CHECKING, Any, Literal
 from urllib import parse
@@ -19,6 +20,8 @@ if TYPE_CHECKING:
     from ultima_scraper_api.apis.onlyfans.classes.post_model import create_post
     from ultima_scraper_api.managers.session_manager import AuthedSession
 
+DEFAULT_RECURSION_LIMIT = sys.getrecursionlimit()
+
 
 async def recursion(
     category: Literal["list_posts", "list_vault_media", "list_subscriptions"],
@@ -29,6 +32,7 @@ async def recursion(
     offset: int = 0,
     after_date: datetime | float | None = None,
 ):
+    sys.setrecursionlimit(1500)
     match category:
         case "list_posts":
             assert identifier
@@ -47,6 +51,10 @@ async def recursion(
             )
 
     results = await requester.json_request(link)
+    if isinstance(results, list):
+        if not results:
+            sys.setrecursionlimit(DEFAULT_RECURSION_LIMIT)
+            return results
     items: list[dict[str, Any]] = results.get("list", [])
     after_date = results.get("tailMarker")
     if results["hasMore"]:
@@ -670,7 +678,7 @@ class create_user(StreamlinedUser["OnlyFansAuthModel", "OnlyFansAPI"]):
     async def get_header(self):
         return self.header
 
-    async def is_subscribed(self):
+    def is_subscribed(self):
         return not self.subscribed_is_expired_now
 
     def is_performer(self):

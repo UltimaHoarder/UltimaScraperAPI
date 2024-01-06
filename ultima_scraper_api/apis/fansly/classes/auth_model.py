@@ -134,12 +134,11 @@ class FanslyAuthModel(
                 url = endpoint_links(identifier).users_by_id
             else:
                 url = endpoint_links(identifier).users_by_username
-                pass
             response = await self.get_requester().json_request(url)
             if response["response"]:
                 response["auth_session"] = self.auth_session
                 response = create_user(response["response"][0], self)
-            return response
+                return response
 
     async def get_lists_users(
         self,

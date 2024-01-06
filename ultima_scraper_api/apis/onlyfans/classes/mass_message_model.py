@@ -53,6 +53,7 @@ class MassMessageModel(SiteContent):
         self.text: str = options.get("text", "")
         self.raw_text: str = options.get("rawText", "")
         self.price: float = float(options.get("price", 0))
+        self.previews: list[int] = options["previews"]
         self.changed_at: str = options["changedAt"]
         self.unsend_seconds: int = options.get("unsendSeconds", 0)
         self.created_at: datetime = datetime.fromisoformat(options["createdAt"])

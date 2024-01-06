@@ -184,9 +184,31 @@ class OnlyFansAuthModel(
         sub_type: SubscriptionType = "all",
         filter_by: str = "",
     ):
+        """
+        Retrieves the subscriptions based on the given parameters.
+        5000 offset is the maximum allowed by the API, which means anything above that will be ignored.
+
+        Args:
+            identifiers (list[int | str], optional): List of subscription identifiers. Defaults to [].
+            limit (int, optional): Maximum number of subscriptions to retrieve. Defaults to 100.
+            sub_type (SubscriptionType, optional): Type of subscriptions to retrieve. Defaults to "all".
+            filter_by (str, optional): Filter subscriptions by a specific value. Defaults to "".
+
+        Returns:
+            list[SubscriptionModel]: List of SubscriptionModel objects representing the subscriptions.
+        """
+        from ultima_scraper_api.apis.onlyfans.classes.user_model import recursion
+
+        async def assign_user_to_sub(raw_subscription: dict[str, Any]):
+            user = await self.get_user(raw_subscription["username"])
+            if not user:
+                user = create_user(raw_subscription, self)
+                user.active = False
+            subscription_model = SubscriptionModel(raw_subscription, user, self)
+            return subscription_model
+
         if not self.cache.subscriptions.is_released():
             return self.subscriptions
-        from ultima_scraper_api.apis.onlyfans.classes.user_model import recursion
 
         url = endpoint_links().subscription_count(
             sub_type=sub_type, filter_value=filter_by
@@ -213,29 +235,30 @@ class OnlyFansAuthModel(
             api_count=subscription_type_count,
             limit=limit,
         )
+        sort_url = "https://onlyfans.com/api2/v2/lists/following/sort"
+        _sort_response = await self.auth_session.json_request(
+            sort_url,
+            method="POST",
+            payload={"order": "expire_date", "direction": "desc", "type": "all"},
+        )
 
         subscription_responses = await self.auth_session.bulk_json_requests(urls)
+        raw_subscriptions: list[Any] = []
         raw_subscriptions = [
             raw_subscription
             for temp_raw_subscriptions in subscription_responses
+            if temp_raw_subscriptions
             for raw_subscription in temp_raw_subscriptions["list"]
         ]
 
-        raw_subscriptions += await recursion(
+        raw_recursion = await recursion(
             "list_subscriptions",
             self.auth_session,
             query_type=sub_type,
             limit=limit,
             offset=len(urls) * limit,
         )
-
-        async def assign_user_to_sub(raw_subscription: dict[str, Any]):
-            user = await self.get_user(raw_subscription["username"])
-            if not user:
-                user = create_user(raw_subscription, self)
-                user.active = False
-            subscription_model = SubscriptionModel(raw_subscription, user, self)
-            return subscription_model
+        raw_subscriptions += raw_recursion
 
         subscriptions: list[SubscriptionModel] = []
         if identifiers:
