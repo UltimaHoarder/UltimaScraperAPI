@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "ultima-scraper-api"
-version = "2.1.8"
+version = "2.1.9"
 description = ""
 authors = [
     "UltimaHoarder <1285176+UltimaHoarder@users.noreply.github.com>",
@@ -40,7 +40,7 @@ sphinx-rtd-theme = "^1.1.1"
 version_toml = "pyproject.toml:tool.poetry.version"
 
 [project.urls]
-Homepage = "https://github.com/DIGITALCRIMINALS/UltimaScraperAPI"
+Homepage = "https://github.com/UltimaHoarder/UltimaScraperAPI"
 
 [build-system]
 requires = ["poetry-core"]
