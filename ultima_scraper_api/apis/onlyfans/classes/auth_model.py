@@ -144,9 +144,19 @@ class OnlyFansAuthModel(
         else:
             return False
 
-    async def get_user(self, identifier: int | str):
+    async def get_user(self, identifier: int | str, refresh: bool = False):
+        """
+        Retrieves a user from the OnlyFans API based on the provided identifier.
+
+        Args:
+            identifier (int | str): The identifier of the user.
+            refresh (bool, optional): Flag indicating whether to refresh the user data. Defaults to False.
+
+        Returns:
+            dict | None: The user data if found, None otherwise.
+        """
         valid_user = self.find_user(identifier)
-        if valid_user:
+        if valid_user and not refresh:
             return valid_user
         else:
             link = endpoint_links(identifier).users
