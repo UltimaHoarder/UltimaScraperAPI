@@ -42,7 +42,7 @@ class create_message(SiteContent):
         self.created_at: datetime = datetime.fromisoformat(option["createdAt"])
         self.changedAt: Optional[str] = option.get("changedAt")
         author.scrape_manager.scraped.Messages[self.id] = self
-        if self.is_from_queue:
+        if self.is_mass_message():
             MassMessageModel(option, self.user)
 
     def get_author(self):

@@ -75,6 +75,10 @@ class SiteContent:
     def get_author(self):
         return self.author
 
+    def get_content_type(self):
+        content_type = self.get_author().get_api().convert_api_type_to_key(self)
+        return content_type
+
     async def refresh(self):
         func = await self.author.scrape_manager.handle_refresh(self)
         return await func(self.id)
