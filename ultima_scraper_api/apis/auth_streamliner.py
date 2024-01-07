@@ -14,6 +14,9 @@ class CacheStats:
         self.processed_at = datetime.utcnow()
         self.released_at = self.processed_at + timedelta(seconds=self.delay_in_seconds)
 
+    def deactivate(self):
+        self.processed_at = self.released_at = None
+
     def is_released(self):
         status = True
         if self.released_at:
