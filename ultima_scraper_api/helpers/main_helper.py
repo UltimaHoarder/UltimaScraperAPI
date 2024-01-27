@@ -1,4 +1,6 @@
+import asyncio
 import copy
+import functools
 import json
 import os
 import platform
@@ -12,6 +14,7 @@ from typing import TYPE_CHECKING, Any, BinaryIO, Type, TypeVar
 import orjson
 import requests
 from aiofiles import os as async_os
+from alive_progress import alive_bar  # type: ignore
 from bs4 import BeautifulSoup
 from dateutil.relativedelta import relativedelta
 from mergedeep import Strategy, merge  # type: ignore
@@ -307,3 +310,19 @@ def is_pascal_case(s: str):
         # Check if the string contains only letters and digits
         return all(c.isupper() or c.islower() or c.isdigit() for c in s)
     return False
+
+
+class ProgressBar:
+    def __init__(self, title: str = ""):
+        self.title = title
+
+    async def gather(self, tasks: list[asyncio.Task[Any]]):
+        def increment(method: Any, _task: Any):
+            method()
+
+        with alive_bar(len(tasks)) as bar:  # type:ignore
+            bar.title(self.title)  # type:ignore
+            for task in tasks:
+                task.add_done_callback(functools.partial(increment, bar))
+            await asyncio.gather(*tasks)
+        return [task.result() for task in tasks]
