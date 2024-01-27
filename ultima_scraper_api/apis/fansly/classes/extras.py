@@ -193,6 +193,13 @@ class endpoint_links(object):
     ):
         return f"{self.full_url_path}/timeline/{content_id}?before={global_offset}"
 
+    def list_paid_posts(
+        self, limit: int = 10, offset: int = 0, performer_id: int | None = None
+    ):
+        if not performer_id:
+            return f"{self.full_url_path}/posts/paid?limit={limit}&offset={offset}&format=infinite"
+        return f"{self.full_url_path}/posts/paid?limit={limit}&offset={offset}&user_id=u{performer_id}&skip_users=all&format=infinite&sort=all"
+
     def create_links(self, link: str, api_count: int, limit: int = 10, offset: int = 0):
         """
         This function will create a list of links depending on their content count.
