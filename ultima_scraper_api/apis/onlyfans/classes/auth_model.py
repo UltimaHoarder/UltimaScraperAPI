@@ -396,7 +396,8 @@ class OnlyFansAuthModel(
                 results2 = await recursive(limit=limit, offset=limit + offset)
                 items.extend(results2)
             else:
-                self.cache.mass_message_stats.activate()
+                if not performer_id:
+                    self.cache.mass_message_stats.activate()
             return items
 
         items = await recursive(limit, offset)
@@ -419,7 +420,8 @@ class OnlyFansAuthModel(
                         self.paid_content.append(content)
                 else:
                     self.paid_content.append(content)
-                self.cache.paid_content.activate()
+                if not performer_id:
+                    self.cache.paid_content.activate()
         return self.paid_content
 
     async def get_scrapable_users(self):
