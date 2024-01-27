@@ -19,6 +19,7 @@ from aiohttp.client_exceptions import (
     ClientResponseError,
     ContentTypeError,
     ServerDisconnectedError,
+    ServerTimeoutError,
 )
 from aiohttp_socks import ProxyConnectionError, ProxyConnector, ProxyInfo
 
@@ -177,6 +178,10 @@ class AuthedSession:
                         result = await self.active_session.delete(url, headers=headers)
                     case _:
                         raise Exception("Method not found")
+            except ServerTimeoutError as _e:
+                if session_manager.is_rate_limited is None:
+                    session_manager.rate_limit_check = True
+                continue
             except EXCEPTION_TEMPLATE as _e:
                 continue
             except Exception as _e:
