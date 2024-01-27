@@ -387,8 +387,10 @@ class OnlyFansAuthModel(
             return self.paid_content
 
         async def recursive(limit: int, offset: int):
-            link = endpoint_links(global_limit=limit, global_offset=offset).paid_api
-            results = await self.auth_session.json_request(link)
+            url = endpoint_links().list_paid_posts(
+                limit=limit, offset=offset, performer_id=performer_id
+            )
+            results = await self.auth_session.json_request(url)
             items = results.get("list", [])
             if not items:
                 return items

@@ -226,6 +226,15 @@ class endpoint_links(object):
             global_offset = ""
         return f"{self.full_url_path}/chats/{chat_id}/messages?limit={global_limit}&id={str(global_offset)}&order=desc"
 
+    def list_paid_posts(
+        self, limit: int = 10, offset: int = 0, performer_id: int | str | None = None
+    ):
+        if performer_id:
+            url = f"{self.full_url_path}/posts/paid?limit={limit}&offset={offset}&user_id={performer_id}&format=infinite"
+        else:
+            url = f"{self.full_url_path}/posts/paid?limit={limit}&offset={offset}&format=infinite"
+        return url
+
     def list_comments(
         self,
         content_type: str,
