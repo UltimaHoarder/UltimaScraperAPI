@@ -119,16 +119,15 @@ class OnlyFansAuthenticator:
             link = endpoint_links().customer
             json_resp = await self.auth_session.json_request(link)
             await self.resolve_auth_errors(json_resp)
-            if not self.errors:
+            self.__raw__ = json_resp
+            if not self.errors and json_resp["isAuth"]:
                 self.auth_details.active = True
-                self.__raw__ = json_resp
-                self.auth_details.email = self.__raw__["email"]
+                self.auth_details.email = self.__raw__.get("email", "")
             else:
                 link = endpoint_links(self.auth_details.cookie.auth_id).users
                 json_resp = await self.auth_session.json_request(link)
                 await self.resolve_auth_errors(json_resp)
                 self.auth_details.active = False
-                self.__raw__ = json_resp
         return self
 
     def maxed_out_auth_attempts(self):
