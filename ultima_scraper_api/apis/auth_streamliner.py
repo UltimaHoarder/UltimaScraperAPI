@@ -11,7 +11,7 @@ class CacheStats:
         self.released_at: datetime | None = None
 
     def activate(self):
-        self.processed_at = datetime.utcnow()
+        self.processed_at = datetime.now()
         self.released_at = self.processed_at + timedelta(seconds=self.delay_in_seconds)
 
     def deactivate(self):
@@ -20,7 +20,7 @@ class CacheStats:
     def is_released(self):
         status = True
         if self.released_at:
-            if datetime.utcnow() < self.released_at:
+            if datetime.now() < self.released_at:
                 status = False
             else:
                 self.processed_at = self.released_at = None

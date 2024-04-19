@@ -68,7 +68,7 @@ class StreamlinedUser(Generic[T, TAPI]):
         self.job_whitelist: list[int | str] = []
         self.scrape_whitelist: list[int | str] = []
         self.active: bool = True
-        self.aliases: set[str] = set()
+        self.aliases: list[str] = []
 
     def get_authed(self):
         return self.__authed
@@ -102,5 +102,29 @@ class StreamlinedUser(Generic[T, TAPI]):
     def is_active(self):
         return self.active
 
+    def get_usernames(self, ignore_id: bool = True) -> list[str]:
+        final_usernames: list[str] = [self.username]  # type: ignore
+        for alias in self.get_aliases(ignore_id=ignore_id):
+            if alias not in final_usernames:
+                final_usernames.append(alias)
+        if ignore_id and len(final_usernames) > 1:
+            invalid_usernames = [f"u{self.id}"]  # type: ignore
+            for invalid_username in invalid_usernames:
+                if invalid_username in final_usernames:
+                    final_usernames.remove(invalid_username)
+        assert final_usernames
+        return final_usernames
+
+    def get_aliases(self, ignore_id: bool = True):
+        final_aliases = self.aliases.copy()
+        if ignore_id:
+            invalid_aliases = [f"u{self.id}"]  # type: ignore
+            for invalid_alias in invalid_aliases:
+                if invalid_alias in final_aliases:
+                    final_aliases.remove(invalid_alias)
+        return final_aliases
+
     def add_aliases(self, aliases: list[str]):
-        self.aliases.update(aliases)
+        for alias in aliases:
+            if alias not in self.aliases:
+                self.aliases.append(alias)
