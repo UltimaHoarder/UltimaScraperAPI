@@ -336,8 +336,11 @@ class create_user(StreamlinedUser["OnlyFansAuthModel", "OnlyFansAPI"]):
             self.username = f"u{self.id}"
         return self.username
 
-    def get_link(self):
-        link = f"https://onlyfans.com/{self.username}"
+    def get_link(self, use_username: bool = False):
+        if use_username:
+            link = f"https://onlyfans.com/{self.username}"
+        else:
+            link = f"https://onlyfans.com/{self.id}"
         return link
 
     def is_authed_user(self):
@@ -714,9 +717,9 @@ class create_user(StreamlinedUser["OnlyFansAuthModel", "OnlyFansAPI"]):
         return result
 
     async def get_socials(self):
-        results: list[dict[str, Any]] | dict[
-            str, Any
-        ] = await self.get_requester().json_request(endpoint_links(self.id).socials)
+        results: list[dict[str, Any]] | dict[str, Any] = (
+            await self.get_requester().json_request(endpoint_links(self.id).socials)
+        )
         if "error" in results:
             results = []
         assert isinstance(results, list)
