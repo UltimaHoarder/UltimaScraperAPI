@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "ultima-scraper-api"
-version = "2.2.24"
+version = "2.2.25"
 description = ""
 authors = ["UltimaHoarder <1285176+UltimaHoarder@users.noreply.github.com>"]
 packages = [{ include = "ultima_scraper_api" }]
@@ -24,7 +24,7 @@ lxml = "^4.9.1"
 win32-setctime = { version = "^1.1.0", platform = 'win32' }
 pywidevine = "^1.6.0"
 xmltodict = "^0.13.0"
-pydantic = "^1.10.9"
+pydantic = "^2.0"
 inflection = "^0.5.1"
 alive-progress = "^3.1.5"
 
