@@ -53,8 +53,12 @@ def url_picker(
 def preview_url_picker(media_item: dict[str, Any]):
     preview_url: str | None = None
     if "files" in media_item:
-        if "preview" in media_item["files"] and "url" in media_item["files"]["preview"]:
-            preview_url = media_item["files"]["preview"]["url"]
+        if "preview" in media_item["files"]:
+            if (
+                media_item["files"]["preview"] is not None
+                and "url" in media_item["files"]["preview"]
+            ):
+                preview_url = media_item["files"]["preview"]["url"]
     else:
         preview_url = media_item["preview"]
         return urlparse(preview_url) if preview_url else None

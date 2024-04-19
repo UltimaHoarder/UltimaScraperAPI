@@ -1,4 +1,5 @@
 from contextlib import asynccontextmanager
+from pathlib import Path
 from typing import TYPE_CHECKING, Any, Literal
 
 import requests
@@ -167,6 +168,12 @@ class OnlyFansAPI(StreamlinedAPI):
 
         def get_keys(self):
             return [item[0] for item in self]
+
+        def path_to_key(self, value: Path):
+            for content_type, _ in self:
+                for part in value.parts:
+                    if content_type.lower() == part.lower():
+                        return content_type
 
     class MediaTypes:
         def __init__(self) -> None:

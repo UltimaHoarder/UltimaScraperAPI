@@ -7,6 +7,7 @@ from ultima_scraper_api.apis.fansly.classes.message_model import create_message
 from ultima_scraper_api.apis.fansly.classes.post_model import create_post
 from ultima_scraper_api.apis.fansly.classes.story_model import create_story
 from ultima_scraper_api.config import UltimaScraperAPIConfig
+from pathlib import Path
 
 if TYPE_CHECKING:
     from ultima_scraper_api.apis.fansly.classes.auth_model import FanslyAuthModel
@@ -154,6 +155,12 @@ class FanslyAPI(StreamlinedAPI):
 
         def get_keys(self):
             return [item[0] for item in self]
+
+        def path_to_key(self, value: Path):
+            for content_type, _ in self:
+                for part in value.parts:
+                    if content_type.lower() == part.lower():
+                        return content_type
 
     class MediaTypes:
         def __init__(self) -> None:

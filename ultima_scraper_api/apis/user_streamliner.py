@@ -68,7 +68,7 @@ class StreamlinedUser(Generic[T, TAPI]):
         self.job_whitelist: list[int | str] = []
         self.scrape_whitelist: list[int | str] = []
         self.active: bool = True
-        self.aliases: list[str] = []
+        self.aliases: set[str] = set()
 
     def get_authed(self):
         return self.__authed
@@ -101,3 +101,6 @@ class StreamlinedUser(Generic[T, TAPI]):
 
     def is_active(self):
         return self.active
+
+    def add_aliases(self, aliases: list[str]):
+        self.aliases.update(aliases)
