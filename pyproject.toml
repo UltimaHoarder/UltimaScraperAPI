@@ -1,14 +1,14 @@
 [tool.poetry]
 name = "ultima-scraper-api"
-version = "2.2.25"
+version = "2.2.26"
 description = ""
 authors = ["UltimaHoarder <1285176+UltimaHoarder@users.noreply.github.com>"]
 packages = [{ include = "ultima_scraper_api" }]
 include = ["ultima_scraper_api/py.typed"]
 
 [tool.poetry.dependencies]
-python = ">=3.10,<3.12"
-requests = { extras = ["socks"], version = "2.28.2" }
+python = ">=3.10,<4"
+requests = { extras = ["socks"], version = "^2.28" }
 orjson = "^3.8.3"
 dill = "^0.3.6"
 python-socks = { extras = ["asyncio"], version = "2.2.0" }
@@ -22,7 +22,7 @@ beautifulsoup4 = "^4.11.1"
 mypy = "^0.991"
 lxml = "^4.9.1"
 win32-setctime = { version = "^1.1.0", platform = 'win32' }
-pywidevine = "^1.6.0"
+pywidevine = "^1.8.0"
 xmltodict = "^0.13.0"
 pydantic = "^2.0"
 inflection = "^0.5.1"

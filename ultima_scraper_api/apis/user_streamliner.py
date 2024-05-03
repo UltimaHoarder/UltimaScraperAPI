@@ -126,5 +126,7 @@ class StreamlinedUser(Generic[T, TAPI]):
 
     def add_aliases(self, aliases: list[str]):
         for alias in aliases:
+            if alias == self.username:
+                continue
             if alias not in self.aliases:
                 self.aliases.append(alias)
