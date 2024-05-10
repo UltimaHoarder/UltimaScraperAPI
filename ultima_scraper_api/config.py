@@ -58,17 +58,17 @@ class GlobalAPI(BaseModel):
 
 class OnlyFansAPIConfig(GlobalAPI):
     class OnlyFansCache(GlobalCache):
-        paid_content = 3600 * 1
+        paid_content:int = 3600 * 1
 
     dynamic_rules_url: str = "https://raw.githubusercontent.com/DATAHOARDERS/dynamic-rules/main/onlyfans.json"
-    cache = OnlyFansCache()
+    cache:OnlyFansCache = OnlyFansCache()
 
 
 class FanslyAPIConfig(GlobalAPI):
     class FanslyCache(GlobalCache):
         pass
 
-    cache = FanslyCache()
+    cache:FanslyCache = FanslyCache()
 
 
 class Sites(BaseModel):
