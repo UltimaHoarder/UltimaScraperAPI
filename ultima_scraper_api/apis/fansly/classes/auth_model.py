@@ -199,27 +199,8 @@ class FanslyAuthModel(
         self.followed_users = final_followings
         return final_followings
 
-    async def get_subscription(
-        self, identifier: int | str = "", custom_list: list[SubscriptionModel] = []
-    ) -> SubscriptionModel | None:
-        subscriptions = (
-            await self.get_subscriptions(refresh=False)
-            if not custom_list
-            else custom_list
-        )
-        valid = None
-        for subscription in subscriptions:
-            if (
-                identifier == subscription.user.username
-                or identifier == subscription.user.id
-            ):
-                valid = subscription
-                break
-        return valid
-
     async def get_subscriptions(
         self,
-        refresh: bool = True,
         identifiers: list[int | str] = [],
         sub_type: SubscriptionType = "all",
     ):

@@ -97,6 +97,8 @@ class create_user(StreamlinedUser["OnlyFansAuthModel", "OnlyFansAPI"]):
         self.can_add_subscriber: bool = option.get("canAddSubscriber", False)
         self.subscribe_price: int = option.get("subscribePrice", 0)
         self.is_deleted: bool | None = option.get("isDeleted", None)
+        self.is_suspended: bool | None = option.get("isSuspended", None)
+        self.is_suspended_auto: bool | None = option.get("isSuspendedAuto", None)
         self.has_stripe: bool | None = option.get("hasStripe")
         self.is_stripe_exist: bool | None = option.get("isStripeExist")
         self.subscription_bundles: list[dict[str, Any]] = option.get(
@@ -637,9 +639,7 @@ class create_user(StreamlinedUser["OnlyFansAuthModel", "OnlyFansAPI"]):
                 link, method="POST", payload=x
             )
         else:
-            result = ErrorDetails(
-                {"code": 2011, "message": "Insufficient Credit Balance"}
-            )
+            result = {"error": {"code": 2011, "message": "Insufficient Credit Balance"}}
         return result
 
     def finalize_content_set(self, results: list[dict[str, Any]] | list[str]):

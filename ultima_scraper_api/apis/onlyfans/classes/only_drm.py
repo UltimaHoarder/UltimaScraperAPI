@@ -7,7 +7,7 @@ from typing import TYPE_CHECKING, Any
 import orjson
 import xmltodict
 from pywidevine.cdm import Cdm
-from pywidevine.device import Device
+from pywidevine.device import Device, DeviceTypes
 from pywidevine.pssh import PSSH
 from ultima_scraper_api.apis.onlyfans.classes.extras import endpoint_links
 
@@ -29,7 +29,7 @@ class OnlyDRM:
         self.client_key = client_key_path.read_bytes()
         self.private_key = private_key_path.read_bytes()
         self.device = Device(
-            type_=Device.Types.ANDROID,
+            type_=DeviceTypes.ANDROID,
             security_level=3,
             flags={},
             client_id=self.client_key,
