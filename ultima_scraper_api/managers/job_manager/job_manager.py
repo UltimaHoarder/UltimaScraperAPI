@@ -63,8 +63,11 @@ class JobManager:
                 return
             job = await self.queue.get()
             # We can make jobs work in the background if we make waiting for inputs async
-            await job.task
+            try:
+                await job.task
 
-            self.queue.task_done()
-
+                self.queue.task_done()
+            except Exception as e:
+                print(f"Error processing {job.type}: {e}")
+                raise e
             # print(f'{job.type} has been processed')

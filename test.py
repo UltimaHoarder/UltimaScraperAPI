@@ -110,7 +110,6 @@ async def main():
     authed, _guest_authed = await authenticate(api)
     assert _guest_authed
     authed = _guest_authed
-    await rate_limit_enabler(authed)
     if FULL_TEST:
         await bulk_ip(authed)
         await rate_limit_enabler(authed)
