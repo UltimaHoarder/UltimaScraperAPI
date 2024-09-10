@@ -175,6 +175,10 @@ class AuthedSession:
                         result = await self.active_session.post(
                             url, headers=headers, data=data
                         )
+                    case "PATCH":
+                        result = await self.active_session.patch(
+                            url, headers=headers, json=data
+                        )
                     case "DELETE":
                         result = await self.active_session.delete(url, headers=headers)
                     case _:
