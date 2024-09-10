@@ -20,15 +20,13 @@ def url_picker(
         return
     source: dict[str, Any] = {}
     media_type: str = ""
+    video_qualities = media_item.get("videoSources", {})
     if "source" in media_item:
         media_type = media_item["type"]
         source = media_item["source"]
-        video_qualities = media_item.get("videoQualities", {})
     elif "files" in media_item:
         media_type = media_item["type"]
-        media_item = media_item["files"]
-        source = media_item["source"]
-        video_qualities = source["sources"]
+        source = media_item["files"]["full"]
     else:
         return
     quality_key = "source"
@@ -41,8 +39,6 @@ def url_picker(
                 if quality_link:
                     url = quality_link
                     break
-    if "src" in media_item:
-        url = media_item["src"]
     if authed.drm:
         has_drm = authed.drm.has_drm(media_item)
         if has_drm:

@@ -13,14 +13,13 @@ from typing import TYPE_CHECKING, Any, BinaryIO, Type, TypeVar
 
 import orjson
 import requests
+import ultima_scraper_api
+import ultima_scraper_api.classes.prepare_webhooks as prepare_webhooks
 from aiofiles import os as async_os
 from alive_progress import alive_bar  # type: ignore
 from bs4 import BeautifulSoup
 from dateutil.relativedelta import relativedelta
 from mergedeep import Strategy, merge  # type: ignore
-
-import ultima_scraper_api
-import ultima_scraper_api.classes.prepare_webhooks as prepare_webhooks
 
 if TYPE_CHECKING:
     api_types = ultima_scraper_api.api_types
@@ -301,7 +300,10 @@ def date_between_cur_month(date_value: datetime):
 
 
 def split_string(identifiers: str):
-    return identifiers.split(",")
+    result = re.split(r"[,\n]", identifiers)
+
+    split_identifiers = [s.strip() for s in result]
+    return split_identifiers
 
 
 def is_pascal_case(s: str):

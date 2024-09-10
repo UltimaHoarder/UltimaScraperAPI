@@ -3,7 +3,6 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any, Literal
 
 import requests
-
 from ultima_scraper_api.apis.api_streamliner import StreamlinedAPI
 from ultima_scraper_api.apis.onlyfans.classes.extras import AuthDetails, endpoint_links
 from ultima_scraper_api.apis.onlyfans.classes.hightlight_model import create_highlight
@@ -26,7 +25,7 @@ class OnlyFansAPI(StreamlinedAPI):
         self.site_name: Literal["OnlyFans"] = "OnlyFans"
         site_settings = config.site_apis.get_settings(self.site_name)
         dynamic_rules_url = getattr(site_settings, "dynamic_rules_url")
-        self.dynamic_rules = requests.get(dynamic_rules_url).json()
+        self.dynamic_rules = requests.get(dynamic_rules_url, timeout=300).json()
         StreamlinedAPI.__init__(self, self, config)
         self.auths: dict[int, "OnlyFansAuthModel"] = {}
         self.endpoint_links = endpoint_links
@@ -55,8 +54,11 @@ class OnlyFansAPI(StreamlinedAPI):
             authed = await authenticator.login(guest)
             if authed and authenticator.is_authed():
                 issues = await authed.get_login_issues()
-                authed.issues = issues if issues["data"] else None
+                if not guest:
+                    authed.issues = issues if issues["data"] else None
                 self.add_auth(authed)
+            else:
+                await authenticator.close()
         return authed
 
     @asynccontextmanager

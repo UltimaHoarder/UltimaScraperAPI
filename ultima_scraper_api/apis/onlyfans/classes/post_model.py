@@ -62,9 +62,9 @@ class create_post(SiteContent):
         link = epl.list_comments(self.responseType, self.id)
         links = epl.create_links(link, self.commentsCount)
         if links:
-            results: list[
-                dict[str, Any]
-            ] = await self.author.scrape_manager.bulk_scrape(links)
+            results: list[dict[str, Any]] = (
+                await self.author.scrape_manager.bulk_scrape(links)
+            )
             authed = self.author.get_authed()
             final_results = [
                 CommentModel(x, authed.resolve_user(x["author"])) for x in results

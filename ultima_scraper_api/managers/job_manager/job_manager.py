@@ -68,6 +68,7 @@ class JobManager:
 
                 self.queue.task_done()
             except Exception as e:
-                print(f"Error processing {job.type}: {e}")
+                print(f"Error processing {job.title} ({job.type}): {e}")
+                print(e.__traceback__)
                 raise e
             # print(f'{job.type} has been processed')

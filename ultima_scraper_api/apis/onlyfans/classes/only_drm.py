@@ -139,9 +139,9 @@ class OnlyDRM:
 
     def decrypt_file(self, filepath: Path, key: str):
         output_filepath = Path(filepath.as_posix().replace("enc", "dec"))
-        mp4decrypt_path = "./__user_data__/drm_device/mp4decrypt"
+        mp4decrypt_path = "./drm_device/mp4decrypt"
         if os_name == "Windows":
-            mp4decrypt_path = ".\\__user_data__\\drm_device\\mp4decrypt"
+            mp4decrypt_path = ".\\drm_device\\mp4decrypt"
         pid = subprocess.Popen(
             [
                 mp4decrypt_path,

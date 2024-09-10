@@ -538,7 +538,7 @@ class create_user(StreamlinedUser["OnlyFansAuthModel", "OnlyFansAPI"]):
 
     async def get_archived_stories(self, limit: int = 100, offset: int = 0):
         final_results: list[create_story] = []
-        if self.is_authed_user():
+        if self.is_authed_user() and self.is_performer():
 
             async def recursive(limit: int = limit, offset: int = offset):
                 link = endpoint_links().list_archived_stories(
@@ -631,10 +631,11 @@ class create_user(StreamlinedUser["OnlyFansAuthModel", "OnlyFansAPI"]):
             "token": "",
             "unavailablePaymentGates": [],
         }
+
         authed = self.get_authed()
         assert authed.user.credit_balance
         if authed.user.credit_balance >= subscription_price:
-            link = endpoint_links().pay
+            link = endpoint_links(identifier=self.id).pay
             result = await self.get_requester().json_request(
                 link, method="POST", payload=x
             )

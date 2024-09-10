@@ -1,7 +1,5 @@
 from typing import Any
 
-from user_agent import generate_user_agent
-
 from ultima_scraper_api.apis import api_helper
 from ultima_scraper_api.apis.onlyfans.classes.auth_model import OnlyFansAuthModel
 from ultima_scraper_api.apis.onlyfans.classes.extras import (
@@ -13,6 +11,7 @@ from ultima_scraper_api.apis.onlyfans.classes.extras import (
 from ultima_scraper_api.apis.onlyfans.classes.user_model import create_user
 from ultima_scraper_api.apis.onlyfans.onlyfans import OnlyFansAPI
 from ultima_scraper_api.managers.session_manager import AuthedSession
+from user_agent import generate_user_agent
 
 
 class OnlyFansAuthenticator:
@@ -54,6 +53,7 @@ class OnlyFansAuthenticator:
         if guest and auth_items:
             auth_items.cookie.auth_id = "0"
             auth_items.user_agent = generate_user_agent()
+            auth_items.active = True
         link = endpoint_links().customer
         user_agent = auth_items.user_agent
         auth_id = str(auth_items.cookie.auth_id)
