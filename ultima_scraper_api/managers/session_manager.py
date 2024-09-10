@@ -12,6 +12,8 @@ from urllib.parse import urlparse
 import aiohttp
 import python_socks
 import requests
+import ultima_scraper_api
+import ultima_scraper_api.apis.api_helper as api_helper
 from aiohttp import ClientResponse, ClientSession
 from aiohttp.client_exceptions import (
     ClientOSError,
@@ -22,9 +24,6 @@ from aiohttp.client_exceptions import (
     ServerTimeoutError,
 )
 from aiohttp_socks import ProxyConnectionError, ProxyConnector, ProxyInfo
-
-import ultima_scraper_api
-import ultima_scraper_api.apis.api_helper as api_helper
 
 if TYPE_CHECKING:
     auth_types = ultima_scraper_api.auth_types
@@ -115,6 +114,8 @@ class AuthedSession:
             proxies = proxy_manager.test_proxies(raw_proxies)
             if not proxies:
                 raise Exception("Unable to create session due to invalid proxies")
+            proxy_manager.add_proxies(proxies)
+            proxy = proxy_manager.get_current_proxy()
         connector = (
             self.session_manager.proxy_manager.create_connection(proxy)
             if proxy
