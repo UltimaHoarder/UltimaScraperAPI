@@ -434,3 +434,8 @@ class OnlyFansAuthModel(
         url = endpoint_links().login_issues
         response = await self.auth_session.json_request(url, method="POST")
         return response
+
+    async def get_transactions(self):
+        link = endpoint_links(self.id).transactions
+        results = await self.get_requester().json_request(link)
+        return results
