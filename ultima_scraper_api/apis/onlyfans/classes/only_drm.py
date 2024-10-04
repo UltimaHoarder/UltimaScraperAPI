@@ -9,6 +9,7 @@ import xmltodict
 from pywidevine.cdm import Cdm
 from pywidevine.device import Device, DeviceTypes
 from pywidevine.pssh import PSSH
+
 from ultima_scraper_api.apis.onlyfans.classes.extras import endpoint_links
 
 if TYPE_CHECKING:
@@ -124,21 +125,33 @@ class OnlyDRM:
     def get_video_url(self, mpd: dict[str, Any], media_item: dict[str, Any]):
         dash_url = self.get_dash_url(media_item)
         directory_url = self.extract_directory_from_url(dash_url)
-        base_url = mpd["MPD"]["Period"]["AdaptationSet"][0]["Representation"][0][
-            "BaseURL"
+        adaptation_set = mpd["MPD"]["Period"]["AdaptationSet"][0]
+        representation: list[dict[str, Any]] | dict[str, Any] = adaptation_set[
+            "Representation"
         ]
+        if isinstance(representation, list):
+            base_url = representation[0]["BaseURL"]
+        else:
+            base_url = representation["BaseURL"]
         media_url = f"https://cdn3.onlyfans.com/dash/files/{directory_url}/{base_url}"
         return media_url
 
     def get_audio_url(self, mpd: dict[str, Any], media_item: dict[str, Any]):
         dash_url = self.get_dash_url(media_item)
         directory_url = self.extract_directory_from_url(dash_url)
-        base_url = mpd["MPD"]["Period"]["AdaptationSet"][1]["Representation"]["BaseURL"]
+        adaptation_set = mpd["MPD"]["Period"]["AdaptationSet"][1]
+        representation: list[dict[str, Any]] | dict[str, Any] = adaptation_set[
+            "Representation"
+        ]
+        if isinstance(representation, list):
+            base_url: str = representation[0]["BaseURL"]
+        else:
+            base_url: str = representation["BaseURL"]
         media_url = f"https://cdn3.onlyfans.com/dash/files/{directory_url}/{base_url}"
         return media_url
 
     def decrypt_file(self, filepath: Path, key: str):
-        output_filepath = Path(filepath.as_posix().replace("enc", "dec"))
+        output_filepath = Path(filepath.as_posix().replace(".enc", ".dec"))
         mp4decrypt_path = "./drm_device/mp4decrypt"
         if os_name == "Windows":
             mp4decrypt_path = ".\\drm_device\\mp4decrypt"
@@ -158,6 +171,7 @@ class OnlyDRM:
         if pid.stderr:
             error = pid.stderr.read()
             if not error:
+                filepath.unlink()
                 return output_filepath
             else:
                 raise Exception(error)
