@@ -187,6 +187,14 @@ class OnlyFansAuthModel(
             results.extend(results2)  # type: ignore
         return results
 
+    async def assign_user_to_sub(self, raw_subscription: dict[str, Any]):
+        user = await self.get_user(raw_subscription["username"])
+        if not user:
+            user = create_user(raw_subscription, self)
+            user.active = False
+        subscription_model = SubscriptionModel(raw_subscription, user, self)
+        return subscription_model
+
     async def get_subscriptions(
         self,
         identifiers: list[int | str] = [],
@@ -208,14 +216,6 @@ class OnlyFansAuthModel(
             list[SubscriptionModel]: List of SubscriptionModel objects representing the subscriptions.
         """
         from ultima_scraper_api.apis.onlyfans.classes.user_model import recursion
-
-        async def assign_user_to_sub(raw_subscription: dict[str, Any]):
-            user = await self.get_user(raw_subscription["username"])
-            if not user:
-                user = create_user(raw_subscription, self)
-                user.active = False
-            subscription_model = SubscriptionModel(raw_subscription, user, self)
-            return subscription_model
 
         if not self.cache.subscriptions.is_released():
             return self.subscriptions
@@ -283,7 +283,7 @@ class OnlyFansAuthModel(
                         break
             raw_subscriptions = found_raw_subscriptions
         with self.get_pool() as pool:
-            tasks = pool.starmap(assign_user_to_sub, product(raw_subscriptions))
+            tasks = pool.starmap(self.assign_user_to_sub, product(raw_subscriptions))
             subscriptions: list[SubscriptionModel] = await asyncio.gather(*tasks)
         self.subscriptions = subscriptions
         return self.subscriptions

@@ -25,7 +25,12 @@ class OnlyFansAPI(StreamlinedAPI):
         self.site_name: Literal["OnlyFans"] = "OnlyFans"
         site_settings = config.site_apis.get_settings(self.site_name)
         dynamic_rules_url = getattr(site_settings, "dynamic_rules_url")
-        self.dynamic_rules = httpx.get(dynamic_rules_url, timeout=300).json()
+        while True:
+            try:
+                self.dynamic_rules = httpx.get(dynamic_rules_url, timeout=300).json()
+                break
+            except httpx.RequestError:
+                continue
         StreamlinedAPI.__init__(self, self, config)
         self.auths: dict[int, "OnlyFansAuthModel"] = {}
         self.endpoint_links = endpoint_links
