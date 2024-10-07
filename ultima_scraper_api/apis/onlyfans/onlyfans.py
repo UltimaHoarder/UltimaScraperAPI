@@ -3,6 +3,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any, Literal
 
 import httpx
+
 from ultima_scraper_api.apis.api_streamliner import StreamlinedAPI
 from ultima_scraper_api.apis.onlyfans.classes.extras import AuthDetails, endpoint_links
 from ultima_scraper_api.apis.onlyfans.classes.hightlight_model import create_highlight
@@ -60,7 +61,7 @@ class OnlyFansAPI(StreamlinedAPI):
             if authed and authenticator.is_authed():
                 issues = await authed.get_login_issues()
                 if not guest:
-                    authed.issues = issues if issues["data"] else None
+                    authed.issues = issues if issues.get("data") else None
                 self.add_auth(authed)
             else:
                 await authenticator.close()
@@ -76,7 +77,7 @@ class OnlyFansAPI(StreamlinedAPI):
                 if temp_authed and temp_authed.is_authed():
                     authed = temp_authed
                     issues = await authed.get_login_issues()
-                    authed.issues = issues if issues["data"] else None
+                    authed.issues = issues if issues.get("data") else None
                     self.add_auth(authed)
                 yield authed
         else:
