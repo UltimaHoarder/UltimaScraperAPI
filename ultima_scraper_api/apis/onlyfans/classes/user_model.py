@@ -633,7 +633,7 @@ class create_user(StreamlinedUser["OnlyFansAuthModel", "OnlyFansAPI"]):
         }
 
         authed = self.get_authed()
-        assert authed.user.credit_balance
+        assert authed.user.credit_balance != None
         if authed.user.credit_balance >= subscription_price:
             link = endpoint_links(identifier=self.id).pay
             result = await self.get_requester().json_request(

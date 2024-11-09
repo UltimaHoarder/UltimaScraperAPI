@@ -66,9 +66,13 @@ class create_message(SiteContent):
             "token": "",
             "unavailablePaymentGates": [],
         }
+        authed = self.get_author().get_authed()
+        assert authed.user.credit_balance != None
         link = endpoint_links().pay
-        result = await self.author.get_requester().json_request(
-            link, method="POST", payload=x
+        result = (
+            await self.get_author()
+            .get_requester()
+            .json_request(link, method="POST", payload=x)
         )
         return result
 

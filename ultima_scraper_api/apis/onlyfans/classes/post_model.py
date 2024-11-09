@@ -57,6 +57,32 @@ class create_post(SiteContent):
     def get_author(self):
         return self.author
 
+    async def buy_ppv(self):
+        """
+        This function will subscribe to a model. If the model has a promotion available, it will use it.
+        """
+        x: dict[str, Any] = {
+            "paymentType": "post",
+            "postId": self.id,
+            "amount": self.price,
+            "userId": self.author.id,
+            "token": "",
+            "unavailablePaymentGates": [],
+        }
+
+        authed = self.get_author().get_authed()
+        assert authed.user.credit_balance != None
+        if authed.user.credit_balance >= self.price:
+            link = endpoint_links(identifier=self.id).pay
+            result = (
+                await self.get_author()
+                .get_requester()
+                .json_request(link, method="POST", payload=x)
+            )
+        else:
+            result = {"error": {"code": 2011, "message": "Insufficient Credit Balance"}}
+        return result
+
     async def get_comments(self):
         epl = endpoint_links()
         link = epl.list_comments(self.responseType, self.id)
@@ -78,6 +104,16 @@ class create_post(SiteContent):
             identifier2=self.id,
             identifier3=self.author.id,
         ).favorite
-        results = await self.author.get_requester().json_request(link, method="POST")
+        results = (
+            await self.get_author().get_requester().json_request(link, method="POST")
+        )
         self.isFavorite = True
         return results
+
+    async def bought(self):
+        has_bought = True
+        for media in self.media:
+            if media["canView"] == False:
+                has_bought = False
+                break
+        return has_bought
