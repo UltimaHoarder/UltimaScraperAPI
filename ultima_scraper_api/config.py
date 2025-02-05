@@ -42,6 +42,7 @@ class GlobalCache(BaseModel):
 class DRM(BaseModel):
     device_client_blob_filepath: Path | None = None
     device_private_key_filepath: Path | None = None
+    decrypt_media_path: Path | None = None
 
 
 class Settings(BaseModel):

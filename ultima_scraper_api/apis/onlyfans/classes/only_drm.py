@@ -9,7 +9,6 @@ import xmltodict
 from pywidevine.cdm import Cdm
 from pywidevine.device import Device, DeviceTypes
 from pywidevine.pssh import PSSH
-
 from ultima_scraper_api.apis.onlyfans.classes.extras import endpoint_links
 
 if TYPE_CHECKING:
@@ -150,8 +149,15 @@ class OnlyDRM:
         media_url = f"https://cdn3.onlyfans.com/dash/files/{directory_url}/{base_url}"
         return media_url
 
-    def decrypt_file(self, filepath: Path, key: str):
+    def decrypt_file(
+        self, filepath: Path, key: str, temp_output_path: Path | None = None
+    ):
         output_filepath = Path(filepath.as_posix().replace(".enc", ".dec"))
+        if temp_output_path:
+            output_filepath = temp_output_path.joinpath(output_filepath.name)
+        if output_filepath.exists():
+            return output_filepath
+        temp_output_filepath = Path(f"{output_filepath.as_posix()}.part")
         mp4decrypt_path = "./drm_device/mp4decrypt"
         if os_name == "Windows":
             mp4decrypt_path = ".\\drm_device\\mp4decrypt"
@@ -159,7 +165,7 @@ class OnlyDRM:
             [
                 mp4decrypt_path,
                 f"{filepath.as_posix()}",
-                f"{output_filepath.as_posix()}",
+                temp_output_filepath,
                 "--key",
                 key,
             ],
@@ -172,6 +178,7 @@ class OnlyDRM:
             error = pid.stderr.read()
             if not error:
                 filepath.unlink()
+                temp_output_filepath.rename(output_filepath)
                 return output_filepath
             else:
                 raise Exception(error)
