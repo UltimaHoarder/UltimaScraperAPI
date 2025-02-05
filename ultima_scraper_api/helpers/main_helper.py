@@ -114,7 +114,7 @@ async def format_file(filepath: Path, timestamp: float, reformat_media: bool):
 
                 setctime(filepath, timestamp)
                 # print(f"Updated Creation Time {filepath}")
-            os.utime(filepath, (timestamp, timestamp))
+            await asyncio.to_thread(os.utime, filepath, (timestamp, timestamp))
             # print(f"Updated Modification Time {filepath}")
             break
 

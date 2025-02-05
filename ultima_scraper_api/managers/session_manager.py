@@ -150,6 +150,7 @@ class AuthedSession:
         data: Any = {},
         premade_settings: str = "json",
         custom_cookies: str = "",
+        range_header: dict[str, Any] | None = None,
     ):
         session_manager = self.get_session_manager()
         while True:
@@ -164,6 +165,8 @@ class AuthedSession:
             if custom_cookies:
                 headers = await self.session_rules(url, custom_cookies=custom_cookies)
                 pass
+            if range_header:
+                headers.update(range_header)
 
             # await self.limit_rate()
             result = None

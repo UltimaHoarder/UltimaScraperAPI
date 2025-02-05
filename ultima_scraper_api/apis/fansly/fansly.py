@@ -145,9 +145,9 @@ class FanslyAPI(StreamlinedAPI):
     class CategorizedContent:
         def __init__(self) -> None:
             self.Stories: dict[int, create_story] = {}
-            self.Posts: dict[int, create_post] = {}
             self.Chats: dict[int, Any] = {}
             self.Messages: dict[int, create_message] = {}
+            self.Posts: dict[int, create_post] = {}
 
         def __iter__(self):
             for attr, value in self.__dict__.items():

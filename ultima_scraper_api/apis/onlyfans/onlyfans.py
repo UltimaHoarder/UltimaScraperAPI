@@ -3,7 +3,6 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any, Literal
 
 import httpx
-
 from ultima_scraper_api.apis.api_streamliner import StreamlinedAPI
 from ultima_scraper_api.apis.onlyfans.classes.extras import AuthDetails, endpoint_links
 from ultima_scraper_api.apis.onlyfans.classes.hightlight_model import create_highlight
@@ -165,10 +164,10 @@ class OnlyFansAPI(StreamlinedAPI):
         def __init__(self) -> None:
             self.MassMessages: dict[int, MassMessageModel] = {}
             self.Stories: dict[int, create_story] = {}
-            self.Posts: dict[int, create_post] = {}
             self.Chats: dict[int, Any] = {}
             self.Messages: dict[int, create_message] = {}
             self.Highlights: dict[int, create_highlight] = {}
+            self.Posts: dict[int, create_post] = {}
 
         def __iter__(self):
             for attr, value in self.__dict__.items():
