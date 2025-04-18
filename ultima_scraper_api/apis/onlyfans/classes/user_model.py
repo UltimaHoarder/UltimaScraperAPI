@@ -486,7 +486,7 @@ class create_user(StreamlinedUser["OnlyFansAuthModel", "OnlyFansAPI"]):
                 for item in items:
                     if item["id"] == cutoff_id:
                         return items
-            if results["hasMore"]:
+            if results.get("hasMore"):
                 results2 = await recursive(limit=limit, offset_id=items[-1]["id"])
                 items.extend(results2)
             return items

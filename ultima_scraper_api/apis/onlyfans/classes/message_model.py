@@ -21,7 +21,7 @@ class create_message(SiteContent):
         self.text: str = option.get("text", "")
         self.lockedText: Optional[bool] = option.get("lockedText")
         self.isFree: Optional[bool] = option.get("isFree")
-        self.price: Optional[float] = option.get("price")
+        self.price: int | None = option.get("price")
         self.isMediaReady: Optional[bool] = option.get("isMediaReady")
         self.media_count: Optional[int] = option.get("mediaCount")
         self.media: list[dict[str, Any]] = option.get("media", [])

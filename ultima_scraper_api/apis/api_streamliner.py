@@ -76,5 +76,5 @@ class StreamlinedAPI:
         return self.config.settings
 
     async def close_pools(self):
-        for auth in self.api.auths:
+        for _identifier, auth in self.api.auths.items():
             await auth.auth_session.active_session.close()  # type: ignore

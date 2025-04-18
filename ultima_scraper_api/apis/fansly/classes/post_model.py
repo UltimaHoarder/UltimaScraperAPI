@@ -40,7 +40,7 @@ class create_post(SiteContent):
         self.isOpened: bool = option.get("isOpened")
         self.canToggleFavorite: bool = option.get("canToggleFavorite")
         self.streamId: Any = option.get("streamId")
-        self.price: Any = option.get("price")
+        self.price: int | None = option.get("price")
         self.hasVoting: bool = option.get("hasVoting")
         self.isAddedToBookmarks: bool = option.get("isAddedToBookmarks")
         self.isArchived: bool = option.get("isArchived")
