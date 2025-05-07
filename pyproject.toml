@@ -1,43 +1,42 @@
-[tool.poetry]
+[project]
 name = "ultima-scraper-api"
-version = "2.2.34"
+version = "2.2.37"
 description = ""
-authors = ["UltimaHoarder <1285176+UltimaHoarder@users.noreply.github.com>"]
-packages = [{ include = "ultima_scraper_api" }]
-include = ["ultima_scraper_api/py.typed"]
+authors = [
+    { name = "UltimaHoarder", email = "1285176+UltimaHoarder@users.noreply.github.com" }
+]
+dependencies = [
+    "requests[socks] >=2.28",
+    "orjson >=3.8.3",
+    "dill >=0.3.6",
+    "python-socks[asyncio] >=2.2.0",
+    "aiohttp >=3.8.4",
+    "aiohttp-socks >=0.9.0",
+    "mergedeep >=1.3.4",
+    "python-dateutil >=2.8.2",
+    "user-agent >=0.1.10",
+    "aiofiles >=22.1.0",
+    "beautifulsoup4 >=4.11.1",
+    "mypy >=0.991",
+    "lxml >=4.9.1",
+    "win32-setctime >=1.1.0; platform_system == 'Windows'",
+    "pywidevine >=1.8.0",
+    "xmltodict >=0.13.0",
+    "pydantic >=2.0",
+    "inflection >=0.5.1",
+    "alive-progress >=3.1.5",
+    "httpx >=0.27.2"
+]
+requires-python = ">=3.10,<4.0"
 
-[tool.poetry.dependencies]
-python = ">=3.10,<4"
-requests = { extras = ["socks"], version = "^2.28" }
-orjson = "^3.8.3"
-dill = "^0.3.6"
-python-socks = { extras = ["asyncio"], version = "^2.2.0" }
-aiohttp = "^3.8.4"
-aiohttp-socks = "^0.9.0"
-mergedeep = "^1.3.4"
-python-dateutil = "^2.8.2"
-user-agent = "^0.1.10"
-aiofiles = "^22.1.0"
-beautifulsoup4 = "^4.11.1"
-mypy = "^0.991"
-lxml = "^4.9.1"
-win32-setctime = { version = "^1.1.0", platform = 'win32' }
-pywidevine = "^1.8.0"
-xmltodict = "^0.13.0"
-pydantic = "^2.0"
-inflection = "^0.5.1"
-alive-progress = "^3.1.5"
-httpx = "^0.27.2"
-
-[tool.poetry.group.dev.dependencies]
-python-semantic-release = "^7.33.2"
-black = { version = "^23.3.0", allow-prereleases = true }
-Sphinx = "^5.3.0"
-sphinx-autoapi = "^2.0.0"
-sphinx-rtd-theme = "^1.1.1"
-
-[tool.semantic_release]
-version_toml = "pyproject.toml:tool.poetry.version"
+[project.optional-dependencies]
+dev = [
+    "python-semantic-release >=7.33.2",
+    "black >=23.3.0",
+    "Sphinx >=5.3.0",
+    "sphinx-autoapi >=2.0.0",
+    "sphinx-rtd-theme >=1.1.1"
+]
 
 [project.urls]
 Homepage = "https://github.com/UltimaHoarder/UltimaScraperAPI"
