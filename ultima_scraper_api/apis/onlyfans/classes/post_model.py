@@ -8,11 +8,11 @@ from ultima_scraper_api.apis.onlyfans.classes.comment_model import CommentModel
 from ultima_scraper_api.apis.onlyfans.classes.extras import endpoint_links
 
 if TYPE_CHECKING:
-    from ultima_scraper_api.apis.onlyfans.classes.user_model import create_user
+    from ultima_scraper_api.apis.onlyfans.classes.user_model import UserModel
 
 
-class create_post(SiteContent):
-    def __init__(self, option: dict[str, Any], user: create_user) -> None:
+class PostModel(SiteContent):
+    def __init__(self, option: dict[str, Any], user: UserModel) -> None:
         SiteContent.__init__(self, option, user)
         self.responseType: str = option["responseType"]
         text: str = option.get("text", "")

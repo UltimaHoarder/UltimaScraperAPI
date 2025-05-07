@@ -8,11 +8,11 @@ from ultima_scraper_api.apis.onlyfans.classes.extras import endpoint_links
 from ultima_scraper_api.apis.onlyfans.classes.mass_message_model import MassMessageModel
 
 if TYPE_CHECKING:
-    from ultima_scraper_api.apis.onlyfans.classes.user_model import create_user
+    from ultima_scraper_api.apis.onlyfans.classes.user_model import UserModel
 
 
-class create_message(SiteContent):
-    def __init__(self, option: dict[str, Any], user: create_user) -> None:
+class MessageModel(SiteContent):
+    def __init__(self, option: dict[str, Any], user: UserModel) -> None:
         author = user.get_authed().resolve_user(option["fromUser"])
         assert author, "Author not found"
         SiteContent.__init__(self, option, author)

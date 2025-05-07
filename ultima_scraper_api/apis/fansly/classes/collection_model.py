@@ -7,12 +7,12 @@ from ultima_scraper_api.apis.fansly import SiteContent
 from ultima_scraper_api.apis.fansly.classes.extras import endpoint_links
 
 if TYPE_CHECKING:
-    from ultima_scraper_api.apis.fansly.classes.user_model import create_user
+    from ultima_scraper_api.apis.fansly.classes.user_model import UserModel
 
 
-class create_collection(SiteContent):
+class CollectionModel(SiteContent):
     def __init__(
-        self, option: dict[str, Any], user: create_user, extra: dict[str, Any]
+        self, option: dict[str, Any], user: UserModel, extra: dict[str, Any]
     ) -> None:
         SiteContent.__init__(self, option, user)
         self.responseType: str = option.get("responseType")

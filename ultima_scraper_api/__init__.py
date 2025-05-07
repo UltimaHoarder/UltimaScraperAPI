@@ -1,4 +1,4 @@
-from typing import Any
+from typing import Any, Literal
 
 import ultima_scraper_api.apis.fansly.classes as fansly_classes
 import ultima_scraper_api.apis.onlyfans.classes as onlyfans_classes
@@ -6,7 +6,6 @@ from ultima_scraper_api.apis.fansly.authenticator import FanslyAuthenticator
 from ultima_scraper_api.apis.fansly.fansly import FanslyAPI
 from ultima_scraper_api.apis.onlyfans.authenticator import OnlyFansAuthenticator
 from ultima_scraper_api.apis.onlyfans.onlyfans import OnlyFansAPI
-from typing import Literal
 
 SUPPORTED_SITES = ["OnlyFans", "Fansly"]
 SITE_LITERALS = Literal["OnlyFans", "Fansly"]
@@ -16,18 +15,14 @@ auth_types = (
     onlyfans_classes.auth_model.OnlyFansAuthModel
     | fansly_classes.auth_model.FanslyAuthModel
 )
-user_types = (
-    onlyfans_classes.user_model.create_user | fansly_classes.user_model.create_user
-)
+user_types = onlyfans_classes.user_model.UserModel | fansly_classes.user_model.UserModel
 story_types = (
-    onlyfans_classes.story_model.create_story | fansly_classes.story_model.create_story
+    onlyfans_classes.story_model.StoryModel | fansly_classes.story_model.StoryModel
 )
-post_types = (
-    onlyfans_classes.post_model.create_post | fansly_classes.post_model.create_post
-)
+post_types = onlyfans_classes.post_model.PostModel | fansly_classes.post_model.PostModel
 message_types = (
-    onlyfans_classes.message_model.create_message
-    | fansly_classes.message_model.create_message
+    onlyfans_classes.message_model.MessageModel
+    | fansly_classes.message_model.MessageModel
 )
 subscription_types = (
     onlyfans_classes.subscription_model.SubscriptionModel

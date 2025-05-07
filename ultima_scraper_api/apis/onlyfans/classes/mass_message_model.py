@@ -5,11 +5,11 @@ from ultima_scraper_api.apis.onlyfans import SiteContent
 from ultima_scraper_api.apis.onlyfans.classes.extras import endpoint_links
 
 if TYPE_CHECKING:
-    from ultima_scraper_api.apis.onlyfans.classes.user_model import create_user
+    from ultima_scraper_api.apis.onlyfans.classes.user_model import UserModel
 
 
 class MassMessageStatModel:
-    def __init__(self, options: dict[str, Any], user: "create_user"):
+    def __init__(self, options: dict[str, Any], user: "UserModel"):
         self.id: int = options["id"]
         self.giphy_id: str | None = options.get("giphyId", None)
         self.text: str = options.get("text", "")
@@ -41,7 +41,7 @@ class MassMessageModel(SiteContent):
     def __init__(
         self,
         options: dict[str, Any],
-        user: "create_user",
+        user: "UserModel",
         mass_message_stat: MassMessageStatModel | None = None,
     ) -> None:
         SiteContent.__init__(self, options, user)
@@ -56,6 +56,7 @@ class MassMessageModel(SiteContent):
         self.previews: list[int] = options["previews"]
         self.changed_at: str = options["changedAt"]
         self.unsend_seconds: int = options.get("unsendSeconds", 0)
+        self.media_count: int = options["mediaCount"]
         self.created_at: datetime = datetime.fromisoformat(options["createdAt"])
         self.expires_at = (
             self.mass_message_stat.expires_at

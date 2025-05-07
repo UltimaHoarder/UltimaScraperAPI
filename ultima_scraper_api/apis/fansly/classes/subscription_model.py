@@ -1,7 +1,7 @@
 from datetime import datetime
 from typing import TYPE_CHECKING, Any
 
-from ultima_scraper_api.apis.fansly.classes.user_model import create_user
+from ultima_scraper_api.apis.fansly.classes.user_model import UserModel
 from ultima_scraper_api.models.subscription_model import BaseSubscriptionModel
 
 if TYPE_CHECKING:
@@ -13,7 +13,7 @@ if TYPE_CHECKING:
 
 class SubscriptionModel(BaseSubscriptionModel):
     def __init__(
-        self, data: dict[str, Any], user: "create_user", subscriber: "auth_types"
+        self, data: dict[str, Any], user: "UserModel", subscriber: "auth_types"
     ) -> None:
         self.price: int = data["price"]
         self.created_at: datetime = datetime.fromtimestamp(data["createdAt"] / 1000)

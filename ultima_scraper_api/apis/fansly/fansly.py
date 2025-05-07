@@ -1,13 +1,13 @@
 from contextlib import asynccontextmanager
+from pathlib import Path
 from typing import TYPE_CHECKING, Any, Literal
 
 from ultima_scraper_api.apis.api_streamliner import StreamlinedAPI
 from ultima_scraper_api.apis.fansly.classes.extras import AuthDetails, endpoint_links
-from ultima_scraper_api.apis.fansly.classes.message_model import create_message
-from ultima_scraper_api.apis.fansly.classes.post_model import create_post
-from ultima_scraper_api.apis.fansly.classes.story_model import create_story
+from ultima_scraper_api.apis.fansly.classes.message_model import MessageModel
+from ultima_scraper_api.apis.fansly.classes.post_model import PostModel
+from ultima_scraper_api.apis.fansly.classes.story_model import StoryModel
 from ultima_scraper_api.config import UltimaScraperAPIConfig
-from pathlib import Path
 
 if TYPE_CHECKING:
     from ultima_scraper_api.apis.fansly.classes.auth_model import FanslyAuthModel
@@ -93,14 +93,14 @@ class FanslyAPI(StreamlinedAPI):
 
     def convert_api_type_to_key(
         self,
-        value: create_story | create_post | create_message | Any,
+        value: StoryModel | PostModel | MessageModel | Any,
         make_plural: bool = True,
     ):
-        if isinstance(value, create_story):
+        if isinstance(value, StoryModel):
             final_value = self.ContentTypeTransformer("Story")
-        elif isinstance(value, create_post):
+        elif isinstance(value, PostModel):
             final_value = self.ContentTypeTransformer("Post")
-        elif isinstance(value, create_message):
+        elif isinstance(value, MessageModel):
             final_value = self.ContentTypeTransformer("Message")
         else:
             raise Exception("api content type not found")
@@ -144,10 +144,10 @@ class FanslyAPI(StreamlinedAPI):
 
     class CategorizedContent:
         def __init__(self) -> None:
-            self.Stories: dict[int, create_story] = {}
+            self.Stories: dict[int, StoryModel] = {}
             self.Chats: dict[int, Any] = {}
-            self.Messages: dict[int, create_message] = {}
-            self.Posts: dict[int, create_post] = {}
+            self.Messages: dict[int, MessageModel] = {}
+            self.Posts: dict[int, PostModel] = {}
 
         def __iter__(self):
             for attr, value in self.__dict__.items():

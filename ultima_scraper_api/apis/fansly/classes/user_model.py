@@ -8,18 +8,18 @@ import ultima_scraper_api.apis.fansly.classes.message_model as message_model
 from ultima_scraper_api.apis import api_helper
 from ultima_scraper_api.apis.fansly.classes import collection_model, post_model
 from ultima_scraper_api.apis.fansly.classes.extras import ErrorDetails, endpoint_links
-from ultima_scraper_api.apis.fansly.classes.hightlight_model import create_highlight
-from ultima_scraper_api.apis.fansly.classes.story_model import create_story
+from ultima_scraper_api.apis.fansly.classes.hightlight_model import HighlightModel
+from ultima_scraper_api.apis.fansly.classes.story_model import StoryModel
 from ultima_scraper_api.apis.user_streamliner import StreamlinedUser
 from ultima_scraper_api.managers.scrape_manager import ScrapeManager
 
 if TYPE_CHECKING:
     from ultima_scraper_api import FanslyAPI
     from ultima_scraper_api.apis.fansly.classes.auth_model import FanslyAuthModel
-    from ultima_scraper_api.apis.fansly.classes.post_model import create_post
+    from ultima_scraper_api.apis.fansly.classes.post_model import PostModel
 
 
-class create_user(StreamlinedUser["FanslyAuthModel", "FanslyAPI"]):
+class UserModel(StreamlinedUser["FanslyAuthModel", "FanslyAPI"]):
     def __init__(
         self,
         option: dict[str, Any],
@@ -254,12 +254,12 @@ class create_user(StreamlinedUser["FanslyAuthModel", "FanslyAPI"]):
         else:
             return False
 
-    async def get_stories(self) -> list[create_story]:
+    async def get_stories(self) -> list[StoryModel]:
         link = endpoint_links(identifier=self.id).stories_api
         result = await self.scrape_manager.scrape(link)
         assert isinstance(result, dict)
         final_results = [
-            create_story(x, self) for x in result["response"]["mediaStories"]
+            StoryModel(x, self) for x in result["response"]["mediaStories"]
         ]
         return final_results
 
@@ -275,13 +275,13 @@ class create_user(StreamlinedUser["FanslyAuthModel", "FanslyAPI"]):
             ).list_highlights
             results = await self.get_requester().json_request(link)
             results = await remove_errors(results)
-            results = [create_highlight(x) for x in results]
+            results = [HighlightModel(x) for x in results]
         else:
             link = endpoint_links(
                 identifier=hightlight_id, global_limit=limit, global_offset=offset
             ).highlight
             results = await self.get_requester().json_request(link)
-            results = [create_story(x) for x in results["stories"]]
+            results = [StoryModel(x) for x in results["stories"]]
         return results
 
     async def get_posts(
@@ -290,7 +290,7 @@ class create_user(StreamlinedUser["FanslyAuthModel", "FanslyAPI"]):
         limit: int = 10,
         offset: int = 0,
         refresh: bool = True,
-    ) -> list[create_post]:
+    ) -> list[PostModel]:
         temp_results: list[Any] = []
         while True:
             link = endpoint_links(identifier=self.id, global_offset=offset).post_api
@@ -305,7 +305,7 @@ class create_user(StreamlinedUser["FanslyAuthModel", "FanslyAPI"]):
         final_results = []
         if results:
             final_results = [
-                post_model.create_post(x, self, results) for x in results["posts"]
+                post_model.PostModel(x, self, results) for x in results["posts"]
             ]
             for result in final_results:
                 await result.get_comments()
@@ -314,7 +314,7 @@ class create_user(StreamlinedUser["FanslyAuthModel", "FanslyAPI"]):
 
     async def get_post(
         self, identifier: Optional[int | str] = None, limit: int = 10, offset: int = 0
-    ) -> Union[create_post, ErrorDetails]:
+    ) -> Union[PostModel, ErrorDetails]:
         if not identifier:
             identifier = self.id
         link = endpoint_links(
@@ -323,15 +323,15 @@ class create_user(StreamlinedUser["FanslyAuthModel", "FanslyAPI"]):
         result = await self.get_requester().json_request(link)
         if isinstance(result, dict):
             temp_result: dict[str, Any] = result
-            final_result = post_model.create_post(temp_result, self, temp_result)
+            final_result = post_model.PostModel(temp_result, self, temp_result)
             return final_result
         return result
 
     async def get_groups(self) -> ErrorDetails | dict[str, Any]:
         link = endpoint_links().groups_api
-        response: ErrorDetails | dict[
-            str, Any
-        ] = await self.get_requester().json_request(link)
+        response: ErrorDetails | dict[str, Any] = (
+            await self.get_requester().json_request(link)
+        )
         if isinstance(response, dict):
             final_response: dict[str, Any] = response["response"]
             return final_response
@@ -355,7 +355,7 @@ class create_user(StreamlinedUser["FanslyAuthModel", "FanslyAPI"]):
                 if self.id == int(user["userId"]):
                     found_id = int(user["groupId"])
                     break
-        final_results: list[message_model.create_message] = []
+        final_results: list[message_model.MessageModel] = []
         if found_id:
             if links is None:
                 links = []
@@ -385,7 +385,7 @@ class create_user(StreamlinedUser["FanslyAuthModel", "FanslyAPI"]):
                 final_results.extend(results2)
             if not inside_loop:
                 final_results = [
-                    message_model.create_message(x, self, extras)
+                    message_model.MessageModel(x, self, extras)
                     for x in final_results
                     if x
                 ]
@@ -407,7 +407,7 @@ class create_user(StreamlinedUser["FanslyAuthModel", "FanslyAPI"]):
         if isinstance(response, dict):
             results = [x for x in response["list"] if x["id"] == message_id]
             result = results[0] if results else {}
-            final_result = message_model.create_message(result, self)
+            final_result = message_model.MessageModel(result, self)
             return final_result
         return response
 
@@ -417,7 +417,7 @@ class create_user(StreamlinedUser["FanslyAuthModel", "FanslyAPI"]):
         link = endpoint_links(global_limit=limit, global_offset=offset).archived_stories
         results = await self.get_requester().json_request(link)
         results = await api_helper.remove_errors(results)
-        results = [create_story(x) for x in results]
+        results = [StoryModel(x) for x in results]
         return results
 
     async def get_archived_posts(
@@ -526,14 +526,14 @@ class create_user(StreamlinedUser["FanslyAuthModel", "FanslyAPI"]):
         return result
 
     def finalize_content_set(self, results: list[dict[str, Any]] | list[str]):
-        final_results: list[create_post] = []
+        final_results: list[PostModel] = []
         for result in results:
             if isinstance(result, str):
                 continue
             content_type = result["responseType"]
             match content_type:
                 case "post":
-                    created = post_model.create_post(result, self)
+                    created = post_model.PostModel(result, self)
                     final_results.append(created)
                 case _:
                     print
@@ -577,7 +577,7 @@ class create_user(StreamlinedUser["FanslyAuthModel", "FanslyAPI"]):
             offset = int(album_content[-1]["id"])
             temp_responses.append(response)
         responses = api_helper.merge_dictionaries(temp_responses)
-        final_result = collection_model.create_collection(collection, self, responses)
+        final_result = collection_model.CollectionModel(collection, self, responses)
         return final_result
 
     async def get_avatar(self):

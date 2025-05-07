@@ -6,12 +6,12 @@ from typing import TYPE_CHECKING, Any, Optional
 from ultima_scraper_api.apis.fansly import SiteContent
 
 if TYPE_CHECKING:
-    from ultima_scraper_api.apis.fansly.classes.user_model import create_user
+    from ultima_scraper_api.apis.fansly.classes.user_model import UserModel
 
 
-class create_message(SiteContent):
+class MessageModel(SiteContent):
     def __init__(
-        self, option: dict[str, Any], user: create_user, extra: dict[Any, Any] = {}
+        self, option: dict[str, Any], user: UserModel, extra: dict[Any, Any] = {}
     ) -> None:
         author = user.get_authed().resolve_user(option["senderId"])
         self.user = user

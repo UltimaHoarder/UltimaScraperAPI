@@ -1,5 +1,7 @@
 from typing import Any
 
+from user_agent import generate_user_agent
+
 from ultima_scraper_api.apis import api_helper
 from ultima_scraper_api.apis.onlyfans.classes.auth_model import OnlyFansAuthModel
 from ultima_scraper_api.apis.onlyfans.classes.extras import (
@@ -8,10 +10,9 @@ from ultima_scraper_api.apis.onlyfans.classes.extras import (
     create_headers,
     endpoint_links,
 )
-from ultima_scraper_api.apis.onlyfans.classes.user_model import create_user
+from ultima_scraper_api.apis.onlyfans.classes.user_model import UserModel
 from ultima_scraper_api.apis.onlyfans.onlyfans import OnlyFansAPI
 from ultima_scraper_api.managers.session_manager import AuthedSession
-from user_agent import generate_user_agent
 
 
 class OnlyFansAuthenticator:
@@ -45,7 +46,7 @@ class OnlyFansAuthenticator:
 
     def create_user(self, auth: OnlyFansAuthModel):
         assert self.__raw__ is not None
-        return create_user(self.__raw__, auth)
+        return UserModel(self.__raw__, auth)
 
     async def login(self, guest: bool = False):
         auth_items = self.auth_details

@@ -2,14 +2,14 @@ from typing import TYPE_CHECKING, Any
 
 from ultima_scraper_api.apis.onlyfans import SiteContent
 from ultima_scraper_api.apis.onlyfans.classes.stat import MediaStatsModel
-from ultima_scraper_api.apis.onlyfans.classes.user_model import create_user
+from ultima_scraper_api.apis.onlyfans.classes.user_model import UserModel
 
 if TYPE_CHECKING:
-    from ultima_scraper_api.apis.onlyfans.classes.user_model import create_user
+    from ultima_scraper_api.apis.onlyfans.classes.user_model import UserModel
 
 
 class VaultItemModel(SiteContent):
-    def __init__(self, option: dict[str, Any], user: create_user) -> None:
+    def __init__(self, option: dict[str, Any], user: UserModel) -> None:
         super().__init__(option, user)
         self.type: str = option["type"]
         self.name: str = option["name"]
@@ -28,7 +28,7 @@ class VaultItemModel(SiteContent):
 
 
 class VaultListModel:
-    def __init__(self, option: dict[str, Any], user: "create_user"):
+    def __init__(self, option: dict[str, Any], user: "UserModel"):
         self.list: list[VaultItemModel] = [
             VaultItemModel(item, user) for item in option["list"]
         ]

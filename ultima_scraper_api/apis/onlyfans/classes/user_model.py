@@ -8,16 +8,16 @@ from urllib import parse
 import ultima_scraper_api.apis.onlyfans.classes.message_model as message_model
 from ultima_scraper_api.apis.onlyfans.classes import post_model
 from ultima_scraper_api.apis.onlyfans.classes.extras import ErrorDetails, endpoint_links
-from ultima_scraper_api.apis.onlyfans.classes.hightlight_model import create_highlight
+from ultima_scraper_api.apis.onlyfans.classes.hightlight_model import HighlightModel
 from ultima_scraper_api.apis.onlyfans.classes.mass_message_model import MassMessageModel
-from ultima_scraper_api.apis.onlyfans.classes.story_model import create_story
+from ultima_scraper_api.apis.onlyfans.classes.story_model import StoryModel
 from ultima_scraper_api.apis.user_streamliner import StreamlinedUser
 from ultima_scraper_api.managers.scrape_manager import ScrapeManager
 
 if TYPE_CHECKING:
     from ultima_scraper_api import OnlyFansAPI
     from ultima_scraper_api.apis.onlyfans.classes.auth_model import OnlyFansAuthModel
-    from ultima_scraper_api.apis.onlyfans.classes.post_model import create_post
+    from ultima_scraper_api.apis.onlyfans.classes.post_model import PostModel
     from ultima_scraper_api.managers.session_manager import AuthedSession
 
 DEFAULT_RECURSION_LIMIT = sys.getrecursionlimit()
@@ -71,7 +71,7 @@ async def recursion(
     return items
 
 
-class create_user(StreamlinedUser["OnlyFansAuthModel", "OnlyFansAPI"]):
+class UserModel(StreamlinedUser["OnlyFansAuthModel", "OnlyFansAPI"]):
     def __init__(self, option: dict[str, Any], authed: OnlyFansAuthModel) -> None:
         self.avatar: str | None = option.get("avatar")
         self.avatar_thumbs: list[str] | None = option.get("avatarThumbs")
@@ -351,9 +351,7 @@ class create_user(StreamlinedUser["OnlyFansAuthModel", "OnlyFansAPI"]):
         else:
             return False
 
-    async def get_stories(
-        self, limit: int = 100, offset: int = 0
-    ) -> list[create_story]:
+    async def get_stories(self, limit: int = 100, offset: int = 0) -> list[StoryModel]:
         links = [
             endpoint_links(
                 identifier=self.id, global_limit=limit, global_offset=offset
@@ -361,7 +359,7 @@ class create_user(StreamlinedUser["OnlyFansAuthModel", "OnlyFansAPI"]):
         ]
 
         results = await self.scrape_manager.bulk_scrape(links)
-        final_results = [create_story(x, self) for x in results]
+        final_results = [StoryModel(x, self) for x in results]
         return final_results
 
     async def get_highlights(
@@ -370,7 +368,7 @@ class create_user(StreamlinedUser["OnlyFansAuthModel", "OnlyFansAPI"]):
         limit: int = 100,
         offset: int = 0,
         hightlight_id: int | str = "",
-    ) -> list[create_highlight] | list[create_story]:
+    ) -> list[HighlightModel] | list[StoryModel]:
         from ultima_scraper_api import error_types
 
         final_results = []
@@ -381,7 +379,7 @@ class create_user(StreamlinedUser["OnlyFansAuthModel", "OnlyFansAPI"]):
                 identifier=identifier, global_limit=limit, global_offset=offset
             ).list_highlights
             result: dict[str, Any] = await self.get_requester().json_request(link)
-            final_results = [create_highlight(x, self) for x in result.get("list", [])]
+            final_results = [HighlightModel(x, self) for x in result.get("list", [])]
         else:
             link = endpoint_links(
                 identifier=hightlight_id, global_limit=limit, global_offset=offset
@@ -389,7 +387,7 @@ class create_user(StreamlinedUser["OnlyFansAuthModel", "OnlyFansAPI"]):
             if not self.is_deleted:
                 result = await self.get_requester().json_request(link)
                 if not isinstance(result, error_types):
-                    final_results = [create_story(x, self) for x in result["stories"]]
+                    final_results = [StoryModel(x, self) for x in result["stories"]]
         return final_results
 
     async def get_posts(
@@ -397,7 +395,7 @@ class create_user(StreamlinedUser["OnlyFansAuthModel", "OnlyFansAPI"]):
         label: Literal["archived", "private_archived"] | str = "",
         limit: int = 50,
         after_date: datetime | float | None = None,
-    ) -> list[create_post]:
+    ) -> list[PostModel]:
         """
         Retrieves posts from the user's profile.
 
@@ -435,16 +433,16 @@ class create_user(StreamlinedUser["OnlyFansAuthModel", "OnlyFansAPI"]):
 
     async def get_post(
         self, identifier: int | str | None = None, limit: int = 10, offset: int = 0
-    ) -> create_post:
+    ) -> PostModel:
         if not identifier:
             identifier = self.id
         link = endpoint_links(
             identifier=identifier, global_limit=limit, global_offset=offset
         ).post_by_id
         result = await self.get_requester().json_request(link)
-        final_result = post_model.create_post(result, self)
+        final_result = post_model.PostModel(result, self)
         if not final_result.author.id:
-            final_result.author = create_user(
+            final_result.author = UserModel(
                 final_result.__raw__["author"], self.get_authed()
             )
             pass
@@ -469,7 +467,7 @@ class create_user(StreamlinedUser["OnlyFansAuthModel", "OnlyFansAPI"]):
         """
         if not self.cache.messages.is_released() or self.is_deleted:
             return list(self.scrape_manager.scraped.Messages.values())
-        final_results: list[message_model.create_message] = []
+        final_results: list[message_model.MessageModel] = []
         if self.is_authed_user() or self.is_deleted:
             return final_results
 
@@ -493,7 +491,7 @@ class create_user(StreamlinedUser["OnlyFansAuthModel", "OnlyFansAPI"]):
 
         results = await recursive()
 
-        final_results = [message_model.create_message(x, self) for x in results]
+        final_results = [message_model.MessageModel(x, self) for x in results]
         if final_results:
             self.cache.messages.activate()
         return final_results
@@ -503,7 +501,7 @@ class create_user(StreamlinedUser["OnlyFansAuthModel", "OnlyFansAPI"]):
         paid_messages = [
             x
             for x in await self.get_paid_contents()
-            if isinstance(x, message_model.create_message)
+            if isinstance(x, message_model.MessageModel)
         ]
         mass_messages = [
             MassMessageModel(x.__raw__, x.get_author())
@@ -533,11 +531,11 @@ class create_user(StreamlinedUser["OnlyFansAuthModel", "OnlyFansAPI"]):
             x for x in temp_response["list"] if x["id"] == message_id
         ]
         result = results[0] if results else {}
-        final_result = message_model.create_message(result, self)
+        final_result = message_model.MessageModel(result, self)
         return final_result
 
     async def get_archived_stories(self, limit: int = 100, offset: int = 0):
-        final_results: list[create_story] = []
+        final_results: list[StoryModel] = []
         if self.is_authed_user() and self.is_performer():
 
             async def recursive(limit: int = limit, offset: int = offset):
@@ -553,7 +551,7 @@ class create_user(StreamlinedUser["OnlyFansAuthModel", "OnlyFansAPI"]):
                 return items
 
             results = await recursive()
-            final_results = [create_story(x, self) for x in results]
+            final_results = [StoryModel(x, self) for x in results]
         return final_results
 
     async def search_chat(
@@ -644,14 +642,14 @@ class create_user(StreamlinedUser["OnlyFansAuthModel", "OnlyFansAPI"]):
         return result
 
     def finalize_content_set(self, results: list[dict[str, Any]] | list[str]):
-        final_results: list[create_post] = []
+        final_results: list[PostModel] = []
         for result in results:
             if isinstance(result, str):
                 continue
             content_type = result["responseType"]
             match content_type:
                 case "post":
-                    created = post_model.create_post(result, self)
+                    created = post_model.PostModel(result, self)
                     final_results.append(created)
                 case _:
                     pass
@@ -697,7 +695,7 @@ class create_user(StreamlinedUser["OnlyFansAuthModel", "OnlyFansAPI"]):
 
     async def get_paid_contents(self, content_type: str | None = None):
         # REMINDER THAT YOU'LL HAVE TO REFRESH CONTENT
-        final_paid_content: list[create_post | message_model.create_message] = []
+        final_paid_content: list[PostModel | message_model.MessageModel] = []
         authed = self.get_authed()
         for paid_content in authed.paid_content:
             # Just use response to key function in ContentTypes

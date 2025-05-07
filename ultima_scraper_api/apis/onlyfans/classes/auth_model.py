@@ -12,12 +12,12 @@ from ultima_scraper_api.apis.onlyfans.classes.extras import endpoint_links
 from ultima_scraper_api.apis.onlyfans.classes.mass_message_model import (
     MassMessageStatModel,
 )
-from ultima_scraper_api.apis.onlyfans.classes.message_model import create_message
-from ultima_scraper_api.apis.onlyfans.classes.post_model import create_post
+from ultima_scraper_api.apis.onlyfans.classes.message_model import MessageModel
+from ultima_scraper_api.apis.onlyfans.classes.post_model import PostModel
 from ultima_scraper_api.apis.onlyfans.classes.subscription_model import (
     SubscriptionModel,
 )
-from ultima_scraper_api.apis.onlyfans.classes.user_model import create_user, recursion
+from ultima_scraper_api.apis.onlyfans.classes.user_model import UserModel, recursion
 from ultima_scraper_api.apis.onlyfans.classes.vault import VaultListModel
 
 if TYPE_CHECKING:
@@ -35,7 +35,7 @@ class OnlyFansAuthModel(
         authenticator: OnlyFansAuthenticator,
     ) -> None:
         self.api = authenticator.api
-        self.users: dict[int, create_user] = {}
+        self.users: dict[int, UserModel] = {}
         super().__init__(authenticator)
         self.user = authenticator.create_user(self)
         self.id = self.user.id
@@ -45,7 +45,7 @@ class OnlyFansAuthModel(
         self.chats: list[ChatModel] = []
         self.archived_stories = {}
         self.mass_message_stats: list[MassMessageStatModel] = []
-        self.paid_content: list[create_message | create_post] = []
+        self.paid_content: list[MessageModel | PostModel] = []
         self.extras: dict[str, Any] = {}
         self.blacklist: list[str] = []
         self.guest = self.authenticator.guest
@@ -66,10 +66,10 @@ class OnlyFansAuthModel(
     def resolve_user(self, user_dict: dict[str, Any]):
         user = self.find_user(user_dict["id"])
         if not user:
-            user = create_user(user_dict, self)
+            user = UserModel(user_dict, self)
         return user
 
-    def add_user(self, user: create_user):
+    def add_user(self, user: UserModel):
         self.users[user.id] = user
 
     def get_pool(self):
@@ -164,7 +164,7 @@ class OnlyFansAuthModel(
             if "error" in response:
                 return None
             response["auth_session"] = self.auth_session
-            response = create_user(response, self)
+            response = UserModel(response, self)
             return response
 
     async def get_lists_users(
@@ -190,7 +190,7 @@ class OnlyFansAuthModel(
     async def assign_user_to_sub(self, raw_subscription: dict[str, Any]):
         user = await self.get_user(raw_subscription["username"])
         if not user:
-            user = create_user(raw_subscription, self)
+            user = UserModel(raw_subscription, self)
             user.active = False
         subscription_model = SubscriptionModel(raw_subscription, user, self)
         return subscription_model
@@ -408,11 +408,11 @@ class OnlyFansAuthModel(
             if item["responseType"] == "message":
                 user = await self.get_user(item["fromUser"]["id"])
                 if not user:
-                    user = create_user(item["fromUser"], self)
-                content = create_message(item, user)
+                    user = UserModel(item["fromUser"], self)
+                content = MessageModel(item, user)
             elif item["responseType"] == "post":
-                user = create_user(item["author"], self)
-                content = create_post(item, user)
+                user = UserModel(item["author"], self)
+                content = PostModel(item, user)
             if content:
                 author = content.get_author()
                 if performer_id:

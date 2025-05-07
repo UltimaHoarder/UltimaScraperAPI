@@ -1,4 +1,4 @@
-class create_highlight:
+class HighlightModel:
     def __init__(self, option={}) -> None:
         self.id: int = option.get("id")
         self.userId: int = option.get("userId")

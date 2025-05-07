@@ -4,11 +4,11 @@ from typing import TYPE_CHECKING, Any
 from ultima_scraper_api.apis.onlyfans import SiteContent
 
 if TYPE_CHECKING:
-    from ultima_scraper_api.apis.onlyfans.classes.user_model import create_user
+    from ultima_scraper_api.apis.onlyfans.classes.user_model import UserModel
 
 
 class CommentModel(SiteContent):
-    def __init__(self, data: dict[str, Any], user: "create_user") -> None:
+    def __init__(self, data: dict[str, Any], user: "UserModel") -> None:
         SiteContent.__init__(self, data, user)
         self.text: str = data["text"]
         self.giphy_id: int = data["giphyId"]

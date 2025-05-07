@@ -3,14 +3,15 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any, Literal
 
 import httpx
+
 from ultima_scraper_api.apis.api_streamliner import StreamlinedAPI
 from ultima_scraper_api.apis.onlyfans.classes.extras import AuthDetails, endpoint_links
-from ultima_scraper_api.apis.onlyfans.classes.hightlight_model import create_highlight
+from ultima_scraper_api.apis.onlyfans.classes.hightlight_model import HighlightModel
 from ultima_scraper_api.apis.onlyfans.classes.mass_message_model import MassMessageModel
-from ultima_scraper_api.apis.onlyfans.classes.message_model import create_message
-from ultima_scraper_api.apis.onlyfans.classes.post_model import create_post
-from ultima_scraper_api.apis.onlyfans.classes.story_model import create_story
-from ultima_scraper_api.apis.onlyfans.classes.user_model import create_user
+from ultima_scraper_api.apis.onlyfans.classes.message_model import MessageModel
+from ultima_scraper_api.apis.onlyfans.classes.post_model import PostModel
+from ultima_scraper_api.apis.onlyfans.classes.story_model import StoryModel
+from ultima_scraper_api.apis.onlyfans.classes.user_model import UserModel
 from ultima_scraper_api.config import UltimaScraperAPIConfig
 from ultima_scraper_api.helpers.main_helper import is_pascal_case
 
@@ -42,7 +43,7 @@ class OnlyFansAPI(StreamlinedAPI):
         return self.auths.get(identifier)
 
     def find_user(self, identifier: int | str):
-        users: list[create_user] = []
+        users: list[UserModel] = []
         for auth in self.auths.values():
             user = auth.find_user(identifier)
             if user:
@@ -104,14 +105,14 @@ class OnlyFansAPI(StreamlinedAPI):
 
     def convert_api_type_to_key(
         self,
-        value: create_story | create_post | create_message | Any,
+        value: StoryModel | PostModel | MessageModel | Any,
         make_plural: bool = True,
     ):
-        if isinstance(value, create_story):
+        if isinstance(value, StoryModel):
             final_value = self.ContentTypeTransformer("Story")
-        elif isinstance(value, create_post):
+        elif isinstance(value, PostModel):
             final_value = self.ContentTypeTransformer("Post")
-        elif isinstance(value, create_message):
+        elif isinstance(value, MessageModel):
             final_value = self.ContentTypeTransformer("Message")
         elif isinstance(value, MassMessageModel):
             final_value = self.ContentTypeTransformer("MassMessage")
@@ -163,11 +164,11 @@ class OnlyFansAPI(StreamlinedAPI):
     class CategorizedContent:
         def __init__(self) -> None:
             self.MassMessages: dict[int, MassMessageModel] = {}
-            self.Stories: dict[int, create_story] = {}
+            self.Stories: dict[int, StoryModel] = {}
             self.Chats: dict[int, Any] = {}
-            self.Messages: dict[int, create_message] = {}
-            self.Highlights: dict[int, create_highlight] = {}
-            self.Posts: dict[int, create_post] = {}
+            self.Messages: dict[int, MessageModel] = {}
+            self.Highlights: dict[int, HighlightModel] = {}
+            self.Posts: dict[int, PostModel] = {}
 
         def __iter__(self):
             for attr, value in self.__dict__.items():

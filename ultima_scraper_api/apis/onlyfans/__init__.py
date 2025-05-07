@@ -6,11 +6,11 @@ from urllib.parse import ParseResult, urlparse
 SubscriptionType = Literal["all", "active", "expired", "attention"]
 
 if TYPE_CHECKING:
-    from ultima_scraper_api.apis.onlyfans.classes.user_model import create_user
+    from ultima_scraper_api.apis.onlyfans.classes.user_model import UserModel
 
 
 def url_picker(
-    author: "create_user", media_item: dict[str, Any], video_quality: str = ""
+    author: "UserModel", media_item: dict[str, Any], video_quality: str = ""
 ) -> ParseResult | None:
     authed = author.get_authed()
     video_quality = (
@@ -61,7 +61,7 @@ def preview_url_picker(media_item: dict[str, Any]):
 
 
 class SiteContent:
-    def __init__(self, option: dict[str, Any], user: create_user) -> None:
+    def __init__(self, option: dict[str, Any], user: UserModel) -> None:
         self.id: int = option["id"]
         self.author = user
         self.media: list[dict[str, Any]] = option.get("media", [])

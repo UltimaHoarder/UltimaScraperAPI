@@ -3,17 +3,17 @@ from typing import TYPE_CHECKING, Any
 from ultima_scraper_api.apis.onlyfans import SiteContent
 
 if TYPE_CHECKING:
-    from ultima_scraper_api.apis.onlyfans.classes.user_model import create_user
+    from ultima_scraper_api.apis.onlyfans.classes.user_model import UserModel
 
 
-class create_highlight(SiteContent):
-    def __init__(self, option: dict[str, Any], user: "create_user") -> None:
-        SiteContent.__init__(self, option, user)
-        self.id: int = option["id"]
-        self.userId: int = option["userId"]
-        self.title: str = option["title"]
-        self.coverStoryId: int = option["coverStoryId"]
-        self.cover: str = option["cover"]
-        self.storiesCount: int = option["storiesCount"]
-        self.createdAt: str = option["createdAt"]
+class HighlightModel(SiteContent):
+    def __init__(self, options: dict[str, Any], user: "UserModel") -> None:
+        SiteContent.__init__(self, options, user)
+        self.id: int = options["id"]
+        self.userId: int = options["userId"]
+        self.title: str = options["title"]
+        self.coverStoryId: int = options["coverStoryId"]
+        self.cover: str = options["cover"]
+        self.storiesCount: int = options["storiesCount"]
+        self.createdAt: str = options["createdAt"]
         user.scrape_manager.scraped.Highlights[self.id] = self

@@ -10,7 +10,7 @@ from ultima_scraper_api.apis.fansly.classes.extras import (
     create_headers,
     endpoint_links,
 )
-from ultima_scraper_api.apis.fansly.classes.user_model import create_user
+from ultima_scraper_api.apis.fansly.classes.user_model import UserModel
 from ultima_scraper_api.apis.fansly.fansly import FanslyAPI
 from ultima_scraper_api.managers.session_manager import AuthedSession
 
@@ -46,7 +46,7 @@ class FanslyAuthenticator:
 
     def create_user(self, auth: FanslyAuthModel):
         assert self.__raw__ is not None
-        return create_user(self.__raw__["response"]["account"], auth)
+        return UserModel(self.__raw__["response"]["account"], auth)
 
     async def login(self, guest: bool = False):
         auth_items = self.auth_details
