@@ -5,9 +5,10 @@ from ultima_scraper_api.managers.session_manager import AuthedSession
 
 
 class CacheStats:
-    def __init__(self) -> None:
+    def __init__(self, delay_in_seconds: int = 3600 * 1) -> None:
+        # hour in seconds * hour
         self.processed_at: datetime | None = None
-        self.delay_in_seconds = 3600 * 1  # hour in seconds * hour
+        self.delay_in_seconds = delay_in_seconds
         self.released_at: datetime | None = None
 
     def activate(self):
@@ -34,6 +35,13 @@ class Cache:
         self.mass_message_stats = CacheStats()
         self.mass_messages = CacheStats()
         self.subscriptions = CacheStats()
+        user_data: dict[int | str, CacheStats] = {}
+        self.data: dict[str, dict[int | str, CacheStats]] = {"users": user_data}
+
+    def users(self, user_id: int | str) -> CacheStats:
+        if user_id not in self.data["users"]:
+            self.data["users"][user_id] = CacheStats(300)
+        return self.data["users"][user_id]
 
 
 T = TypeVar("T")

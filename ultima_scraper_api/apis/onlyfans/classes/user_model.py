@@ -72,6 +72,13 @@ async def recursion(
 
 
 class UserModel(StreamlinedUser["OnlyFansAuthModel", "OnlyFansAPI"]):
+    """
+    Relationship explanation:
+    - 'subscribed_by': The authenticated user who is subscribing.
+    - 'subscribed_on': The performer being subscribed to.
+    When a user subscribes to a performer, 'subscribed_by' refers to the user, and 'subscribed_on' refers to the performer.
+    """
+
     def __init__(self, option: dict[str, Any], authed: OnlyFansAuthModel) -> None:
         self.avatar: str | None = option.get("avatar")
         self.avatar_thumbs: list[str] | None = option.get("avatarThumbs")
@@ -79,6 +86,7 @@ class UserModel(StreamlinedUser["OnlyFansAuthModel", "OnlyFansAPI"]):
         self.header_size: dict[str, int] | None = option.get("headerSize")
         self.header_thumbs: list[str] | None = option.get("headerThumbs")
         self.id: int = int(option.get("id", 9001))
+        self.ip: str = option.get("ip", "")
         self.name: str = option.get("name", f"u{self.id}")
         self.username: str = option.get("username", f"u{self.id}")
         self.can_look_story: bool = option.get("canLookStory", False)
@@ -146,7 +154,9 @@ class UserModel(StreamlinedUser["OnlyFansAuthModel", "OnlyFansAPI"]):
         self.is_private_restriction: bool = option.get("isPrivateRestriction", False)
         self.show_subscribers_count: bool = option.get("showSubscribersCount", False)
         self.show_media_count: bool = option.get("showMediaCount", False)
+        self.subscribed_by: Any | None = option.get("subscribedBy")
         self.subscribed_by_data: Any | None = option.get("subscribedByData")
+        self.subscribed_on: Any | None = option.get("subscribedOn")
         self.subscribed_on_data: Any | None = option.get("subscribedOnData")
         self.subscribed_is_expired_now: bool | None = option.get(
             "subscribedIsExpiredNow"
@@ -638,7 +648,11 @@ class UserModel(StreamlinedUser["OnlyFansAuthModel", "OnlyFansAPI"]):
                 link, method="POST", payload=x
             )
         else:
-            result = {"error": {"code": 2011, "message": "Insufficient Credit Balance"}}
+            result: dict[str, Any] = {
+                "error": {"code": 2011, "message": "Insufficient Credit Balance"}
+            }
+        if "error" not in result:
+            self.subscribed_by = True
         return result
 
     def finalize_content_set(self, results: list[dict[str, Any]] | list[str]):
@@ -680,8 +694,13 @@ class UserModel(StreamlinedUser["OnlyFansAuthModel", "OnlyFansAPI"]):
     async def get_header(self):
         return self.header
 
-    def is_subscribed(self):
-        return not self.subscribed_is_expired_now
+    def is_performer_subscribed_to_user(self):
+        # Checks if performer is subscribed to authed user
+        return self.subscribed_on
+
+    def is_user_subscribed_to_performer(self):
+        # Checks if authed user is subscribed to performer
+        return self.subscribed_by
 
     def is_performer(self):
         status = False

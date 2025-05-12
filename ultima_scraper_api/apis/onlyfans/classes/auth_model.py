@@ -153,8 +153,40 @@ class OnlyFansAuthModel(
             refresh (bool, optional): Flag indicating whether to refresh the user data. Defaults to False.
 
         Returns:
-            dict | None: The user data if found, None otherwise.
+            UserModel | None: The user data if found, None otherwise.
         """
+        USE_NEW_CODE = False
+        if USE_NEW_CODE:
+
+            async def fetch_user():
+                link = endpoint_links(identifier).users
+                response = await self.auth_session.json_request(link)
+                if "error" in response:
+                    return None
+                response["auth_session"] = self.auth_session
+                return UserModel(response, self)
+
+            if refresh:
+                return await fetch_user()
+
+            user_cache = self.cache.users(identifier)
+
+            if not user_cache.is_released():
+                valid_user = self.find_user(identifier)
+                if not valid_user:
+                    valid_user = await fetch_user()
+            else:
+                valid_user = await fetch_user()
+
+            if valid_user:
+                user_cache.activate()
+
+            return valid_user
+
+        # Important: We need to preserve existing scraped data tied to the user in the cache.
+        # When refreshing, we attach old cached data to the new user instance to maintain
+        # continuity and prevent data loss or duplication.
+        # So for now, we use this method to get the user data until we implemented the comments above
         valid_user = self.find_user(identifier)
         if valid_user and not refresh:
             return valid_user

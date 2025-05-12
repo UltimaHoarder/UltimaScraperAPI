@@ -520,9 +520,11 @@ class UserModel(StreamlinedUser["FanslyAuthModel", "FanslyAPI"]):
                 link, method="POST", payload=x
             )
         else:
-            result = ErrorDetails(
-                {"code": 2011, "message": "Insufficient Credit Balance"}
-            )
+            result: dict[str, Any] = {
+                "error": {"code": 2011, "message": "Insufficient Credit Balance"}
+            }
+        if "error" not in result:
+            self.subscribed_by = True
         return result
 
     def finalize_content_set(self, results: list[dict[str, Any]] | list[str]):
@@ -586,12 +588,17 @@ class UserModel(StreamlinedUser["FanslyAuthModel", "FanslyAPI"]):
     async def get_header(self):
         return self.header["locations"][0]["location"] if self.header else None
 
-    def is_subscribed(self):
+    def is_performer_subscribed_to_user(self):
+        # Checks if performer is subscribed to authed user
+        pass
+
+    def is_user_subscribed_to_performer(self):
+        # Checks if authed user is subscribed to performer
         pass
 
     def is_performer(self):
         status = False
-        if self.is_performer:
+        if self._is_performer:
             status = True
         elif self.is_real_performer:
             status = True

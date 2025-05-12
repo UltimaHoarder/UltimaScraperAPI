@@ -66,7 +66,7 @@ class OnlyFansAuthenticator:
         auth_session.headers = create_headers(*a)
         if guest:
             self.guest = True
-            self.__raw__ = {}
+            self.__raw__ = await self.auth_session.json_request(link)
             return self.create_auth()
 
         while self.auth_attempt < self.max_attempts:
