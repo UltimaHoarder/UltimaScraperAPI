@@ -69,7 +69,9 @@ class OnlyFansAPI(StreamlinedAPI):
 
     @asynccontextmanager
     async def login_context(self, auth_json: dict[str, Any] = {}, guest: bool = False):
-        authed = self.find_auth(auth_json["id"])
+        authed = None
+        if auth_json:
+            authed = self.find_auth(auth_json["id"])
         if not authed:
             temp_auth_details = self.create_auth_details(auth_json)
             authenticator = self.authenticator(self, temp_auth_details, guest)
@@ -77,7 +79,8 @@ class OnlyFansAPI(StreamlinedAPI):
                 if temp_authed and temp_authed.is_authed():
                     authed = temp_authed
                     issues = await authed.get_login_issues()
-                    authed.issues = issues if issues.get("data") else None
+                    if not guest:
+                        authed.issues = issues if issues.get("data") else None
                     self.add_auth(authed)
                 yield authed
         else:

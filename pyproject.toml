@@ -1,6 +1,6 @@
 [project]
 name = "ultima-scraper-api"
-version = "2.2.40"
+version = "2.2.41"
 description = ""
 authors = [
     { name = "UltimaHoarder", email = "1285176+UltimaHoarder@users.noreply.github.com" }
