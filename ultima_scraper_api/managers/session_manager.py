@@ -6,14 +6,12 @@ import random
 import string
 import time
 from random import randint
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, Literal
 from urllib.parse import urlparse
 
 import aiohttp
 import python_socks
 import requests
-import ultima_scraper_api
-import ultima_scraper_api.apis.api_helper as api_helper
 from aiohttp import ClientResponse, ClientSession
 from aiohttp.client_exceptions import (
     ClientOSError,
@@ -24,6 +22,9 @@ from aiohttp.client_exceptions import (
     ServerTimeoutError,
 )
 from aiohttp_socks import ProxyConnectionError, ProxyConnector, ProxyInfo
+
+import ultima_scraper_api
+import ultima_scraper_api.apis.api_helper as api_helper
 
 if TYPE_CHECKING:
     auth_types = ultima_scraper_api.auth_types
@@ -96,9 +97,15 @@ class AuthedSession:
 
     def get_cookies(self):
         from ultima_scraper_api.apis.fansly.authenticator import FanslyAuthenticator
+        from ultima_scraper_api.apis.loyalfans.authenticator import (
+            LoyalFansAuthenticator,
+        )
 
         if isinstance(self.auth, FanslyAuthenticator):
             final_cookies: dict[str, Any] = {}
+        elif isinstance(self.auth, LoyalFansAuthenticator):
+            final_cookies: dict[str, Any] = {}
+
         else:
             final_cookies = self.auth.auth_details.cookie.format()
         return final_cookies
@@ -252,6 +259,7 @@ class AuthedSession:
         self, link: str, custom_cookies: str = ""
     ) -> dict[str, Any]:
         import ultima_scraper_api.apis.fansly.classes as fansly_classes
+        import ultima_scraper_api.apis.loyalfans.classes as loyalfans_classes
         import ultima_scraper_api.apis.onlyfans.classes as onlyfans_classes
 
         session_manager = self.get_session_manager()
@@ -286,6 +294,12 @@ class AuthedSession:
                 if "https://apiv3.fansly.com" in link:
                     headers["authorization"] = self.auth.auth_details.authorization
                     self.is_rate_limited = False
+            case loyalfans_classes.extras.AuthDetails:
+                if "https://www.loyalfans.com/api" in link:
+                    headers["authorization"] = (
+                        f"Bearer {self.auth.auth_details.authorization}"
+                    )
+                    headers["Referer"] = "https://www.loyalfans.com/"
             case _:
                 pass
         return headers
@@ -336,7 +350,6 @@ class SessionManager:
         self.max_threads = max_threads
         self.max_attempts = 10
         self.kill = False
-        self.test_session = api.login(guest=True)
         self.authed_sessions: list[AuthedSession] = []
         self.proxy_manager = ProxyManager()
         self.dynamic_rules: dict[str, Any] = {}

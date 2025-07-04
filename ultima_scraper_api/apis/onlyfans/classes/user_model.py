@@ -85,7 +85,7 @@ class UserModel(StreamlinedUser["OnlyFansAuthModel", "OnlyFansAPI"]):
         self.header: str | None = option.get("header")
         self.header_size: dict[str, int] | None = option.get("headerSize")
         self.header_thumbs: list[str] | None = option.get("headerThumbs")
-        self.id: int = int(option.get("id", 9001))
+        self.id: int = int(option.get("id", 0))
         self.ip: str = option.get("ip", "")
         self.name: str = option.get("name", f"u{self.id}")
         self.username: str = option.get("username", f"u{self.id}")
