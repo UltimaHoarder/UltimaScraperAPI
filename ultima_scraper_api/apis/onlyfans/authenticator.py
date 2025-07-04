@@ -112,8 +112,8 @@ class OnlyFansAuthenticator:
                     if "Please refresh" in error_message:
                         break
                 continue
-        if self.is_authed():
-            return self.create_auth()
+            if self.is_authed():
+                return self.create_auth()
 
     async def process_auth(self):
         if not self.maxed_out_auth_attempts():

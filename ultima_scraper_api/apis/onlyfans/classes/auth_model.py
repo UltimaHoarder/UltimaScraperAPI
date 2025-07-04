@@ -241,8 +241,8 @@ class OnlyFansAuthModel(
         Args:
             identifiers (list[int | str], optional): List of subscription identifiers. Defaults to [].
             limit (int, optional): Maximum number of subscriptions to retrieve. Defaults to 100.
-            sub_type (SubscriptionType, optional): Type of subscriptions to retrieve. Defaults to "all".
-            filter_by (str, optional): Filter subscriptions by a specific value. Defaults to "".
+           sub_type (SubscriptionType, optional): Type of subscriptions to retrieve. Defaults to "all".
+             filter_by (str, optional): Filter subscriptions by a specific value. Defaults to "".
 
         Returns:
             list[SubscriptionModel]: List of SubscriptionModel objects representing the subscriptions.

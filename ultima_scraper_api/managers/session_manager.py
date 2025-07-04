@@ -146,7 +146,7 @@ class AuthedSession:
     async def request(
         self,
         url: str,
-        method: str = "GET",
+        method: Literal["GET", "HEAD", "POST", "PATCH", "DELETE"] = "GET",
         data: Any = {},
         premade_settings: str = "json",
         custom_cookies: str = "",
@@ -172,6 +172,8 @@ class AuthedSession:
             result = None
             try:
                 match method.upper():
+                    case "HEAD":
+                        result = await self.active_session.head(url, headers=headers)
                     case "GET":
                         result = await self.active_session.get(url, headers=headers)
                     case "POST":
@@ -206,6 +208,9 @@ class AuthedSession:
                     case 400 | 401 | 403 | 404:
                         assert result
                         return result
+                    case 416:
+                        # Range not satisfiable, return None
+                        return None
                     case 429:
                         if session_manager.is_rate_limited is None:
                             session_manager.rate_limit_check = True
