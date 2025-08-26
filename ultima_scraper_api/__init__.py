@@ -69,3 +69,13 @@ def load_classes(name: str | None = None):
             return (*fill_values, error_types)
         case _:
             return default_values
+def get_site_title(site_name: str):
+    match site_name.lower():
+        case "onlyfans":
+            return "OnlyFans"
+        case "fansly":
+            return "Fansly"
+        case "loyalfans":
+            return "LoyalFans"
+        case _:
+            raise Exception(f"{site_name} is invalid")

@@ -1,6 +1,6 @@
 [project]
 name = "ultima-scraper-api"
-version = "2.2.42"
+version = "2.2.44"
 description = ""
 authors = [
     { name = "UltimaHoarder", email = "1285176+UltimaHoarder@users.noreply.github.com" }
@@ -25,7 +25,8 @@ dependencies = [
     "pydantic >=2.0",
     "inflection >=0.5.1",
     "alive-progress >=3.1.5",
-    "httpx >=0.28"
+    "httpx >=0.28",
+    "websockets (>=15.0.1,<16.0.0)"
 ]
 requires-python = ">=3.10,<4.0"
 

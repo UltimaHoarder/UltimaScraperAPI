@@ -13,6 +13,28 @@ from ultima_scraper_api.apis.onlyfans.classes.extras import (
 from ultima_scraper_api.apis.onlyfans.classes.user_model import UserModel
 from ultima_scraper_api.apis.onlyfans.onlyfans import OnlyFansAPI
 from ultima_scraper_api.managers.session_manager import AuthedSession
+import re
+
+
+def extract_auth_details_from_curl(credentials: str) -> AuthDetails:
+    # Try -H 'cookie: ...' first, fallback to -b '...'
+    cookie_match = re.search(r"-H\s+['\"]cookie:\s*([^'\"]+)['\"]", credentials, re.I)
+    if not cookie_match:
+        cookie_match = re.search(r"-b\s+['\"]([^'\"]+)['\"]", credentials, re.I)
+
+    xbc_match = re.search(r"-H\s+['\"]x-bc:\s*([^'\"]+)['\"]", credentials, re.I)
+    ua_match = re.search(r"-H\s+['\"]user-agent:\s*([^'\"]+)['\"]", credentials, re.I)
+
+    if not (cookie_match and xbc_match and ua_match):
+        raise ValueError(
+            "Could not parse cookie, x-bc, or user-agent from curl command"
+        )
+
+    return AuthDetails(
+        cookie=cookie_match.group(1),
+        x_bc=xbc_match.group(1),
+        user_agent=ua_match.group(1),
+    )
 
 
 class OnlyFansAuthenticator:

@@ -55,6 +55,10 @@ class Cache:
         self.posts = CacheStats()
         self.messages = CacheStats()
 
+    def flush(self):
+        self.posts.deactivate()
+        self.messages.deactivate()
+
 
 T = TypeVar("T")
 TAPI = TypeVar("TAPI")

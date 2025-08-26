@@ -329,6 +329,8 @@ class UserModel(StreamlinedUser["OnlyFansAuthModel", "OnlyFansAPI"]):
         self.pinned_posts_count: int | None = option.get("pinnedPostsCount")
         self.credits_min_alternatives: int | None = option.get("creditsMinAlternatives")
         self.max_pinned_posts_count: int | None = option.get("maxPinnedPostsCount")
+        self.ws_url = option.get("wsUrl")
+        self.ws_auth_token = option.get("wsAuthToken")
         # Custom
         found_user = authed.find_user(self.id)
         if not found_user:

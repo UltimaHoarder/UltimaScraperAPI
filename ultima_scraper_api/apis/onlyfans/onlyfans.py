@@ -50,13 +50,26 @@ class OnlyFansAPI(StreamlinedAPI):
                 users.append(user)
         return users
 
-    async def login(self, auth_json: dict[str, Any] = {}, guest: bool = False):
+    async def login(
+        self,
+        auth_json: dict[str, Any] = {},
+        curl_string: str | None = None,
+        guest: bool = False,
+    ):
+
+        from ultima_scraper_api.apis.onlyfans.authenticator import (
+            extract_auth_details_from_curl,
+        )
+
         authed = None
         if auth_json:
             authed = self.find_auth(auth_json["id"])
         if not authed:
             temp_auth_details = self.create_auth_details(auth_json)
             authenticator = self.authenticator(self, temp_auth_details)
+            if curl_string:
+                temp_auth_details = extract_auth_details_from_curl(curl_string)
+                authenticator = self.authenticator(self, temp_auth_details)
             authed = await authenticator.login(guest)
             if authed and authenticator.is_authed():
                 issues = await authed.get_login_issues()
@@ -68,13 +81,26 @@ class OnlyFansAPI(StreamlinedAPI):
         return authed
 
     @asynccontextmanager
-    async def login_context(self, auth_json: dict[str, Any] = {}, guest: bool = False):
+    async def login_context(
+        self,
+        auth_json: dict[str, Any] = {},
+        curl_string: str | None = None,
+        guest: bool = False,
+    ):
+
+        from ultima_scraper_api.apis.onlyfans.authenticator import (
+            extract_auth_details_from_curl,
+        )
+
         authed = None
         if auth_json:
             authed = self.find_auth(auth_json["id"])
         if not authed:
             temp_auth_details = self.create_auth_details(auth_json)
             authenticator = self.authenticator(self, temp_auth_details, guest)
+            if curl_string:
+                temp_auth_details = extract_auth_details_from_curl(curl_string)
+                authenticator = self.authenticator(self, temp_auth_details)
             async with authenticator as temp_authed:
                 if temp_authed and temp_authed.is_authed():
                     authed = temp_authed

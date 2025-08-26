@@ -1,8 +1,12 @@
 from __future__ import annotations
 
 import asyncio
+import json
+from collections import deque
 from itertools import chain, product
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, cast
+
+import websockets
 
 from ultima_scraper_api.apis import api_helper
 from ultima_scraper_api.apis.auth_streamliner import StreamlinedAuth
@@ -50,7 +54,123 @@ class OnlyFansAuthModel(
         self.blacklist: list[str] = []
         self.guest = self.authenticator.guest
         self.drm: OnlyDRM | None = None
+        # WebSocket listener state and pub/sub
+        self.websocket_task: asyncio.Task[None] | None = None
+        self._ws_lock = asyncio.Lock()
+        self._subscribers: set[asyncio.Queue[Any]] = set()
+        self._recent: deque[Any] = deque(maxlen=100)
         self.update()
+
+    async def _listen_loop(self) -> None:
+        # Prefer WS URL provided by the API/user profile, else default
+        url = self.user.ws_url
+        assert url
+
+        # websockets 15.x expects `additional_headers`, not `extra_headers` or `headers`.
+        # Use dedicated parameters for origin and user agent to avoid invalid headers.
+        auth_details = self.get_auth_details()
+        user_agent = auth_details.user_agent
+        cookie_header: str = auth_details.cookie.convert()
+
+        additional_headers: list[tuple[str, str]] = []
+
+        additional_headers.append(("Cookie", cookie_header))
+
+        async with websockets.connect(
+            url,
+            user_agent_header=user_agent,
+            additional_headers=additional_headers,
+            compression="deflate",
+        ) as ws:
+
+            # Send init connect frame if token is available on the user
+            token = self.user.ws_auth_token
+            if token:
+                try:
+                    await ws.send(json.dumps({"act": "connect", "token": token}))
+                except Exception:
+                    pass
+
+            # Heartbeat ping (mirror browser behavior ~25s)
+            async def _heartbeat():
+                try:
+                    while True:
+                        await asyncio.sleep(25)
+                        await ws.send(json.dumps({"act": "ping"}))
+                except Exception:
+                    return
+
+            hb_task = asyncio.create_task(_heartbeat())
+
+            try:
+                while True:
+                    msg = await ws.recv()
+                    # Fan out raw message to subscribers
+                    await self._publish({"type": "message", "data": msg})
+            except websockets.ConnectionClosed as e:
+                await self._publish(
+                    {"type": "closed", "code": e.code, "reason": e.reason}
+                )
+            finally:
+                hb_task.cancel()
+
+    async def listen(self):
+        """
+        Start the OnlyFans WebSocket listener if it's not already running.
+        Safe to call multiple times; subsequent calls no-op while the task is active.
+        """
+        async with self._ws_lock:
+            if self.websocket_task and not self.websocket_task.done():
+                return
+            # Start a new listener task
+            self.websocket_task = asyncio.create_task(self._listen_loop())
+            # Small yield so the task has a chance to start before we return
+            await asyncio.sleep(0)
+
+    def is_listening(self) -> bool:
+        return bool(self.websocket_task and not self.websocket_task.done())
+
+    def subscribe(self, max_queue_size: int = 1000) -> asyncio.Queue[Any]:
+        """
+        Subscribe to incoming WS events. Returns an asyncio.Queue of event dicts.
+        The last recent events are replayed on subscribe for context.
+        """
+        q: asyncio.Queue[Any] = asyncio.Queue(maxsize=max_queue_size)
+        self._subscribers.add(q)
+        # Best-effort replay of recent events without blocking
+        for evt in list(self._recent):
+            try:
+                q.put_nowait(evt)
+            except asyncio.QueueFull:
+                break
+        return q
+
+    def unsubscribe(self, q: asyncio.Queue[Any]) -> None:
+        self._subscribers.discard(q)
+        # Drain to help GC in long-lived apps
+        try:
+            while not q.empty():
+                q.get_nowait()
+        except Exception:
+            pass
+
+    async def _publish(self, event: Any) -> None:
+        # Save to rolling buffer
+        self._recent.append(event)
+        # Non-blocking fan-out, drop oldest on backpressure
+        dead: list[asyncio.Queue[Any]] = []
+        for q in list(self._subscribers):
+            try:
+                q.put_nowait(event)
+            except asyncio.QueueFull:
+                try:
+                    # Drop one and retry to keep up
+                    _ = q.get_nowait()
+                    q.put_nowait(event)
+                except Exception:
+                    dead.append(q)
+        for q in dead:
+            self._subscribers.discard(q)
 
     def find_user(self, identifier: int | str):
         if isinstance(identifier, int):
