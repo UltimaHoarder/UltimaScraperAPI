@@ -264,6 +264,13 @@ class endpoint_links(object):
     ):
         return f"{self.full_url_path}/vault/media?limit={limit}&offset={offset}&order={sort_order}&field={field}&list={list_id}"
 
+    def send_message(self, user_id: int | str) -> str:
+        """Endpoint for posting a new message to a user's chat root.
+
+        POST JSON body supports fields such as text, lockedText, mediaFiles, price, previews, rfTag, rfGuest, rfPartner, isForward.
+        """
+        return f"{self.full_url_path}/chats/{user_id}/messages"
+
     def list_subscriptions(
         self,
         limit: int = 20,

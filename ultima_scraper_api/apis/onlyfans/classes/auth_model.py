@@ -242,6 +242,53 @@ class OnlyFansAuthModel(
         )
         return json_resp
 
+    async def send_message(
+        self,
+        to_user_id: int,
+        text: str = "",
+        *,
+        lockedText: bool | None = None,
+        mediaFiles: list[dict[str, Any]] | None = None,
+        price: float | None = None,
+        previews: list[dict[str, Any]] | None = None,
+        rfTag: list[Any] | None = None,
+        rfGuest: list[Any] | None = None,
+        rfPartner: list[Any] | None = None,
+        isForward: bool | None = None,
+    ) -> dict[str, Any]:
+        """Send a message to a user's chat with full OnlyFans payload support.
+
+        Backward compatible: can be called with just (to_user_id, text).
+        """
+        link = endpoint_links().send_message(to_user_id)
+        payload: dict[str, Any] = {"text": text}
+        if lockedText is not None:
+            payload["lockedText"] = lockedText
+        if mediaFiles is not None:
+            payload["mediaFiles"] = mediaFiles
+        if price is not None:
+            payload["price"] = price
+        if previews is not None:
+            payload["previews"] = previews
+        if rfTag is not None:
+            payload["rfTag"] = rfTag
+        if rfGuest is not None:
+            payload["rfGuest"] = rfGuest
+        if rfPartner is not None:
+            payload["rfPartner"] = rfPartner
+        if isForward is not None:
+            payload["isForward"] = isForward
+        return await self.get_requester().json_request(link, method="POST", payload=payload)
+
+    async def message_create(
+        self,
+        to_user_id: int,
+        text: str = "",
+        **kwargs: Any,
+    ) -> dict[str, Any]:
+        """Alias for send_message to satisfy older call sites; forwards extra payload fields."""
+        return await self.send_message(to_user_id, text, **kwargs)
+
     async def get_blacklist(self, local_blacklists: list[str]):
         bl_ids: list[str] = []
         remote_blacklists = await self.get_lists()
