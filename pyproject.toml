@@ -1,6 +1,6 @@
 [project]
 name = "ultima-scraper-api"
-version = "3.0.0b2"
+version = "3.0.0b3"
 description = "A modular Python scraping framework for premium content platforms"
 readme = "README.md"
 requires-python = ">=3.10,<4.0"

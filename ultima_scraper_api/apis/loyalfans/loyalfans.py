@@ -56,7 +56,6 @@ class LoyalFansAPI(StreamlinedAPI):
             temp_auth_details = self.create_auth_details(auth_json)
             authenticator = self.authenticator(self, temp_auth_details)
             authed = await authenticator.login(guest)
-            user = await authed.get_user("thehornylena")
             if authed and authenticator.is_authed():
                 self.add_auth(authed)
                 # Don't close authenticator - auth model reuses its session!

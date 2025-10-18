@@ -355,7 +355,7 @@ class OnlyFansAuthModel(
                 raise ValueError(f"Invalid subscription type: {sub_type}")
         limit = limit if limit else subscription_type_count
         url = endpoint_links().list_subscriptions(
-            limit=limit, sub_type=SubscriptionTypeEnum(sub_type), filter=filter_by
+            sub_type=SubscriptionTypeEnum(sub_type), filter=filter_by
         )
         urls = endpoint_links().create_links(
             url,
@@ -369,8 +369,8 @@ class OnlyFansAuthModel(
             payload={"order": "expire_date", "direction": "desc", "type": "all"},
         )
 
-        subscription_responses = await self.auth_session.bulk_json_requests(urls)
         raw_subscriptions: list[Any] = []
+        subscription_responses = await self.auth_session.bulk_json_requests(urls)
         raw_subscriptions = [
             raw_subscription
             for temp_raw_subscriptions in subscription_responses
@@ -378,15 +378,18 @@ class OnlyFansAuthModel(
             for raw_subscription in temp_raw_subscriptions["list"]
         ]
 
-        raw_recursion = await recursion(
-            "list_subscriptions",
-            self.get_requester(),
-            max_items=limit,
-            query_type=sub_type,
-            limit=max_pagination_limit,
-            offset=len(urls) * limit,
-        )
-        raw_subscriptions += raw_recursion
+        # If we want find more subscriptions than the paginated requests returned, use recursion to get the rest
+
+        # raw_recursion = await recursion(
+        #     "list_subscriptions",
+        #     self.get_requester(),
+        #     max_items=limit,
+        #     query_type=sub_type,
+        #     limit=max_pagination_limit,
+        #     offset=len(urls) * limit,
+        # )
+        # raw_subscriptions += raw_recursion
+        raw_subscriptions = raw_subscriptions[:limit]
 
         subscriptions: list[SubscriptionModel] = []
         if identifiers:

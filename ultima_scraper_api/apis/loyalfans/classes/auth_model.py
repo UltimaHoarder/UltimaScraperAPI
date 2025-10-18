@@ -22,6 +22,7 @@ class LoyalFansAuthModel(
         self.users: dict[int, UserModel] = {}
         super().__init__(authenticator)
         self.guest = self.authenticator.guest
+        self.id = 0
         # self.update()
 
     def update(self):
