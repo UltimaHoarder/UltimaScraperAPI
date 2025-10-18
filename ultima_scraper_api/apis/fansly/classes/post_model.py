@@ -49,7 +49,7 @@ class PostModel(SiteContent):
         self.commentsCount: int = option.get("replyCount")
         self.mentionedUsers: list = option.get("mentionedUsers")
         self.linkedUsers: list[dict[str, Any]] = option["accountMentions"]
-        self.previews: list[dict[str, Any]] = option.get("previews", [])
+        self.previews: list[int] = option.get("previews", [])
         self.attachments: list[dict[str, Any]] = option.get("attachments", {})
         self.comments: list[CommentModel] = []
         self.created_at: datetime = datetime.fromtimestamp(option["createdAt"])
@@ -80,7 +80,7 @@ class PostModel(SiteContent):
                         if "preview" in account_media:
                             temp_media = account_media["preview"]
                             if not account_media["access"]:
-                                self.preview_ids.append(int(account_media["previewId"]))
+                                self.previews.append(int(account_media["previewId"]))
                                 self.previews.append(temp_media)
                         if account_media["media"]["locations"]:
                             temp_media = account_media["media"]
@@ -169,3 +169,6 @@ class PostModel(SiteContent):
 
         # If all media was > target quality, return the lowest quality/last media.
         return media_url
+
+    def get_previews(self):
+        return [x for x in self.media if x["id"] in self.previews]

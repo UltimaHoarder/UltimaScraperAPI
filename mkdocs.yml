@@ -1,0 +1,96 @@
+site_name: UltimaScraperAPI Documentation
+site_description: A modular Python scraping framework for premium content platforms
+site_author: UltimaHoarder
+site_url: https://github.com/UltimaHoarder/UltimaScraperAPI
+
+repo_name: UltimaHoarder/UltimaScraperAPI
+repo_url: https://github.com/UltimaHoarder/UltimaScraperAPI
+
+docs_dir: documentation/docs
+site_dir: site
+
+theme:
+  name: material
+  palette:
+    # Palette toggle for light mode
+    - media: "(prefers-color-scheme: light)"
+      scheme: default
+      primary: indigo
+      accent: indigo
+      toggle:
+        icon: material/brightness-7
+        name: Switch to dark mode
+    # Palette toggle for dark mode
+    - media: "(prefers-color-scheme: dark)"
+      scheme: slate
+      primary: indigo
+      accent: indigo
+      toggle:
+        icon: material/brightness-4
+        name: Switch to light mode
+  features:
+    - navigation.tabs
+    - navigation.sections
+    - navigation.top
+    - navigation.tracking
+    - search.highlight
+    - search.suggest
+    - content.tabs.link
+    - content.code.annotation
+    - content.code.copy
+  language: en
+
+nav:
+  - Home: index.md
+  - Getting Started:
+      - Installation: getting-started/installation.md
+      - Quick Start: getting-started/quick-start.md
+      - Configuration: getting-started/configuration.md
+  - User Guide:
+      - Authentication: user-guide/authentication.md
+      - Working with APIs: user-guide/working-with-apis.md
+      - Session Management: user-guide/session-management.md
+      - Proxy Support: user-guide/proxy-support.md
+      - Migration Guide: user-guide/migration.md
+      - Troubleshooting: user-guide/troubleshooting.md
+  - API Reference:
+      - OnlyFans API: api-reference/onlyfans.md
+      - Fansly API: api-reference/fansly.md
+      - LoyalFans API: api-reference/loyalfans.md
+      - API Helpers: api-reference/helpers.md
+  - Development:
+      - Contributing: development/contributing.md
+      - Architecture: development/architecture.md
+      - Testing: development/testing.md
+  - About:
+      - License: about/license.md
+      - Changelog: about/changelog.md
+
+markdown_extensions:
+  - pymdownx.highlight:
+      anchor_linenums: true
+  - pymdownx.inlinehilite
+  - pymdownx.snippets
+  - admonition
+  - pymdownx.arithmatex:
+      generic: true
+  - footnotes
+  - pymdownx.details
+  - pymdownx.superfences
+  - pymdownx.mark
+  - attr_list
+  - pymdownx.emoji:
+      emoji_index: !!python/name:material.extensions.emoji.twemoji
+      emoji_generator: !!python/name:material.extensions.emoji.to_svg
+  - pymdownx.tabbed:
+      alternate_style: true
+
+plugins:
+  - search
+
+extra:
+  social:
+    - icon: fontawesome/brands/github
+      link: https://github.com/UltimaHoarder/UltimaScraperAPI
+
+copyright: Copyright &copy; 2025 UltimaHoarder

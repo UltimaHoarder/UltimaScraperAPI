@@ -6,6 +6,7 @@ from typing import TYPE_CHECKING, Any, Optional
 from ultima_scraper_api.apis.onlyfans import SiteContent
 from ultima_scraper_api.apis.onlyfans.classes.extras import endpoint_links
 from ultima_scraper_api.apis.onlyfans.classes.mass_message_model import MassMessageModel
+from ultima_scraper_api.apis.onlyfans.classes.media_model import MediaModel
 
 if TYPE_CHECKING:
     from ultima_scraper_api.apis.onlyfans.classes.user_model import UserModel
@@ -24,8 +25,9 @@ class MessageModel(SiteContent):
         self.price: int | None = option.get("price")
         self.isMediaReady: Optional[bool] = option.get("isMediaReady")
         self.media_count: Optional[int] = option.get("mediaCount")
-        self.media: list[dict[str, Any]] = option.get("media", [])
-        self.previews: list[dict[str, Any]] = option.get("previews", [])
+        media_data: list[dict[str, Any]] = option.get("media", [])
+        self.media: list[MediaModel] = [MediaModel(m) for m in media_data]
+        self.previews: list[int] = option.get("previews", [])
         self.isTip: Optional[bool] = option.get("isTip")
         self.isReportedByMe: Optional[bool] = option.get("isReportedByMe")
         self.is_from_queue: bool | None = option.get("isFromQueue")
@@ -80,3 +82,9 @@ class MessageModel(SiteContent):
         if self.is_from_queue:
             return True
         return False
+
+    def is_bought(self):
+        return all(media.canView for media in self.media)
+
+    def get_previews(self):
+        return [x for x in self.media if x.id in self.previews]

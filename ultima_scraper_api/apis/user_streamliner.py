@@ -66,6 +66,7 @@ TAPI = TypeVar("TAPI")
 
 class StreamlinedUser(Generic[T, TAPI]):
     def __init__(self, authed: T) -> None:
+        self.username: str
         self.__authed = authed
         self.cache = Cache()
         self.jobs: list[CustomJob] = []

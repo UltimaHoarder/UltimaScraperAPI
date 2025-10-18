@@ -1,4 +1,11 @@
+import asyncio
+import hashlib
+import random
+import re
+import string
+import time
 from typing import Any
+from urllib.parse import urlparse
 
 from user_agent import generate_user_agent
 
@@ -12,18 +19,35 @@ from ultima_scraper_api.apis.onlyfans.classes.extras import (
 )
 from ultima_scraper_api.apis.onlyfans.classes.user_model import UserModel
 from ultima_scraper_api.apis.onlyfans.onlyfans import OnlyFansAPI
-from ultima_scraper_api.managers.session_manager import AuthedSession
-import re
+from ultima_scraper_api.managers.session_manager import AuthedSession, SessionManager
 
 
 def extract_auth_details_from_curl(credentials: str) -> AuthDetails:
-    # Try -H 'cookie: ...' first, fallback to -b '...'
-    cookie_match = re.search(r"-H\s+['\"]cookie:\s*([^'\"]+)['\"]", credentials, re.I)
-    if not cookie_match:
-        cookie_match = re.search(r"-b\s+['\"]([^'\"]+)['\"]", credentials, re.I)
+    # Support Windows-style curl which escapes quotes with ^ and may include ^ characters
+    windows_curl = credentials.replace("^", "")
 
-    xbc_match = re.search(r"-H\s+['\"]x-bc:\s*([^'\"]+)['\"]", credentials, re.I)
-    ua_match = re.search(r"-H\s+['\"]user-agent:\s*([^'\"]+)['\"]", credentials, re.I)
+    # Try -H "cookie: ..." first, fallback to -b "..." formats for cookies (both *nix and windows-style)
+    cookie_match = re.search(r'-H\s*"cookie:\s*([^\"]+)"', windows_curl, re.I)
+    if not cookie_match:
+        cookie_match = re.search(r"-H\s*'cookie:\s*([^']+)'", windows_curl, re.I)
+    if not cookie_match:
+        cookie_match = re.search(r'-b\s*"([^\"]+)"', windows_curl, re.I)
+    if not cookie_match:
+        cookie_match = re.search(r"-b\s*'([^']+)'", windows_curl, re.I)
+
+    # x-bc and user-agent may appear as headers with -H
+    xbc_match = re.search(r'-H\s*"x-bc:\s*([^\"]+)"', windows_curl, re.I)
+    if not xbc_match:
+        xbc_match = re.search(r"-H\s*'x-bc:\s*([^']+)'", windows_curl, re.I)
+    # Also accept header formats without surrounding quotes
+    if not xbc_match:
+        xbc_match = re.search(r"-H\s*x-bc:\s*([^\s]+)", windows_curl, re.I)
+
+    ua_match = re.search(r'-H\s*"user-agent:\s*([^\"]+)"', windows_curl, re.I)
+    if not ua_match:
+        ua_match = re.search(r"-H\s*'user-agent:\s*([^']+)'", windows_curl, re.I)
+    if not ua_match:
+        ua_match = re.search(r"-H\s*user-agent:\s*([^\s]+)", windows_curl, re.I)
 
     if not (cookie_match and xbc_match and ua_match):
         raise ValueError(
@@ -64,13 +88,26 @@ class OnlyFansAuthenticator:
         await self.auth_session.active_session.close()
 
     def create_auth(self):
-        return OnlyFansAuthModel(self)
+        auth = OnlyFansAuthModel(self)
+        # Connect to Redis if enabled (fire and forget, don't wait)
+        import asyncio
+
+        try:
+            from ultima_scraper_api.managers.redis import get_redis
+
+            redis_manager = get_redis()
+            if redis_manager and not redis_manager.is_connected:
+                asyncio.create_task(redis_manager.connect())
+        except Exception:
+            pass  # Don't crash if Redis fails
+        return auth
 
     def create_user(self, auth: OnlyFansAuthModel):
         assert self.__raw__ is not None
-        return UserModel(self.__raw__, auth)
+        return auth.resolve_user(self.__raw__)
 
     async def login(self, guest: bool = False):
+        asyncio.create_task(self.auth_session.session_manager.check_rate_limit())
         auth_items = self.auth_details
         assert auth_items
         if guest and auth_items:
@@ -82,8 +119,7 @@ class OnlyFansAuthenticator:
         auth_id = str(auth_items.cookie.auth_id)
         # expected string error is fixed by auth_id
         auth_session = self.auth_session
-        session_manager = auth_session.get_session_manager()
-        dynamic_rules = session_manager.dynamic_rules
+        dynamic_rules = self.api.dynamic_rules
         a: list[Any] = [dynamic_rules, auth_id, auth_items.x_bc, user_agent, link]
         auth_session.headers = create_headers(*a)
         if guest:
@@ -108,7 +144,10 @@ class OnlyFansAuthenticator:
                                     "2FA Attempt " + str(count) + "/" + str(max_count)
                                 )
                                 code = input("Enter 2FA Code\n")
-                                data = {"code": code, "rememberMe": True}
+                                data: dict[str, Any] = {
+                                    "code": code,
+                                    "rememberMe": True,
+                                }
                                 response = await self.auth_session.json_request(
                                     link, method="POST", payload=data
                                 )
@@ -186,3 +225,58 @@ class OnlyFansAuthenticator:
             case _:
                 await api_helper.handle_error_details(error)
         self.errors.append(error)
+
+    def create_request_headers(
+        self,
+        link: str,
+        custom_cookies: str = "",
+        extra_headers: dict[str, str] | None = None,
+    ):
+        session_manager = self.auth_session.session_manager
+        dynamic_rules = self.api.dynamic_rules
+        headers = self.auth_session.headers.copy()
+        if "https://onlyfans.com/api2/v2/" in link:
+            headers["app-token"] = dynamic_rules.app_token
+            headers["cookie"] = self.auth_details.cookie.convert()
+
+            if self.guest:
+                headers["x-bc"] = "".join(
+                    random.choice(string.digits + string.ascii_lowercase)
+                    for _ in range(40)
+                )
+            headers |= self.create_signed_headers(link)
+            session_manager.time2sleep = 5
+        elif ".mpd" in link:
+            headers["cookie"] = custom_cookies
+        else:
+            headers["cookie"] = self.auth_details.cookie.convert() + custom_cookies
+        if extra_headers:
+            headers.update(extra_headers)
+        return headers
+
+    def create_signed_headers(
+        self, link: str, auth_id: int = 0, time_: int | None = None
+    ):
+        # Users: 300000 | Creators: 301000
+        headers: dict[str, Any] = {}
+        final_time = str(int(round(time.time()))) if not time_ else str(time_)
+        path = urlparse(link).path
+        query = urlparse(link).query
+        if query:
+            auth_id = self.auth_details.id if self.auth_details.id else auth_id
+            headers["user-id"] = str(auth_id)
+        path = path if not query else f"{path}?{query}"
+        dynamic_rules = self.api.dynamic_rules
+        a = [dynamic_rules.static_param, final_time, path, str(auth_id)]
+        msg = "\n".join(a)
+        message = msg.encode("utf-8")
+        hash_object = hashlib.sha1(message)
+        sha_1_sign = hash_object.hexdigest()
+        sha_1_b = sha_1_sign.encode("ascii")
+        checksum = (
+            sum([sha_1_b[number] for number in dynamic_rules.checksum_indexes])
+            + dynamic_rules.checksum_constant
+        )
+        headers["sign"] = dynamic_rules.format.format(sha_1_sign, abs(checksum))
+        headers["time"] = final_time
+        return headers

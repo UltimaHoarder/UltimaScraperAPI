@@ -24,7 +24,7 @@ class MessageModel(SiteContent):
         self.isMediaReady: Optional[bool] = option.get("isMediaReady")
         self.media_count: Optional[int] = option.get("mediaCount")
         self.media: list[Any] = option.get("attachments", [])
-        self.previews: list[dict[str, Any]] = option.get("previews", [])
+        self.previews: list[int] = option.get("previews", [])
         self.isTip: Optional[bool] = option.get("isTip")
         self.isReportedByMe: Optional[bool] = option.get("isReportedByMe")
         self.fromUser = user.get_authed().resolve_user(option["senderId"])
@@ -130,3 +130,6 @@ class MessageModel(SiteContent):
 
         # If all media was > target quality, return the lowest quality/last media.
         return media_url
+
+    def get_previews(self):
+        return self.previews

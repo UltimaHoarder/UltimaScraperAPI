@@ -25,6 +25,7 @@ from aiohttp_socks import ProxyConnectionError, ProxyConnector, ProxyInfo
 
 import ultima_scraper_api
 import ultima_scraper_api.apis.api_helper as api_helper
+from ultima_scraper_api.config import Proxy
 
 if TYPE_CHECKING:
     auth_types = ultima_scraper_api.auth_types
@@ -44,13 +45,13 @@ class ProxyManager:
         self.proxies: list[ProxyInfo] = []
         self.current_proxy_index = 0
 
-    def test_proxies(self, proxies: list[str] = []):
-        final_proxies: list[str] = []
+    def test_proxies(self, proxies: list[Proxy] = []):
+        final_proxies: list[Proxy] = []
 
         session = requests.Session()
         for proxy in proxies:
             url = "https://checkip.amazonaws.com"
-            temp_proxies = {"https": proxy}
+            temp_proxies = {"https": proxy.url}
             try:
                 final_proxies.append(proxy)
                 return final_proxies
@@ -68,12 +69,12 @@ class ProxyManager:
     def get_current_proxy(self):
         return self.proxies[self.current_proxy_index]
 
-    def add_proxies(self, proxies: list[str] = []):
+    def add_proxies(self, proxies: list[Proxy] = []):
         for proxy in proxies:
             self._add_proxy(proxy)
 
-    def _add_proxy(self, proxy: str):
-        self.proxies.append(ProxyInfo(*python_socks.parse_proxy_url(proxy)))  # type: ignore
+    def _add_proxy(self, proxy: Proxy):
+        self.proxies.append(ProxyInfo(*python_socks.parse_proxy_url(proxy.url)))  # type: ignore
 
 
 class AuthedSession:
@@ -166,12 +167,17 @@ class AuthedSession:
                 continue
             headers = {}
             if premade_settings == "json":
-                headers = await self.session_rules(url)
-                headers["accept"] = "application/json, text/plain, */*"
-                headers["Connection"] = "keep-alive"
+                headers = self.auth.create_request_headers(
+                    url,
+                    extra_headers={
+                        "accept": "application/json, text/plain, */*",
+                        "Connection": "keep-alive",
+                    },
+                )
             if custom_cookies:
-                headers = await self.session_rules(url, custom_cookies=custom_cookies)
-                pass
+                headers = self.auth.create_request_headers(
+                    url, custom_cookies=custom_cookies
+                )
             if range_header:
                 headers.update(range_header)
 
@@ -235,111 +241,37 @@ class AuthedSession:
         return await asyncio.gather(*[self.request(url) for url in urls])
 
     async def json_request(
-        self, url: str, method: str = "GET", payload: dict[str, Any] = {}
+        self,
+        url: str,
+        method: Literal["GET", "POST", "PATCH", "DELETE"] = "GET",
+        payload: dict[str, Any] = {},
     ) -> dict[str, Any]:
-        while True:
-            response = await self.request(url, method, data=payload)
-            json_resp: dict[Any, Any] = {}
+        response = await self.request(url, method, data=payload)
+        if not response:
+            return {}
+
+        if response.status == 200:
             try:
-                if response.status == 200:
-                    json_resp = await response.json()
-                else:
-                    json_resp["error"] = {
-                        "code": response.status,
-                        "message": getattr(response, "reason"),
-                    }
-                return json_resp
-            except EXCEPTION_TEMPLATE as _e:
-                continue
+                return await response.json()
+            except EXCEPTION_TEMPLATE:
+                return {}
+
+        return {
+            "error": {
+                "code": response.status,
+                "message": response.reason,
+            }
+        }
 
     async def bulk_json_requests(self, urls: list[str]) -> list[dict[Any, Any]]:
         return await asyncio.gather(*[self.json_request(url) for url in urls])
-
-    async def session_rules(
-        self, link: str, custom_cookies: str = ""
-    ) -> dict[str, Any]:
-        import ultima_scraper_api.apis.fansly.classes as fansly_classes
-        import ultima_scraper_api.apis.loyalfans.classes as loyalfans_classes
-        import ultima_scraper_api.apis.onlyfans.classes as onlyfans_classes
-
-        session_manager = self.get_session_manager()
-        headers: dict[str, Any] = {}
-        headers |= self.headers
-        match self.auth.auth_details.__class__:
-            case onlyfans_classes.extras.AuthDetails:
-                if "https://onlyfans.com/api2/v2/" in link:
-                    dynamic_rules = session_manager.dynamic_rules
-                    final_cookies = self.auth.auth_details.cookie.convert()
-                    headers["app-token"] = dynamic_rules["app_token"]
-                    headers["cookie"] = final_cookies
-                    if self.auth.guest:
-                        headers["x-bc"] = "".join(
-                            random.choice(string.digits + string.ascii_lowercase)
-                            for _ in range(40)
-                        )
-                    headers2 = self.create_signed_headers(link)
-                    headers |= headers2
-                    # t2s does not set for cdn links yet
-                    session_manager.time2sleep = 5
-                elif ".mpd" in link:
-                    headers["cookie"] = custom_cookies
-                else:
-                    if "/files/" not in link:
-                        pass
-                    final_cookies = (
-                        self.auth.auth_details.cookie.convert() + custom_cookies
-                    )
-                    headers["cookie"] = final_cookies
-            case fansly_classes.extras.AuthDetails:
-                if "https://apiv3.fansly.com" in link:
-                    headers["authorization"] = self.auth.auth_details.authorization
-                    self.is_rate_limited = False
-            case loyalfans_classes.extras.AuthDetails:
-                if "https://www.loyalfans.com/api" in link:
-                    headers["authorization"] = (
-                        f"Bearer {self.auth.auth_details.authorization}"
-                    )
-                    headers["Referer"] = "https://www.loyalfans.com/"
-            case _:
-                pass
-        return headers
-
-    def create_signed_headers(
-        self, link: str, auth_id: int = 0, time_: int | None = None
-    ):
-        # Users: 300000 | Creators: 301000
-        headers: dict[str, Any] = {}
-        final_time = str(int(round(time.time()))) if not time_ else str(time_)
-        path = urlparse(link).path
-        query = urlparse(link).query
-        if query:
-            auth_id = (
-                self.auth.auth_details.id if self.auth.auth_details.id else auth_id
-            )
-            headers["user-id"] = str(auth_id)
-        path = path if not query else f"{path}?{query}"
-        session_manager = self.get_session_manager()
-        dynamic_rules = session_manager.dynamic_rules
-        a = [dynamic_rules["static_param"], final_time, path, str(auth_id)]
-        msg = "\n".join(a)
-        message = msg.encode("utf-8")
-        hash_object = hashlib.sha1(message)
-        sha_1_sign = hash_object.hexdigest()
-        sha_1_b = sha_1_sign.encode("ascii")
-        checksum = (
-            sum([sha_1_b[number] for number in dynamic_rules["checksum_indexes"]])
-            + dynamic_rules["checksum_constant"]
-        )
-        headers["sign"] = dynamic_rules["format"].format(sha_1_sign, abs(checksum))
-        headers["time"] = final_time
-        return headers
 
 
 class SessionManager:
     def __init__(
         self,
         api: ultima_scraper_api.api_types,
-        proxies: list[str] = [],
+        proxies: list[Proxy] = [],
         max_threads: int = -1,
         use_cookies: bool = True,
     ) -> None:
@@ -352,9 +284,6 @@ class SessionManager:
         self.kill = False
         self.authed_sessions: list[AuthedSession] = []
         self.proxy_manager = ProxyManager()
-        self.dynamic_rules: dict[str, Any] = {}
-        if isinstance(api, OnlyFansAPI):
-            self.dynamic_rules = api.dynamic_rules
 
         self.use_cookies: bool = use_cookies
         self.request_count = 0
@@ -365,14 +294,15 @@ class SessionManager:
         self.rate_limit_check = False
         self.is_rate_limited = None
         self.time2sleep = 0
-        asyncio.create_task(self.check_rate_limit())
+        self.rate_limit_checker_active = False
+        # asyncio.create_task(self.check_rate_limit())
 
     def created_authed_session(
         self, authenticator: ultima_scraper_api.authenticator_types
     ):
         return AuthedSession(authenticator, self)
 
-    def get_proxy(self) -> str:
+    def get_proxy(self):
         proxies = self.proxies
         proxy = self.proxies[randint(0, len(proxies) - 1)] if proxies else ""
         return proxy
@@ -400,6 +330,9 @@ class SessionManager:
     #             self.last_request_time = time.time()
 
     async def check_rate_limit(self):
+        if self.rate_limit_checker_active:
+            return
+        self.rate_limit_checker_active = True
         while True:
             rate_limit_count = 1
             async with self.lock:

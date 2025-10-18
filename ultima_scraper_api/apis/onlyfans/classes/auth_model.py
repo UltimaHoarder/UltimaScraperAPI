@@ -1,16 +1,15 @@
 from __future__ import annotations
 
 import asyncio
-import json
-from collections import deque
 from itertools import chain, product
 from typing import TYPE_CHECKING, Any, cast
 
-import websockets
-
 from ultima_scraper_api.apis import api_helper
 from ultima_scraper_api.apis.auth_streamliner import StreamlinedAuth
-from ultima_scraper_api.apis.onlyfans import SubscriptionType
+from ultima_scraper_api.apis.onlyfans import (
+    SubscriptionType,
+    SubscriptionTypeEnum,
+)
 from ultima_scraper_api.apis.onlyfans.classes.chat_model import ChatModel
 from ultima_scraper_api.apis.onlyfans.classes.extras import endpoint_links
 from ultima_scraper_api.apis.onlyfans.classes.mass_message_model import (
@@ -18,11 +17,15 @@ from ultima_scraper_api.apis.onlyfans.classes.mass_message_model import (
 )
 from ultima_scraper_api.apis.onlyfans.classes.message_model import MessageModel
 from ultima_scraper_api.apis.onlyfans.classes.post_model import PostModel
+from ultima_scraper_api.apis.onlyfans.classes.subscription_count_model import (
+    SubscriptionCountModel,
+)
 from ultima_scraper_api.apis.onlyfans.classes.subscription_model import (
     SubscriptionModel,
 )
 from ultima_scraper_api.apis.onlyfans.classes.user_model import UserModel, recursion
 from ultima_scraper_api.apis.onlyfans.classes.vault import VaultListModel
+from ultima_scraper_api.managers.redis import with_hooks
 
 if TYPE_CHECKING:
     from ultima_scraper_api.apis.onlyfans.authenticator import OnlyFansAuthenticator
@@ -54,123 +57,37 @@ class OnlyFansAuthModel(
         self.blacklist: list[str] = []
         self.guest = self.authenticator.guest
         self.drm: OnlyDRM | None = None
-        # WebSocket listener state and pub/sub
-        self.websocket_task: asyncio.Task[None] | None = None
-        self._ws_lock = asyncio.Lock()
-        self._subscribers: set[asyncio.Queue[Any]] = set()
-        self._recent: deque[Any] = deque(maxlen=100)
+
+        # WebSocket connection (new architecture)
+        self.websocket_connection = self._create_websocket_connection()
+
         self.update()
 
-    async def _listen_loop(self) -> None:
-        # Prefer WS URL provided by the API/user profile, else default
-        url = self.user.ws_url
-        assert url
+    def _create_websocket_connection(self):
+        """Create WebSocket connection using new centralized manager."""
+        # Get centralized WebSocket manager from API
+        ws_manager = self.api.websocket_manager
+        if not ws_manager:
+            raise ValueError("WebSocket manager not available on API")
 
-        # websockets 15.x expects `additional_headers`, not `extra_headers` or `headers`.
-        # Use dedicated parameters for origin and user agent to avoid invalid headers.
-        auth_details = self.get_auth_details()
-        user_agent = auth_details.user_agent
-        cookie_header: str = auth_details.cookie.convert()
+        # Get site-specific WebSocket implementation class
+        ws_impl_class = self.api.websocket_impl_class
+        if not ws_impl_class:
+            raise ValueError("WebSocket implementation class not available on API")
 
-        additional_headers: list[tuple[str, str]] = []
+        # Create connection through centralized manager
+        connection = ws_manager.create_connection(
+            auth=self,
+            websocket_impl_class=ws_impl_class,
+            connection_id=f"onlyfans_{self.id}",
+        )
 
-        additional_headers.append(("Cookie", cookie_header))
+        import logging
 
-        async with websockets.connect(
-            url,
-            user_agent_header=user_agent,
-            additional_headers=additional_headers,
-            compression="deflate",
-        ) as ws:
+        logger = logging.getLogger(__name__)
+        logger.info(f"✓ WebSocket connection created for OnlyFans user {self.id}")
 
-            # Send init connect frame if token is available on the user
-            token = self.user.ws_auth_token
-            if token:
-                try:
-                    await ws.send(json.dumps({"act": "connect", "token": token}))
-                except Exception:
-                    pass
-
-            # Heartbeat ping (mirror browser behavior ~25s)
-            async def _heartbeat():
-                try:
-                    while True:
-                        await asyncio.sleep(25)
-                        await ws.send(json.dumps({"act": "ping"}))
-                except Exception:
-                    return
-
-            hb_task = asyncio.create_task(_heartbeat())
-
-            try:
-                while True:
-                    msg = await ws.recv()
-                    # Fan out raw message to subscribers
-                    await self._publish({"type": "message", "data": msg})
-            except websockets.ConnectionClosed as e:
-                await self._publish(
-                    {"type": "closed", "code": e.code, "reason": e.reason}
-                )
-            finally:
-                hb_task.cancel()
-
-    async def listen(self):
-        """
-        Start the OnlyFans WebSocket listener if it's not already running.
-        Safe to call multiple times; subsequent calls no-op while the task is active.
-        """
-        async with self._ws_lock:
-            if self.websocket_task and not self.websocket_task.done():
-                return
-            # Start a new listener task
-            self.websocket_task = asyncio.create_task(self._listen_loop())
-            # Small yield so the task has a chance to start before we return
-            await asyncio.sleep(0)
-
-    def is_listening(self) -> bool:
-        return bool(self.websocket_task and not self.websocket_task.done())
-
-    def subscribe(self, max_queue_size: int = 1000) -> asyncio.Queue[Any]:
-        """
-        Subscribe to incoming WS events. Returns an asyncio.Queue of event dicts.
-        The last recent events are replayed on subscribe for context.
-        """
-        q: asyncio.Queue[Any] = asyncio.Queue(maxsize=max_queue_size)
-        self._subscribers.add(q)
-        # Best-effort replay of recent events without blocking
-        for evt in list(self._recent):
-            try:
-                q.put_nowait(evt)
-            except asyncio.QueueFull:
-                break
-        return q
-
-    def unsubscribe(self, q: asyncio.Queue[Any]) -> None:
-        self._subscribers.discard(q)
-        # Drain to help GC in long-lived apps
-        try:
-            while not q.empty():
-                q.get_nowait()
-        except Exception:
-            pass
-
-    async def _publish(self, event: Any) -> None:
-        # Save to rolling buffer
-        self._recent.append(event)
-        # Non-blocking fan-out, drop oldest on backpressure
-        dead: list[asyncio.Queue[Any]] = []
-        for q in list(self._subscribers):
-            try:
-                q.put_nowait(event)
-            except asyncio.QueueFull:
-                try:
-                    # Drop one and retry to keep up
-                    _ = q.get_nowait()
-                    q.put_nowait(event)
-                except Exception:
-                    dead.append(q)
-        for q in dead:
-            self._subscribers.discard(q)
+        return connection
 
     def find_user(self, identifier: int | str):
         if isinstance(identifier, int):
@@ -184,7 +101,9 @@ class OnlyFansAuthModel(
         return user
 
     def resolve_user(self, user_dict: dict[str, Any]):
-        user = self.find_user(user_dict["id"])
+        user = None
+        if "id" in user_dict:
+            user = self.find_user(user_dict["id"])
         if not user:
             user = UserModel(user_dict, self)
         return user
@@ -206,6 +125,7 @@ class OnlyFansAuthModel(
             auth_details.id = identifier
             # auth_details.username = username
 
+    @with_hooks
     async def get_authed_user(self):
         assert self.user
         return self.user
@@ -220,24 +140,30 @@ class OnlyFansAuthModel(
 
     async def get_lists(self, refresh: bool = True, limit: int = 100, offset: int = 0):
         link = endpoint_links(global_limit=limit, global_offset=offset).lists
-        json_resp: list[dict[str, Any]] = await self.get_requester().json_request(link)
+        json_resp: list[dict[str, Any]] = await self.get_requester().json_request(
+            link
+        )  # type:ignore
         self.lists = json_resp
         return json_resp
 
     async def get_vault_lists(self, limit: int = 100, offset: int = 0):
         link = endpoint_links().list_vault_lists(limit=limit, offset=offset)
-        json_resp: list[dict[str, Any]] = await self.get_requester().json_request(link)
-        self.vault = VaultListModel(json_resp, self.user)
+        json_resp: list[dict[str, Any]] = await self.get_requester().json_request(
+            link
+        )  # type:ignore
+        self.vault = VaultListModel(json_resp, self.user)  # type:ignore
         return self.vault
 
     async def get_vault_media(
         self, list_id: int | None = None, limit: int = 100, offset: int = 0
     ):
+        max_pagination_limit = 100  # maximum number of results per request
         json_resp = await recursion(
             category="list_vault_media",
-            identifier=list_id,
             requester=self.get_requester(),
-            limit=limit,
+            max_items=limit,
+            identifier=list_id,
+            limit=max_pagination_limit,
             offset=offset,
         )
         return json_resp
@@ -278,7 +204,9 @@ class OnlyFansAuthModel(
             payload["rfPartner"] = rfPartner
         if isForward is not None:
             payload["isForward"] = isForward
-        return await self.get_requester().json_request(link, method="POST", payload=payload)
+        return await self.get_requester().json_request(
+            link, method="POST", payload=payload
+        )
 
     async def message_create(
         self,
@@ -311,6 +239,7 @@ class OnlyFansAuthModel(
         else:
             return False
 
+    @with_hooks
     async def get_user(self, identifier: int | str, refresh: bool = False):
         """
         Retrieves a user from the OnlyFans API based on the provided identifier.
@@ -322,49 +251,40 @@ class OnlyFansAuthModel(
         Returns:
             UserModel | None: The user data if found, None otherwise.
         """
-        USE_NEW_CODE = False
-        if USE_NEW_CODE:
-
-            async def fetch_user():
-                link = endpoint_links(identifier).users
-                response = await self.auth_session.json_request(link)
-                if "error" in response:
-                    return None
-                response["auth_session"] = self.auth_session
-                return UserModel(response, self)
-
-            if refresh:
-                return await fetch_user()
-
-            user_cache = self.cache.users(identifier)
-
-            if not user_cache.is_released():
-                valid_user = self.find_user(identifier)
-                if not valid_user:
-                    valid_user = await fetch_user()
-            else:
-                valid_user = await fetch_user()
-
-            if valid_user:
-                user_cache.activate()
-
-            return valid_user
 
         # Important: We need to preserve existing scraped data tied to the user in the cache.
         # When refreshing, we attach old cached data to the new user instance to maintain
         # continuity and prevent data loss or duplication.
         # So for now, we use this method to get the user data until we implemented the comments above
-        valid_user = self.find_user(identifier)
-        if valid_user and not refresh:
-            return valid_user
-        else:
-            link = endpoint_links(identifier).users
-            response = await self.auth_session.json_request(link)
-            if "error" in response:
-                return None
-            response["auth_session"] = self.auth_session
-            response = UserModel(response, self)
-            return response
+        cached_user = self.find_user(identifier)
+
+        if (
+            cached_user
+            and not refresh
+            and not self.cache.users(identifier).is_released()
+        ):
+            return cached_user
+
+        # Fetch fresh data from API
+        link = endpoint_links(identifier).users
+        response = await self.auth_session.json_request(link)
+
+        if "error" in response:
+            return None
+
+        # If we had a cached user, update their properties with fresh data
+        if cached_user:
+            # Update the cached user's properties with fresh API data
+            cached_user.update_from_dict(response)
+            self.cache.users(identifier).activate()
+            return cached_user
+
+        # Create new user model from API response
+        fresh_user = self.resolve_user(response)
+        self.users[fresh_user.id] = fresh_user
+
+        self.cache.users(identifier).activate()
+        return fresh_user
 
     async def get_lists_users(
         self,
@@ -386,19 +306,22 @@ class OnlyFansAuthModel(
             results.extend(results2)  # type: ignore
         return results
 
-    async def assign_user_to_sub(self, raw_subscription: dict[str, Any]):
-        user = await self.get_user(raw_subscription["username"])
-        if not user:
-            user = UserModel(raw_subscription, self)
-            user.active = False
-        subscription_model = SubscriptionModel(raw_subscription, user, self)
+    async def assign_user_to_sub(self, subscription_model: SubscriptionModel):
+        _user = await self.get_user(subscription_model.user.id)
         return subscription_model
 
+    async def get_subscription_count(self) -> SubscriptionCountModel:
+
+        url = endpoint_links().subscription_count()
+        result = await self.auth_session.json_request(url)
+        return SubscriptionCountModel(result)
+
+    @with_hooks
     async def get_subscriptions(
         self,
         identifiers: list[int | str] = [],
-        limit: int = 100,
-        sub_type: SubscriptionType = "all",
+        limit: int | None = None,
+        sub_type: SubscriptionType = SubscriptionTypeEnum.ALL,
         filter_by: str = "",
     ):
         """
@@ -414,35 +337,30 @@ class OnlyFansAuthModel(
         Returns:
             list[SubscriptionModel]: List of SubscriptionModel objects representing the subscriptions.
         """
-        from ultima_scraper_api.apis.onlyfans.classes.user_model import recursion
 
         if not self.cache.subscriptions.is_released():
             return self.subscriptions
+        max_pagination_limit = 100  # maximum number of results per request
 
-        url = endpoint_links().subscription_count(
-            sub_type=sub_type, filter_value=filter_by
-        )
-        result = await self.auth_session.json_request(url)
-        if not filter_by:
-            subscriptions_info = result["subscriptions"]
-            match sub_type:
-                case "all":
-                    subscription_type_count = subscriptions_info[sub_type]
-                case "active":
-                    subscription_type_count = subscriptions_info[sub_type]
-                case "expired":
-                    subscription_type_count = subscriptions_info[sub_type]
-                case _:
-                    raise ValueError(f"Invalid subscription type: {sub_type}")
-        else:
-            subscription_type_count = result["count"]
+        subscriptions_count = await self.get_subscription_count()
+        subscriptions_info = subscriptions_count.subscriptions
+        match sub_type:
+            case "all":
+                subscription_type_count = subscriptions_info.all
+            case "active":
+                subscription_type_count = subscriptions_info.active
+            case "expired":
+                subscription_type_count = subscriptions_info.expired
+            case _:
+                raise ValueError(f"Invalid subscription type: {sub_type}")
+        limit = limit if limit else subscription_type_count
         url = endpoint_links().list_subscriptions(
-            limit=limit, sub_type=sub_type, filter=filter_by
+            limit=limit, sub_type=SubscriptionTypeEnum(sub_type), filter=filter_by
         )
         urls = endpoint_links().create_links(
             url,
-            api_count=subscription_type_count,
-            limit=limit,
+            limit,
+            pagination_limit=max_pagination_limit,
         )
         sort_url = "https://onlyfans.com/api2/v2/lists/following/sort"
         _sort_response = await self.auth_session.json_request(
@@ -462,9 +380,10 @@ class OnlyFansAuthModel(
 
         raw_recursion = await recursion(
             "list_subscriptions",
-            self.auth_session,
+            self.get_requester(),
+            max_items=limit,
             query_type=sub_type,
-            limit=limit,
+            limit=max_pagination_limit,
             offset=len(urls) * limit,
         )
         raw_subscriptions += raw_recursion
@@ -481,9 +400,81 @@ class OnlyFansAuthModel(
                         found_raw_subscriptions.append(raw_subscription)
                         break
             raw_subscriptions = found_raw_subscriptions
+
+        # Publish subscription processing progress to Redis
+        total_subs = len(raw_subscriptions)
+
+        # Import Redis manager for progress publishing
+        from datetime import datetime, timezone
+
+        from ultima_scraper_api.managers.redis import get_redis
+
+        redis = get_redis()
+
+        # Publish initial progress event
+        if redis and redis.is_connected:
+            await redis.publish_hook(
+                {
+                    "event": "subscription_processing",
+                    "event_type": "started",
+                    "auth_id": self.id,
+                    "username": self.username,
+                    "total": total_subs,
+                    "current": 0,
+                    "timestamp": datetime.now(timezone.utc).isoformat(),
+                }
+            )
+
+        subscriptions = [
+            SubscriptionModel(x, self.resolve_user(x), self) for x in raw_subscriptions
+        ]
         with self.get_pool() as pool:
-            tasks = pool.starmap(self.assign_user_to_sub, product(raw_subscriptions))
-            subscriptions: list[SubscriptionModel] = await asyncio.gather(*tasks)
+            tasks = pool.starmap(self.assign_user_to_sub, product(subscriptions))
+
+            # Process with progress updates
+            processed = 0
+            for completed_task in asyncio.as_completed(tasks):
+                subscription = await completed_task
+                subscriptions.append(subscription)
+                processed += 1
+
+                # Publish progress every 10 subscriptions or at completion
+                if (
+                    redis
+                    and redis.is_connected
+                    and (processed % 10 == 0 or processed == total_subs)
+                ):
+                    await redis.publish_hook(
+                        {
+                            "event": "subscription_processing",
+                            "event_type": "progress",
+                            "auth_id": self.id,
+                            "username": self.username,
+                            "total": total_subs,
+                            "current": processed,
+                            "current_username": (
+                                subscription.user.username
+                                if subscription.user
+                                else "Unknown"
+                            ),
+                            "timestamp": datetime.now(timezone.utc).isoformat(),
+                        }
+                    )
+
+        # Publish completion event
+        if redis and redis.is_connected:
+            await redis.publish_hook(
+                {
+                    "event": "subscription_processing",
+                    "event_type": "finished",
+                    "auth_id": self.id,
+                    "username": self.username,
+                    "total": total_subs,
+                    "current": total_subs,
+                    "timestamp": datetime.now(timezone.utc).isoformat(),
+                }
+            )
+
         self.subscriptions = subscriptions
         return self.subscriptions
 
@@ -571,7 +562,7 @@ class OnlyFansAuthModel(
 
             return items
 
-        items = await recursive(resume, limit, offset)
+        items: list[dict[str, Any]] = await recursive(resume, limit, offset)
         items.sort(key=lambda x: x["id"], reverse=True)
         self.mass_message_stats = [MassMessageStatModel(x, self.user) for x in items]
         return self.mass_message_stats
@@ -607,10 +598,10 @@ class OnlyFansAuthModel(
             if item["responseType"] == "message":
                 user = await self.get_user(item["fromUser"]["id"])
                 if not user:
-                    user = UserModel(item["fromUser"], self)
+                    user = self.resolve_user(item["fromUser"])
                 content = MessageModel(item, user)
             elif item["responseType"] == "post":
-                user = UserModel(item["author"], self)
+                user = self.resolve_user(item["author"])
                 content = PostModel(item, user)
             if content:
                 author = content.get_author()

@@ -6,12 +6,14 @@ from typing import TYPE_CHECKING, Any, Literal
 from urllib import parse
 
 import ultima_scraper_api.apis.onlyfans.classes.message_model as message_model
+from ultima_scraper_api.apis.onlyfans import SubscriptionType, SubscriptionTypeEnum
 from ultima_scraper_api.apis.onlyfans.classes import post_model
 from ultima_scraper_api.apis.onlyfans.classes.extras import ErrorDetails, endpoint_links
 from ultima_scraper_api.apis.onlyfans.classes.hightlight_model import HighlightModel
 from ultima_scraper_api.apis.onlyfans.classes.mass_message_model import MassMessageModel
 from ultima_scraper_api.apis.onlyfans.classes.story_model import StoryModel
 from ultima_scraper_api.apis.user_streamliner import StreamlinedUser
+from ultima_scraper_api.managers.redis import with_hooks
 from ultima_scraper_api.managers.scrape_manager import ScrapeManager
 
 if TYPE_CHECKING:
@@ -26,10 +28,12 @@ DEFAULT_RECURSION_LIMIT = sys.getrecursionlimit()
 async def recursion(
     category: Literal["list_posts", "list_vault_media", "list_subscriptions"],
     requester: AuthedSession,
+    max_items: int,
     identifier: int | str | None = None,
     query_type: str | None = None,
     limit: int = 10,
     offset: int = 0,
+    before_date: datetime | float | None = None,
     after_date: datetime | float | None = None,
 ):
     sys.setrecursionlimit(1500)
@@ -37,7 +41,10 @@ async def recursion(
         case "list_posts":
             assert identifier
             link = endpoint_links().list_posts(
-                identifier=identifier, limit=limit, after_date=after_date
+                identifier=identifier,
+                limit=limit,
+                before_date=before_date,
+                after_date=after_date,
             )
         case "list_vault_media":
             assert identifier
@@ -45,9 +52,8 @@ async def recursion(
                 list_id=identifier, limit=limit, offset=offset
             )
         case "list_subscriptions":
-            assert query_type
             link = endpoint_links().list_subscriptions(
-                limit=limit, offset=offset, sub_type=query_type
+                limit=limit, offset=offset, sub_type=SubscriptionTypeEnum(query_type)
             )
 
     results = await requester.json_request(link)
@@ -57,14 +63,20 @@ async def recursion(
             return results
     items: list[dict[str, Any]] = results.get("list", [])
     after_date = results.get("tailMarker")
+    if limit + offset >= max_items:
+        items = items[:max_items]
+        sys.setrecursionlimit(DEFAULT_RECURSION_LIMIT)
+        return items
     if results["hasMore"]:
         results2 = await recursion(
             category,
             requester,
+            max_items=max_items,
             identifier=identifier,
             query_type=query_type,
             limit=limit,
             offset=offset + limit,
+            before_date=before_date,
             after_date=after_date,
         )
         items.extend(results2)
@@ -115,7 +127,7 @@ class UserModel(StreamlinedUser["OnlyFansAuthModel", "OnlyFansAPI"]):
         self.can_send_chat_to_all: bool | None = option.get("canSendChatToAll")
         self.credits_min: int | None = option.get("creditsMin")
         self.credits_max: int | None = option.get("creditsMax")
-        self.is_paywall_restriction: bool = option.get("isPaywallRestriction")
+        self.is_paywall_restriction: bool = option.get("isPaywallRestriction", False)
         self.unprofitable: bool = option.get("unprofitable", False)
         self.lists_sort: str | None = option.get("listsSort")
         self.lists_sort_order: str | None = option.get("listsSortOrder")
@@ -206,12 +218,11 @@ class UserModel(StreamlinedUser["OnlyFansAuthModel", "OnlyFansAPI"]):
         self.custom_watermark_text: Any | None = option.get("customWatermarkText")
         self.has_watermark_photo: bool | None = option.get("hasWatermarkPhoto")
         self.has_watermark_video: bool | None = option.get("hasWatermarkVideo")
-        self.can_delete: bool = option.get("canDelete")
         self.is_telegram_connected: bool | None = option.get("isTelegramConnected")
-        self.adv_block: list | None = option.get("advBlock")
+        self.adv_block: list[str] | None = option.get("advBlock")
         self.has_purchased_posts: bool | None = option.get("hasPurchasedPosts")
         self.is_email_required: bool | None = option.get("isEmailRequired")
-        self.is_payout_legal_approved: bool = option.get("isPayoutLegalApproved")
+        self.is_payout_legal_approved: bool | None = option.get("isPayoutLegalApproved")
         self.payout_legal_approve_state: str | None = option.get(
             "payoutLegalApproveState"
         )
@@ -238,14 +249,15 @@ class UserModel(StreamlinedUser["OnlyFansAuthModel", "OnlyFansAPI"]):
         )
         self.wallet_autorecharge_min: int | None = option.get("walletAutorechargeMin")
         self.wallet_first_rebills: bool | None = option.get("walletFirstRebills")
-        self.close_friends: int = option.get("closeFriends")
         self.can_alternative_wallet_top_up: bool | None = option.get(
             "canAlternativeWalletTopUp"
         )
         self.need_iv_approve: bool | None = option.get("needIVApprove")
         self.iv_status: Any | None = option.get("ivStatus")
         self.iv_fail_reason: Any | None = option.get("ivFailReason")
-        self.can_check_docs_on_add_card: bool = option.get("canCheckDocsOnAddCard")
+        self.can_check_docs_on_add_card: bool | None = option.get(
+            "canCheckDocsOnAddCard"
+        )
         self.face_id_available: bool | None = option.get("faceIdAvailable")
         self.iv_country: str | None = option.get("ivCountry")
         self.iv_forced_verified: bool | None = option.get("ivForcedVerified")
@@ -283,9 +295,9 @@ class UserModel(StreamlinedUser["OnlyFansAuthModel", "OnlyFansAPI"]):
         self.message_max_price: int | None = option.get("messageMaxPrice")
         self.post_min_price: int | None = option.get("postMinPrice")
         self.post_max_price: int | None = option.get("postMaxPrice")
-        self.stream_min_price: int = option.get("streamMinPrice")
-        self.stream_max_price: int = option.get("streamMaxPrice")
-        self.can_create_paid_stream: bool = option.get("canCreatePaidStream")
+        self.stream_min_price: int | None = option.get("streamMinPrice")
+        self.stream_max_price: int | None = option.get("streamMaxPrice")
+        self.can_create_paid_stream: bool | None = option.get("canCreatePaidStream")
         self.call_min_price: int | None = option.get("callMinPrice")
         self.call_max_price: int | None = option.get("callMaxPrice")
         self.subscribe_min_price: float | None = option.get("subscribeMinPrice")
@@ -308,7 +320,7 @@ class UserModel(StreamlinedUser["OnlyFansAuthModel", "OnlyFansAPI"]):
         self.can_create_vault_lists: bool | None = option.get("canCreateVaultLists")
         self.can_make_profile_links: bool | None = option.get("canMakeProfileLinks")
         self.reply_on_subscribe: bool | None = option.get("replyOnSubscribe")
-        self.payout_type: str = option.get("payoutType")
+        self.payout_type: str | None = option.get("payoutType")
         self.min_payout_summ: int | None = option.get("minPayoutSumm")
         self.can_has_w9_form: bool | None = option.get("canHasW9Form")
         self.is_vat_required: bool | None = option.get("isVatRequired")
@@ -320,7 +332,7 @@ class UserModel(StreamlinedUser["OnlyFansAuthModel", "OnlyFansAPI"]):
         )
         self.vat_number_name: str | None = option.get("vatNumberName")
         self.is_country_with_vat: bool | None = option.get("isCountryWithVat")
-        self.connected_of_accounts: list | None = option.get("connectedOfAccounts")
+        self.connected_of_accounts: list[Any] | None = option.get("connectedOfAccounts")
         self.has_password: bool | None = option.get("hasPassword")
         self.has_recently_expired: bool | None = option.get("hasRecentlyExpired")
         self.labels_sort: str | None = option.get("labelsSort")
@@ -337,13 +349,35 @@ class UserModel(StreamlinedUser["OnlyFansAuthModel", "OnlyFansAPI"]):
             authed.add_user(self)
         self.username = self.get_username()
         self.download_info: dict[str, Any] = {}
-        self.duplicate_media = []
+        self.duplicate_media: list[Any] = []
         self.scrape_manager = ScrapeManager[
             "OnlyFansAuthModel", authed.get_api().CategorizedContent
         ](authed)
         self.__raw__ = option
         self.__db_user__: Any = None
         super().__init__(authed)
+
+    def update_from_dict(self, option: dict[str, Any]) -> None:
+        """Update the user's properties with fresh data from API response.
+
+        This method re-initializes the object with new data while preserving
+        cached/computed properties like scrape_manager, download_info, etc.
+        """
+        # Store references to cached data that shouldn't be overwritten
+        preserved_data: dict[str, Any] = {
+            "scrape_manager": self.scrape_manager,
+            "download_info": self.download_info,
+            "duplicate_media": self.duplicate_media,
+            "__db_user__": self.__db_user__,
+        }
+
+        # Re-run the initialization logic with new data
+        # This ensures all properties are updated consistently
+        self.__init__(option, self.get_authed())
+
+        # Restore preserved data
+        for key, value in preserved_data.items():
+            setattr(self, key, value)
 
     def get_username(self):
         if not self.username:
@@ -402,10 +436,12 @@ class UserModel(StreamlinedUser["OnlyFansAuthModel", "OnlyFansAPI"]):
                     final_results = [StoryModel(x, self) for x in result["stories"]]
         return final_results
 
+    @with_hooks
     async def get_posts(
         self,
         label: Literal["archived", "private_archived"] | str = "",
-        limit: int = 50,
+        limit: int | None = None,
+        before_date: datetime | float | None = None,
         after_date: datetime | float | None = None,
     ) -> list[PostModel]:
         """
@@ -420,24 +456,33 @@ class UserModel(StreamlinedUser["OnlyFansAuthModel", "OnlyFansAPI"]):
         Returns:
             list[create_post]: List of scraped posts.
         """
+        max_pagination_limit = 50  # maximum number of results per request
         epl = endpoint_links()
-        if after_date is None:
-            api_count = self.posts_count
-            if label == "archived":
-                api_count = self.archived_posts_count
-            elif label == "private_archived":
-                if not self.is_authed_user():
-                    return []
-                api_count = self.private_archived_posts_count
+        api_count = self.posts_count
+        if label == "archived":
+            api_count = self.archived_posts_count
+        elif label == "private_archived":
+            if not self.is_authed_user():
+                return []
+            api_count = self.private_archived_posts_count
+        limit = limit if limit else api_count
+
+        if after_date is None and before_date is None:
             link = epl.list_posts(self.id, label=label)
-            links = epl.create_links(link, api_count, limit=limit)
+            links = epl.create_links(
+                link,
+                limit,
+                pagination_limit=max_pagination_limit,
+            )
             results = await self.scrape_manager.bulk_scrape(links)
         else:
             results = await recursion(
                 category="list_posts",
                 requester=self.get_requester(),
+                max_items=limit,
                 identifier=self.id,
-                limit=limit,
+                limit=max_pagination_limit,
+                before_date=before_date,
                 after_date=after_date,
             )
         final_results = self.finalize_content_set(results)
@@ -454,12 +499,13 @@ class UserModel(StreamlinedUser["OnlyFansAuthModel", "OnlyFansAPI"]):
         result = await self.get_requester().json_request(link)
         final_result = post_model.PostModel(result, self)
         if not final_result.author.id:
-            final_result.author = UserModel(
-                final_result.__raw__["author"], self.get_authed()
+            final_result.author = self.get_authed().resolve_user(
+                final_result.__raw__["author"]
             )
             pass
         return final_result
 
+    @with_hooks
     async def get_messages(
         self,
         limit: int = 20,
@@ -766,7 +812,8 @@ class UserModel(StreamlinedUser["OnlyFansAuthModel", "OnlyFansAPI"]):
         if self.can_has_w9_form:
             url = "https://onlyfans.com/action/download_1099"
             response = await self.get_requester().request(url)
-            return await response.read()
+            if response:
+                return await response.read()
 
     async def block(self):
         block_url = endpoint_links(self.id).block

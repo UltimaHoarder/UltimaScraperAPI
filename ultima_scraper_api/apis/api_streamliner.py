@@ -32,6 +32,15 @@ class Packages:
                 )
 
                 self.CreateAuth = FanslyAuthModel
+            case "loyalfans":
+                from ultima_scraper_api.apis.loyalfans.classes.extras import AuthDetails
+
+                self.AuthDetails = AuthDetails
+                from ultima_scraper_api.apis.loyalfans.classes.auth_model import (
+                    LoyalFansAuthModel,
+                )
+
+                self.CreateAuth = LoyalFansAuthModel
             case _:
                 raise ValueError("Site Doesn't Exist")
 

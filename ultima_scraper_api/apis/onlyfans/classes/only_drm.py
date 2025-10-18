@@ -7,7 +7,7 @@ from typing import TYPE_CHECKING, Any
 import orjson
 import xmltodict
 from pywidevine.cdm import Cdm
-from pywidevine.device import Device, DeviceTypes
+from pywidevine import DeviceTypes, Device
 from pywidevine.pssh import PSSH
 from ultima_scraper_api.apis.onlyfans.classes.extras import endpoint_links
 
@@ -35,7 +35,7 @@ class OnlyDRM:
             client_id=self.client_key,
             private_key=self.private_key,
         )
-        self.cdm = Cdm.from_device(self.device)
+        self.cdm = Cdm.from_device(self.device)  # type: ignore
         self.session_id = self.cdm.open()
         self.authed = authed
 
@@ -84,6 +84,7 @@ class OnlyDRM:
         r = await self.authed.get_requester().request(
             dash, premade_settings="", custom_cookies=cookie_str
         )
+        assert r
         xml = xmltodict.parse(await r.text())
         mpd: dict[str, Any] = orjson.loads(orjson.dumps(xml))
         return mpd
@@ -112,6 +113,7 @@ class OnlyDRM:
         licence = await self.authed.get_requester().request(
             url, method="POST", data=challenge
         )
+        assert licence
         return await licence.read()
 
     async def get_keys(self, licence: bytes):

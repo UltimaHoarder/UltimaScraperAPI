@@ -2,10 +2,14 @@ import copy
 import math
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Literal, Optional, Union
+from typing import TYPE_CHECKING, Any, Literal, Optional, Union
 from urllib.parse import parse_qs, parse_qsl, urlencode, urlparse, urlunparse
 
-from ultima_scraper_api.apis.onlyfans import SubscriptionType
+from ultima_scraper_api.apis.onlyfans import SubscriptionType, SubscriptionTypeEnum
+from ultima_scraper_api.managers.session_manager import SessionManager
+
+if TYPE_CHECKING:
+    from ultima_scraper_api.apis.onlyfans.onlyfans import DynamicRulesModel
 
 
 def format_url(url: str):
@@ -207,13 +211,15 @@ class endpoint_links(object):
         label: str = "",
         limit: int = 10,
         offset: int = 0,
+        before_date: datetime | float | None = None,
         after_date: datetime | float | None = None,
     ):
-        url = (
-            f"{self.full_url_path}/users/{identifier}/posts?limit={limit}&offset={offset}&order=publish_date_desc&skip_users_dups=0&label={label}"
-            if not after_date
-            else f"{self.full_url_path}/users/{identifier}/posts?limit={limit}&afterPublishTime={after_date.timestamp() if isinstance(after_date, datetime) else after_date}&order=publish_date_desc&format=infinite"
-        )
+        if before_date:
+            url = f"{self.full_url_path}/users/{identifier}/posts?limit={limit}&beforePublishTime={before_date.timestamp() if isinstance(before_date, datetime) else before_date}&order=publish_date_desc&format=infinite"
+        elif after_date:
+            url = f"{self.full_url_path}/users/{identifier}/posts?limit={limit}&afterPublishTime={after_date.timestamp() if isinstance(after_date, datetime) else after_date}&order=publish_date_desc&format=infinite"
+        else:
+            url = f"{self.full_url_path}/users/{identifier}/posts?limit={limit}&offset={offset}&order=publish_date_desc&skip_users_dups=0&label={label}"
         return url
 
     def list_messages(
@@ -275,47 +281,43 @@ class endpoint_links(object):
         self,
         limit: int = 20,
         offset: int = 0,
-        sub_type: SubscriptionType = "all",
+        sub_type: SubscriptionType = SubscriptionTypeEnum.ALL,
         filter: str = "",
     ):
+        sub_type = SubscriptionTypeEnum(sub_type).value
         url = format_url(
             f"{self.full_url_path}/subscriptions/subscribes?limit={limit}&offset={offset}&type={sub_type}&filter[{filter}]=1&format=infinite"
         )
         return url
 
-    def subscription_count(
-        self, sub_type: SubscriptionType = "all", filter_value: str | None = None
-    ):
-        base_url = f"{self.full_url_path}/subscriptions/count/{sub_type}"
-        if filter_value:
-            base_url = f"{self.full_url_path}/subscriptions/subscribes/count"
-            url = f"{base_url}?type={sub_type}&filter[{filter_value}]=1"
-        else:
-            url = base_url
+    def subscription_count(self):
+        url = f"{self.full_url_path}/subscriptions/count/all"
         parsed = urlparse(url)
         query_params = dict(parse_qsl(parsed.query))
 
         encoded_params = urlencode(query_params)
-        url = f"{base_url}?{encoded_params}"
+        url = f"{url}?{encoded_params}"
         return url
 
-    def create_links(self, url: str, api_count: int, limit: int = 10, offset: int = 0):
+    def create_links(
+        self, url: str, max_items: int, pagination_limit: int = 10, offset: int = 0
+    ):
         """
         This function will create a list of links depending on their content count.
 
         Example:\n
-        create_links(link="base_link", api_count=50) will return a list with 5 links if limit=10.
+        create_links(link="base_link", limit=100) will return a list with 2 link(s) if pagination_limit=50.
         """
         final_links: list[str] = []
-        if api_count:
-            ceil = math.ceil(api_count / limit)
+        if max_items:
+            ceil = math.ceil(max_items / pagination_limit)
             numbers = list(range(ceil))
             for num in numbers:
-                num = num * limit
+                num = num * pagination_limit
                 parsed_url = urlparse(url)
                 query_params = parse_qs(parsed_url.query)
                 limit_value = query_params["limit"][0]
-                url = url.replace(f"limit={limit_value}", f"limit={limit}")
+                url = url.replace(f"limit={limit_value}", f"limit={pagination_limit}")
                 new_link = url.replace(f"offset={offset}", f"offset={num}")
                 final_links.append(new_link)
         return final_links
@@ -333,7 +335,7 @@ class endpoint_links(object):
 
 
 def create_headers(
-    dynamic_rules: dict[str, Any],
+    dynamic_rules: DynamicRulesModel,
     auth_id: Union[str, int],
     x_bc: str,
     user_agent: str = "",
@@ -344,7 +346,7 @@ def create_headers(
     headers["referer"] = link
     headers["x-bc"] = x_bc
     headers["user-id"] = str(auth_id)
-    for remove_header in dynamic_rules["remove_headers"]:
+    for remove_header in dynamic_rules.remove_headers:
         remove_header = remove_header.replace("_", "-")
         headers.pop(remove_header)
     return headers

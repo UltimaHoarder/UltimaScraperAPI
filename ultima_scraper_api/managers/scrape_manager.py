@@ -22,13 +22,15 @@ class ScrapeManager(Generic[TAPI, TCC]):
         result = await asyncio.gather(
             *[self.scrape(x) for x in urls], return_exceptions=True
         )
-        final_result = list(chain(*result))
+        valid_results = [r for r in result if not isinstance(r, BaseException)]
+        final_result: list[Any] = list(chain(*valid_results))
         return final_result
 
     async def scrape(self, url: str):
         auth_session = self.auth_session
         async with auth_session.semaphore:
             result = await auth_session.request(url)
+            assert result
             async with result as response:
                 if result.status != 404:
                     json_res = await response.json()

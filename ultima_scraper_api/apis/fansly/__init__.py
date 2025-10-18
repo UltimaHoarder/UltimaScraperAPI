@@ -14,7 +14,6 @@ class SiteContent:
         self.id: int = int(option["id"])
         self.author = user
         self.media: list[dict[str, Any]] = option.get("media", [])
-        self.preview_ids: list[int] = []
         self.__raw__ = option
 
     def url_picker(self, media_item: dict[str, Any], video_quality: str = ""):

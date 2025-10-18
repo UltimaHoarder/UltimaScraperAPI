@@ -9,17 +9,18 @@ import shutil
 import subprocess
 from datetime import datetime, timedelta
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, BinaryIO, Type, TypeVar
+from typing import TYPE_CHECKING, Any, BinaryIO, Type, TypeVar, cast
 
 import orjson
 import requests
-import ultima_scraper_api
-import ultima_scraper_api.classes.prepare_webhooks as prepare_webhooks
 from aiofiles import os as async_os
 from alive_progress import alive_bar  # type: ignore
 from bs4 import BeautifulSoup
 from dateutil.relativedelta import relativedelta
 from mergedeep import Strategy, merge  # type: ignore
+
+import ultima_scraper_api
+from ultima_scraper_api.classes.prepare_webhooks import Discord, Embed
 
 if TYPE_CHECKING:
     api_types = ultima_scraper_api.api_types
@@ -27,55 +28,6 @@ if TYPE_CHECKING:
 
 
 os_name = platform.system()
-
-
-try:
-    from psutil import disk_usage
-except ImportError:
-    import errno
-    from collections import namedtuple
-
-    # https://github.com/giampaolo/psutil/blob/master/psutil/_common.py#L176
-    sdiskusage = namedtuple("sdiskusage", ["total", "used", "free", "percent"])
-
-    # psutil likes to round the disk usage percentage to 1 decimal
-    # https://github.com/giampaolo/psutil/blob/master/psutil/_common.py#L365
-    def disk_usage(path: str, round_: int = 1):
-        # check if path exists
-        if not os.path.exists(path):
-            raise FileNotFoundError(errno.ENOENT, os.strerror(errno.ENOENT), path)
-
-        # on POSIX systems you can pass either a file or a folder path
-        # Windows only allows folder paths
-        if not os.path.isdir(path):
-            path = os.path.dirname(path)
-
-        if os_name == "Windows":
-            import ctypes
-
-            total_bytes = ctypes.c_ulonglong(0)
-            free_bytes = ctypes.c_ulonglong(0)
-            ctypes.windll.kernel32.GetDiskFreeSpaceExW(
-                ctypes.c_wchar_p(path),
-                None,
-                ctypes.pointer(total_bytes),
-                ctypes.pointer(free_bytes),
-            )
-            return sdiskusage(
-                total_bytes.value,
-                total_bytes.value - free_bytes.value,
-                free_bytes.value,
-                round(
-                    (total_bytes.value - free_bytes.value) * 100 / total_bytes.value,
-                    round_,
-                ),
-            )
-        else:  # Linux, Darwin, ...
-            st = os.statvfs(path)
-            total = st.f_blocks * st.f_frsize
-            free = st.f_bavail * st.f_frsize
-            used = total - free
-            return sdiskusage(total, used, free, round(100 * used / total, round_))
 
 
 def clean_text(string: str, remove_spaces: bool = False):
@@ -98,25 +50,12 @@ def clean_text(string: str, remove_spaces: bool = False):
 
 
 async def format_media_set(media_set: list[dict[str, Any]]):
-    merged: dict[str, Any] = merge({}, *media_set, strategy=Strategy.ADDITIVE)
+    merged = cast(dict[str, Any], merge({}, *media_set, strategy=Strategy.ADDITIVE))
     if "directories" in merged:
         for directory in merged["directories"]:
             await async_os.makedirs(directory, exist_ok=True)
         merged.pop("directories")
     return merged
-
-
-async def format_file(filepath: Path, timestamp: float, reformat_media: bool):
-    if reformat_media:
-        while True:
-            if os_name == "Windows":
-                from win32_setctime import setctime
-
-                setctime(filepath, timestamp)
-                # print(f"Updated Creation Time {filepath}")
-            await asyncio.to_thread(os.utime, filepath, (timestamp, timestamp))
-            # print(f"Updated Modification Time {filepath}")
-            break
 
 
 def prompt_modified(message: str, path: Path | None = None):
@@ -195,8 +134,8 @@ async def send_webhook(
             username = auth.username
             if webhook_hide_sensitive_info:
                 username = "REDACTED"
-            message = prepare_webhooks.discord()
-            embed = message.embed()
+            message = Discord()
+            embed = Embed()
             embed.title = f"Auth {category2.capitalize()}"
             embed.add_field("username", username)
             message.embeds.append(embed)
@@ -207,13 +146,15 @@ async def send_webhook(
         for subscription in subscriptions:
             if await subscription.user.if_scraped():
                 for webhook_link in webhook_links:
-                    message = prepare_webhooks.discord()
-                    embed = message.embed()
+                    message = Discord()
+                    embed = Embed()
                     embed.title = f"Downloaded: {subscription.username}"
                     embed.add_field("username", subscription.username)
-                    embed.add_field("post_count", subscription.user.posts_count)
+                    embed.add_field("post_count", str(subscription.user.posts_count))
                     embed.add_field("link", subscription.user.get_link())
-                    embed.image.url = subscription.user.avatar
+                    embed.image.url = (
+                        subscription.user.avatar if subscription.user.avatar else ""
+                    )
                     message.embeds.append(embed)
                     message = orjson.loads(
                         json.dumps(message, default=lambda o: o.__dict__)

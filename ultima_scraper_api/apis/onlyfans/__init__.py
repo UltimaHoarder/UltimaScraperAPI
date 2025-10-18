@@ -1,78 +1,103 @@
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any, Literal
+from enum import Enum
+from typing import TYPE_CHECKING, Any, Literal, TypeAlias
 from urllib.parse import ParseResult, urlparse
 
-SubscriptionType = Literal["all", "active", "expired", "attention"]
+
+class SubscriptionTypeEnum(str, Enum):
+    ALL = "all"
+    ACTIVE = "active"
+    EXPIRED = "expired"
+    ATTENTION = "attention"
+
+
+SubscriptionType: TypeAlias = (
+    Literal[
+        SubscriptionTypeEnum.ALL,
+        SubscriptionTypeEnum.ACTIVE,
+        SubscriptionTypeEnum.EXPIRED,
+        SubscriptionTypeEnum.ATTENTION,
+    ]
+    | str
+)
 
 if TYPE_CHECKING:
+    from ultima_scraper_api.apis.onlyfans.classes.media_model import MediaModel
     from ultima_scraper_api.apis.onlyfans.classes.user_model import UserModel
 
 
 def url_picker(
-    author: "UserModel", media_item: dict[str, Any], video_quality: str = ""
+    author: "UserModel",
+    media_item: "MediaModel",
+    video_quality: str = "",
 ) -> ParseResult | None:
     authed = author.get_authed()
     video_quality = (
         video_quality or author.get_api().get_site_settings().media_quality.video
     )
-    if not media_item["canView"]:
+
+    if not media_item.canView:
         return
+
     source: dict[str, Any] = {}
-    media_type: str = ""
-    video_qualities = media_item.get("videoSources", {})
-    if "source" in media_item:
-        media_type = media_item["type"]
-        source = media_item["source"]
-    elif "files" in media_item:
-        media_type = media_item["type"]
-        source = media_item["files"]["full"]
+    media_type = media_item.type
+
+    # Handle legacy source format or new files format
+    if media_item.source:
+        source = media_item.source
+    elif media_item.files and media_item.files.full:
+        source = {
+            "url": media_item.files.full.url,
+            "width": media_item.files.full.width,
+            "height": media_item.files.full.height,
+        }
     else:
         return
+
     quality_key = "source"
     url = source.get(quality_key, source.get("url"))
+
     if media_type == "video":
-        video_qualities = dict(sorted(video_qualities.items(), reverse=False))
+        video_qualities = dict(sorted(media_item.videoSources.items(), reverse=False))
         for quality, quality_link in video_qualities.items():
             video_quality = video_quality.removesuffix("p")
             if quality == video_quality:
                 if quality_link:
                     url = quality_link
                     break
+
     if authed.drm:
-        has_drm = authed.drm.has_drm(media_item)
+        # DRM handler still needs dict format
+        has_drm = authed.drm.has_drm(media_item.to_dict())
         if has_drm:
             url = has_drm
     return urlparse(url) if url else None
 
 
-def preview_url_picker(media_item: dict[str, Any]):
+def preview_url_picker(media_item: "MediaModel"):
     preview_url: str | None = None
-    if "files" in media_item:
-        if "preview" in media_item["files"]:
-            if (
-                media_item["files"]["preview"] is not None
-                and "url" in media_item["files"]["preview"]
-            ):
-                preview_url = media_item["files"]["preview"]["url"]
+
+    if media_item.files and media_item.files.preview:
+        preview_url = media_item.files.preview.url
     else:
-        preview_url = media_item["preview"]
-        return urlparse(preview_url) if preview_url else None
+        # Fallback to raw dict for legacy "preview" field
+        preview_url = media_item.__raw__.get("preview")
+
+    return urlparse(preview_url) if preview_url else None
 
 
 class SiteContent:
     def __init__(self, option: dict[str, Any], user: UserModel) -> None:
         self.id: int = option["id"]
         self.author = user
-        self.media: list[dict[str, Any]] = option.get("media", [])
-        self.preview_ids: list[int] = []
         self.__raw__ = option
         self._proxy: str | None = None
 
-    def url_picker(self, media_item: dict[str, Any], video_quality: str = ""):
+    def url_picker(self, media_item: "MediaModel", video_quality: str = ""):
         return url_picker(self.get_author(), media_item, video_quality)
 
-    def preview_url_picker(self, media_item: dict[str, Any]):
+    def preview_url_picker(self, media_item: "MediaModel"):
         return preview_url_picker(media_item)
 
     def get_author(self):

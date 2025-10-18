@@ -6,6 +6,7 @@ from typing import TYPE_CHECKING, Any
 from ultima_scraper_api.apis.onlyfans import SiteContent
 from ultima_scraper_api.apis.onlyfans.classes.comment_model import CommentModel
 from ultima_scraper_api.apis.onlyfans.classes.extras import endpoint_links
+from ultima_scraper_api.apis.onlyfans.classes.media_model import MediaModel
 
 if TYPE_CHECKING:
     from ultima_scraper_api.apis.onlyfans.classes.user_model import UserModel
@@ -27,6 +28,8 @@ class PostModel(SiteContent):
         self.canComment: bool = option.get("canComment", False)
         self.canEdit: bool = option.get("canEdit", False)
         self.isPinned: bool = option.get("isPinned", False)
+        media_data: list[dict[str, Any]] = option.get("media", [])
+        self.media: list[MediaModel] = [MediaModel(m) for m in media_data]
         self.favoritesCount: int = option.get("favoritesCount", 0)
         self.media_count: int = option.get("mediaCount", 0)
         self.isMediaReady: bool = option.get("isMediaReady", False)
@@ -34,18 +37,18 @@ class PostModel(SiteContent):
         self.isOpened: bool = option.get("isOpened", False)
         self.canToggleFavorite: bool = option.get("canToggleFavorite", False)
         self.streamId: int | None = option.get("streamId")
-        self.price: int | None = option.get("price")
+        self.price: float | None = option.get("price")
         self.hasVoting: bool = option.get("hasVoting", False)
         self.isAddedToBookmarks: bool = option.get("isAddedToBookmarks", False)
         self.isArchived: bool = option.get("isArchived", False)
         self.isDeleted: bool = option.get("isDeleted", False)
         self.hasUrl: bool = option.get("hasUrl", False)
         self.commentsCount: int = option.get("commentsCount", 0)
-        self.mentionedUsers: list = option.get("mentionedUsers", [])
+        self.mentionedUsers: list[dict[str, Any]] = option.get("mentionedUsers", [])
         self.linkedUsers: list[dict[str, Any]] = option.get("linkedUsers", [])
         self.linkedPosts: list[dict[str, Any]] = option.get("linkedPosts", [])
         self.canViewMedia: bool = option.get("canViewMedia", False)
-        self.preview: list[int] = option.get("preview", [])
+        self.previews: list[int] = option.get("preview", [])
         self.canPurchase: bool = option.get("canPurchase", False)
         self.comments: list[CommentModel] = []
         self.fund_raising: dict[str, Any] | None = option.get("fundRaising")
@@ -72,7 +75,7 @@ class PostModel(SiteContent):
 
         authed = self.get_author().get_authed()
         assert authed.user.credit_balance != None
-        if authed.user.credit_balance >= self.price:
+        if self.price and authed.user.credit_balance >= self.price:
             link = endpoint_links(identifier=self.id).pay
             result = (
                 await self.get_author()
@@ -80,7 +83,9 @@ class PostModel(SiteContent):
                 .json_request(link, method="POST", payload=x)
             )
         else:
-            result = {"error": {"code": 2011, "message": "Insufficient Credit Balance"}}
+            result: dict[str, dict[str, int | str]] = {
+                "error": {"code": 2011, "message": "Insufficient Credit Balance"}
+            }
         return result
 
     async def get_comments(self):
@@ -111,9 +116,10 @@ class PostModel(SiteContent):
         return results
 
     async def bought(self):
-        has_bought = True
-        for media in self.media:
-            if media["canView"] == False:
-                has_bought = False
-                break
-        return has_bought
+        return all(media.canView for media in self.media)
+
+    def is_bought(self):
+        return self.bought()
+
+    def get_previews(self):
+        return [x for x in self.media if x.id in self.previews]

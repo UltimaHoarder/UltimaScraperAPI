@@ -14,30 +14,84 @@ from ultima_scraper_api.apis.onlyfans.classes.story_model import StoryModel
 from ultima_scraper_api.apis.onlyfans.classes.user_model import UserModel
 from ultima_scraper_api.config import UltimaScraperAPIConfig
 from ultima_scraper_api.helpers.main_helper import is_pascal_case
+from ultima_scraper_api.managers.websocket_manager import WebSocketManager
 
 if TYPE_CHECKING:
     from ultima_scraper_api.apis.onlyfans.classes.auth_model import OnlyFansAuthModel
 
 
+class DynamicRulesModel:
+    def __init__(self, data: dict[str, Any]) -> None:
+        self.static_param: str = data["static_param"]
+        self.format: str = data["format"]
+        self.checksum_indexes: list[int] = data["checksum_indexes"]
+        self.checksum_constants: list[int] = data["checksum_constants"]
+        self.checksum_constant: int = data["checksum_constant"]
+        self.app_token: str = data["app_token"]
+        self.remove_headers: list[str] = data["remove_headers"]
+        self.error_code: int = data["error_code"]
+        self.message: str = data["message"]
+
+
 class OnlyFansAPI(StreamlinedAPI):
     def __init__(
-        self, config: UltimaScraperAPIConfig = UltimaScraperAPIConfig()
+        self,
+        config: UltimaScraperAPIConfig = UltimaScraperAPIConfig(),
+        websocket_manager: WebSocketManager | None = None,
     ) -> None:
         self.site_name: Literal["OnlyFans"] = "OnlyFans"
         site_settings = config.site_apis.get_settings(self.site_name)
         dynamic_rules_url = getattr(site_settings, "dynamic_rules_url")
         while True:
             try:
-                self.dynamic_rules = httpx.get(dynamic_rules_url, timeout=300).json()
+                dynamic_rules = httpx.get(dynamic_rules_url, timeout=300).json()
+                self.dynamic_rules = DynamicRulesModel(dynamic_rules)
                 break
             except httpx.RequestError:
                 continue
         StreamlinedAPI.__init__(self, self, config)
         self.auths: dict[int, "OnlyFansAuthModel"] = {}
         self.endpoint_links = endpoint_links
+
+        # Store WebSocket manager (passed from UltimaScraperAPI)
+        self.websocket_manager = (
+            websocket_manager if websocket_manager else WebSocketManager(config=config)
+        )
+
+        # Initialize Redis if enabled in config
+        self._setup_redis()
+
+        # Import and store site-specific WebSocket implementation class
+        from ultima_scraper_api.apis.onlyfans.classes.websocket import OnlyFansWebSocket
+
+        self.websocket_impl_class = OnlyFansWebSocket
+
         from ultima_scraper_api.apis.onlyfans.authenticator import OnlyFansAuthenticator
 
         self.authenticator = OnlyFansAuthenticator
+
+    def _setup_redis(self) -> None:
+        """Initialize Redis manager if enabled in config."""
+        try:
+            redis_config = self.config.settings.redis
+
+            if redis_config.enabled:
+                from ultima_scraper_api.managers.redis import (
+                    get_redis,
+                    initialize_redis,
+                )
+
+                # Check if Redis is already initialized
+                if not get_redis():
+                    # Initialize Redis manager (doesn't connect yet)
+                    initialize_redis(redis_config)
+
+        except Exception as e:
+            # Don't crash if Redis initialization fails
+            import logging
+
+            logger = logging.getLogger(__name__)
+            logger.warning(f"Failed to initialize Redis: {e}")
 
     def find_auth(self, identifier: int):
         return self.auths.get(identifier)
@@ -65,18 +119,23 @@ class OnlyFansAPI(StreamlinedAPI):
         if auth_json:
             authed = self.find_auth(auth_json["id"])
         if not authed:
-            temp_auth_details = self.create_auth_details(auth_json)
-            authenticator = self.authenticator(self, temp_auth_details)
+            # Create auth details from curl or json
             if curl_string:
                 temp_auth_details = extract_auth_details_from_curl(curl_string)
-                authenticator = self.authenticator(self, temp_auth_details)
+            else:
+                temp_auth_details = self.create_auth_details(auth_json)
+
+            # Create authenticator only once
+            authenticator = self.authenticator(self, temp_auth_details)
             authed = await authenticator.login(guest)
             if authed and authenticator.is_authed():
                 issues = await authed.get_login_issues()
                 if not guest:
                     authed.issues = issues if issues.get("data") else None
                 self.add_auth(authed)
+                # Don't close authenticator - auth model reuses its session!
             else:
+                # Only close on failure (auth model wasn't created)
                 await authenticator.close()
         return authed
 

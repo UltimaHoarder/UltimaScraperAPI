@@ -5,7 +5,7 @@ from argparse import Namespace
 from multiprocessing import cpu_count
 from multiprocessing.dummy import Pool as ThreadPool
 from multiprocessing.pool import Pool
-from typing import TYPE_CHECKING, Any, Optional
+from typing import TYPE_CHECKING, Any, Optional, cast
 from urllib.parse import urlparse
 
 from mergedeep.mergedeep import Strategy, merge  # type: ignore
@@ -101,18 +101,12 @@ def merge_dictionaries(items: list[dict[str, Any]]):
 
 async def remove_errors(results: Any):
     error_types = ultima_scraper_api.error_types
-    final_results: list[Any] = []
-    wrapped = False
-    if not isinstance(results, list):
-        wrapped = True
-        final_results.append(results)
-    else:
-        final_results = results
-    final_results = [x for x in final_results if not isinstance(x, error_types)]
-    final_results = [x for x in final_results if "error" not in x]
-    if wrapped and final_results:
-        final_results = final_results[0]
-    return final_results
+    wrapped = not isinstance(results, list)
+
+    items = cast(list[Any], [results] if wrapped else results)
+    filtered = [x for x in items if not isinstance(x, error_types) and "error" not in x]
+
+    return filtered[0] if wrapped and filtered else filtered
 
 
 async def extract_list(result: dict[str, Any]):

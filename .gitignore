@@ -146,3 +146,16 @@ $RECYCLE.BIN/
 
 # Project Specific
 typings
+
+# User data
+__user_data__/
+
+# Test files with credentials (DO NOT COMMIT)
+test.py
+test_*.py
+*.secret
+*.secrets
+.env.local
+config.json
+settings.json
+*_credentials.*

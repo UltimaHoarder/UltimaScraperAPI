@@ -291,7 +291,8 @@ class Config(object):
         self.info = Info()
         self.settings = Settings(**settings)
         self.supported = Supported(**supported)
-    def import_json(self, file_path:Path):
+
+    def import_json(self, file_path: Path):
         with file_path.open(encoding="utf-8") as o_file:
             json_file = orjson.loads(o_file.read())
             return Config(**json_file)
@@ -306,7 +307,11 @@ class Config(object):
                         items: list[Path] = value
                         new_list = [x.as_posix() for x in items]
                         SS.__dict__[key] = new_list
-                    case "file_directory_format" | "filename_format" | "metadata_directory_format":
+                    case (
+                        "file_directory_format"
+                        | "filename_format"
+                        | "metadata_directory_format"
+                    ):
                         value_: Path = value
                         final_path = value_.as_posix()
                         SS.__dict__[key] = final_path

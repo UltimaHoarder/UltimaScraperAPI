@@ -56,13 +56,9 @@ class FanslyAuthenticator:
         link = endpoint_links().customer
         user_agent = auth_items.user_agent
         auth_session = self.auth_session
-        session_manager = auth_session.get_session_manager()
-        dynamic_rules = session_manager.dynamic_rules
-        a: list[Any] = [dynamic_rules, user_agent, link]
-        auth_session.headers = create_headers(*a)
         if guest:
             self.guest = True
-            self.__raw__ = {"response": {"account": {"id": 9001}}}
+            self.__raw__ = {"response": {"account": {"id": 0}}}
             return self.create_auth()
 
         while self.auth_attempt < self.max_attempts:
@@ -132,3 +128,18 @@ class FanslyAuthenticator:
             case _:
                 await api_helper.handle_error_details(error)
         self.errors.append(error)
+
+    def create_request_headers(
+        self,
+        link: str,
+        custom_cookies: str = "",
+        extra_headers: dict[str, str] | None = None,
+    ):
+        headers = self.auth_session.headers.copy()
+        if "https://apiv3.fansly.com" in link:
+            headers["authorization"] = self.auth_details.authorization
+            self.is_rate_limited = False
+
+        if extra_headers:
+            headers.update(extra_headers)
+        return headers

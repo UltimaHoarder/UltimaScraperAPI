@@ -23,16 +23,31 @@ class MediaQuality(BaseModel):
     audio: str = "source"
 
 
+class Proxy(BaseModel):
+    url: str
+    username: str | None = None
+    password: str | None = None
+    max_connections: int = -1
+
+
 class Network(BaseModel):
-    max_threads: int = -1
-    proxies: list[str] = []
-    proxy_fallback: bool = True
+    max_connections: int = -1
+    proxies: list[Proxy] = []
+    proxy_fallback: bool = False
 
 
 class Server(BaseModel):
     host: str = "localhost"
     port: int = 8080
     active: bool = False
+
+
+class Redis(BaseModel):
+    host: str = "localhost"
+    port: int = 6379
+    db: int = 0
+    password: str | None = None
+    enabled: bool = True
 
 
 class GlobalCache(BaseModel):
@@ -50,6 +65,7 @@ class Settings(BaseModel):
     network: Network = Network()
     drm: DRM = DRM()
     server: Server = Server()
+    redis: Redis = Redis()
 
 
 class GlobalAPI(BaseModel):
@@ -78,7 +94,7 @@ class Sites(BaseModel):
     onlyfans: OnlyFansAPIConfig = OnlyFansAPIConfig()
     fansly: FanslyAPIConfig = FanslyAPIConfig()
 
-    def get_settings(self, site_name: site_name_literals):
+    def get_settings(self, site_name: str):
         if site_name == "OnlyFans":
             return self.onlyfans
         else:

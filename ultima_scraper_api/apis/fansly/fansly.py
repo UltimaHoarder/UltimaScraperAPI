@@ -8,6 +8,7 @@ from ultima_scraper_api.apis.fansly.classes.message_model import MessageModel
 from ultima_scraper_api.apis.fansly.classes.post_model import PostModel
 from ultima_scraper_api.apis.fansly.classes.story_model import StoryModel
 from ultima_scraper_api.config import UltimaScraperAPIConfig
+from ultima_scraper_api.managers.websocket_manager import WebSocketManager
 
 if TYPE_CHECKING:
     from ultima_scraper_api.apis.fansly.classes.auth_model import FanslyAuthModel
@@ -15,12 +16,22 @@ if TYPE_CHECKING:
 
 class FanslyAPI(StreamlinedAPI):
     def __init__(
-        self, config: UltimaScraperAPIConfig = UltimaScraperAPIConfig()
+        self,
+        config: UltimaScraperAPIConfig = UltimaScraperAPIConfig(),
+        websocket_manager: WebSocketManager | None = None,
     ) -> None:
         self.site_name: Literal["Fansly"] = "Fansly"
         StreamlinedAPI.__init__(self, self, config)
         self.auths: dict[int, "FanslyAuthModel"] = {}
         self.endpoint_links = endpoint_links
+
+        # Store WebSocket manager (passed from UltimaScraperAPI)
+        self.websocket_manager = (
+            websocket_manager if websocket_manager else WebSocketManager(config=config)
+        )
+        # TODO: Implement FanslyWebSocket class
+        self.websocket_impl_class = None  # FanslyWebSocket when implemented
+
         from ultima_scraper_api.apis.fansly.authenticator import FanslyAuthenticator
 
         self.authenticator = FanslyAuthenticator
@@ -55,11 +66,17 @@ class FanslyAPI(StreamlinedAPI):
             authed = await authenticator.login(guest)
             if authed and authenticator.is_authed():
                 self.add_auth(authed)
+                # Don't close authenticator - auth model reuses its session!
+            else:
+                # Only close on failure (auth model wasn't created)
+                await authenticator.close()
         return authed
 
     @asynccontextmanager
     async def login_context(self, auth_json: dict[str, Any] = {}, guest: bool = False):
-        authed = self.find_auth(auth_json["id"])
+        authed = None
+        if auth_json:
+            authed = self.find_auth(auth_json["id"])
         if not authed:
             temp_auth_details = self.create_auth_details(auth_json)
             authenticator = self.authenticator(self, temp_auth_details, guest)

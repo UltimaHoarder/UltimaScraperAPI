@@ -30,7 +30,7 @@ class UserModel(StreamlinedUser["FanslyAuthModel", "FanslyAPI"]):
         self.header: Any = option.get("banner")
         self.header_size: Any = option.get("headerSize")
         self.header_thumbs: Any = option.get("headerThumbs")
-        self.id: int = int(option.get("id", 9001))
+        self.id: int = int(option.get("id", 0))
         self.name: str = option.get("name")
         self.username: str = option.get("username")
         self.can_look_story: bool = option.get("canLookStory")
