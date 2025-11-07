@@ -246,3 +246,16 @@ def validate_identifier(identifier: str, site: str = "onlyfans") -> bool:
         )
 
     return False
+
+
+def resolve_site_name(site_name: str) -> str:
+    site_name = site_name.lower()
+    match site_name:
+        case "onlyfans":
+            return "OnlyFans"
+        case "fansly":
+            return "Fansly"
+        case "loyalfans":
+            return "LoyalFans"
+        case _:
+            raise ValueError(f"Invalid site name: {site_name}")

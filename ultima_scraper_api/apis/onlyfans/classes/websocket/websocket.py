@@ -71,7 +71,7 @@ class OnlyFansWebSocket(WebSocketProtocol):
     async def connect(self) -> None:
         """Establish OnlyFans WebSocket connection with auth headers."""
         url = self.connection_url
-        logger.info(f"Connecting to OnlyFans WebSocket: {url}")
+        logger.debug(f"Connecting to OnlyFans WebSocket: {url}")
 
         # Get auth details for headers
         auth_details = self.auth.get_auth_details()
@@ -91,7 +91,7 @@ class OnlyFansWebSocket(WebSocketProtocol):
             compression="deflate",
         )
 
-        logger.info("OnlyFans WebSocket connected")
+        logger.debug("OnlyFans WebSocket connected")
 
         # Send initial connect frame with auth token if available
         token = self.auth.user.ws_auth_token

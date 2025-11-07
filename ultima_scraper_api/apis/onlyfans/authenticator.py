@@ -17,9 +17,8 @@ from ultima_scraper_api.apis.onlyfans.classes.extras import (
     create_headers,
     endpoint_links,
 )
-from ultima_scraper_api.apis.onlyfans.classes.user_model import UserModel
 from ultima_scraper_api.apis.onlyfans.onlyfans import OnlyFansAPI
-from ultima_scraper_api.managers.session_manager import AuthedSession, SessionManager
+from ultima_scraper_api.managers.session_manager import AuthedSession
 
 
 def extract_auth_details_from_curl(credentials: str) -> AuthDetails:
@@ -109,7 +108,6 @@ class OnlyFansAuthenticator:
     async def login(self, guest: bool = False):
         asyncio.create_task(self.auth_session.session_manager.check_rate_limit())
         auth_items = self.auth_details
-        assert auth_items
         if guest and auth_items:
             auth_items.cookie.auth_id = "0"
             auth_items.user_agent = generate_user_agent()

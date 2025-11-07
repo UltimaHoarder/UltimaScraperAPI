@@ -245,24 +245,38 @@ async with api.login_context(auth_json) as authed:
 ### Working with Media
 
 ```python
-async with api.login_context(auth_json) as authed:
+from ultima_scraper_api.apis.onlyfans import url_picker
+
+authed = await onlyfans_api.login(auth_json=auth_json)
+
+if authed and authed.is_authed():
     user = await authed.get_user("username")
     posts = await user.get_posts(limit=10)
     
     for post in posts:
         if post.media:
             for media in post.media:
-                print(f"Media Type: {media.media_type}")
-                print(f"URL: {media.url}")
+                print(f"Media Type: {media.type}")
+                print(f"Media ID: {media.id}")
                 
-                # Download media content
-                content = await media.download()
+                # Get media URL using url_picker
+                media_url = url_picker(post.get_author(), media)
                 
-                # Save to file
-                filename = f"{media.id}.{media.extension}"
-                with open(filename, 'wb') as f:
-                    f.write(content)
-                print(f"Saved: {filename}")
+                if media_url:
+                    # Download media content
+                    response = await authed.auth_session.request(
+                        media_url.geturl(),
+                        premade_settings=""
+                    )
+                    
+                    if response:
+                        content = await response.read()
+                        
+                        # Save to file
+                        filename = f"{media.id}.{media.type}"
+                        with open(filename, 'wb') as f:
+                            f.write(content)
+                        print(f"Saved: {filename}")
 ```
 
 ### Fetching Messages

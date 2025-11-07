@@ -30,12 +30,19 @@ UltimaScraperAPI uses asyncio for several reasons:
 
 ```python
 import asyncio
-from ultima_scraper_api import OnlyFansAPI, UltimaScraperAPIConfig
+from ultima_scraper_api import UltimaScraperAPI
+from ultima_scraper_api.config import UltimaScraperAPIConfig
 
 async def main():
     """All API operations must be inside async functions."""
     config = UltimaScraperAPIConfig()
-    api = OnlyFansAPI(config)
+    
+    # Initialize UltimaScraperAPI
+    api = UltimaScraperAPI(config)
+    await api.init()
+    
+    # Get OnlyFans API instance
+    onlyfans_api = api.api_instances.OnlyFans
     
     auth_json = {
         "cookie": "...",
@@ -43,12 +50,13 @@ async def main():
         "x-bc": "..."
     }
     
-    # Use async with for context management
-    async with api.login_context(auth_json) as authed:
-        if authed and authed.is_authed():
-            # All API calls must be awaited
-            me = await authed.get_authed_user()
-            print(f"Logged in as: {me.username}")
+    # Login and authenticate
+    authed = await onlyfans_api.login(auth_json=auth_json)
+    
+    if authed and authed.is_authed():
+        # All API calls must be awaited
+        me = await authed.get_me()
+        print(f"Logged in as: {me.username}")
 
 # Entry point - runs the async main function
 if __name__ == "__main__":
@@ -62,65 +70,77 @@ if __name__ == "__main__":
 
 ## Context Managers
 
-UltimaScraperAPI uses async context managers to handle resource cleanup automatically.
+UltimaScraperAPI uses async patterns for managing resources and ensuring proper cleanup.
 
-### The `login_context()` Pattern
+### The Login Pattern
 
 ```python
-async with api.login_context(auth_json) as authed:
+# Initialize and login
+api = UltimaScraperAPI(config)
+await api.init()
+onlyfans_api = api.api_instances.OnlyFans
+
+# Login
+authed = await onlyfans_api.login(auth_json=auth_json)
+
+if authed and authed.is_authed():
     # Context is active - session is open
     # All operations happen here
-    user = await authed.get_authed_user()
-    
-# Context exits - session is automatically closed
-# Resources are cleaned up
+    me = await authed.get_me()
+    print(f"Logged in as: {me.username}")
 ```
 
 **Benefits:**
 
-- ✅ Automatic session cleanup
-- ✅ Proper connection handling
-- ✅ Exception-safe resource management
+- ✅ Direct control over authentication
+- ✅ Proper session handling
+- ✅ Flexible resource management
 - ✅ No memory leaks
 
-### Without Context Manager (Not Recommended)
+### Without Proper Session Handling (Not Recommended)
 
 ```python
-# ❌ Manual resource management - easy to forget cleanup
-api = OnlyFansAPI(config)
-authed = await api.login(auth_json)
+# ❌ Without initialization - may cause issues
+api = UltimaScraperAPI(config)
+# Missing: await api.init()
+
+onlyfans_api = api.api_instances.OnlyFans
+authed = await onlyfans_api.login(auth_json=auth_json)
 # ... do work ...
-await authed.close()  # Must remember to close!
+# Must ensure proper cleanup
 ```
 
-### Nested Context Managers
+### Working with Multiple Platforms
 
-Working with multiple resources:
+Working with multiple platforms simultaneously:
 
 ```python
 async def multi_platform():
     """Work with multiple platforms simultaneously."""
     config = UltimaScraperAPIConfig()
     
-    of_api = OnlyFansAPI(config)
-    fansly_api = FanslyAPI(config)
+    api = UltimaScraperAPI(config)
+    await api.init()
+    
+    # Get API instances
+    of_api = api.api_instances.OnlyFans
+    fansly_api = api.api_instances.Fansly
     
     of_auth = {...}  # OnlyFans credentials
     fansly_auth = {...}  # Fansly credentials
     
-    # Nested contexts - both are cleaned up properly
-    async with of_api.login_context(of_auth) as of_authed:
-        async with fansly_api.login_context(fansly_auth) as fansly_authed:
-            # Both sessions active
-            if of_authed and of_authed.is_authed():
-                of_user = await of_authed.get_authed_user()
-                print(f"OnlyFans: {of_user.username}")
-            
-            if fansly_authed and fansly_authed.is_authed():
-                fansly_user = await fansly_authed.get_authed_user()
-                print(f"Fansly: {fansly_user.username}")
+    # Login to both platforms
+    of_authed = await of_api.login(auth_json=of_auth)
+    fansly_authed = await fansly_api.login(auth_json=fansly_auth)
     
-    # Both sessions closed and cleaned up
+    # Both sessions active
+    if of_authed and of_authed.is_authed():
+        of_user = await of_authed.get_me()
+        print(f"OnlyFans: {of_user.username}")
+    
+    if fansly_authed and fansly_authed.is_authed():
+        fansly_user = await fansly_authed.get_me()
+        print(f"Fansly: {fansly_user.username}")
 ```
 
 ## Common API Operations
@@ -131,25 +151,31 @@ async def multi_platform():
 
 ```python
 import asyncio
-from ultima_scraper_api import OnlyFansAPI, UltimaScraperAPIConfig
+from ultima_scraper_api import UltimaScraperAPI
+from ultima_scraper_api.config import UltimaScraperAPIConfig
 
 async def get_my_info():
     """Get information about the authenticated user."""
     config = UltimaScraperAPIConfig()
-    api = OnlyFansAPI(config)
+    
+    api = UltimaScraperAPI(config)
+    await api.init()
+    
+    onlyfans_api = api.api_instances.OnlyFans
     
     auth_json = {...}  # Your credentials
     
-    async with api.login_context(auth_json) as authed:
-        if authed and authed.is_authed():
-            # Get your own user information
-            me = await authed.get_authed_user()
-            
-            print(f"Username: {me.username}")
-            print(f"Display Name: {me.name}")
-            print(f"User ID: {me.id}")
-            print(f"Email: {me.email if hasattr(me, 'email') else 'N/A'}")
-            print(f"Verified: {me.is_verified if hasattr(me, 'is_verified') else 'N/A'}")
+    authed = await onlyfans_api.login(auth_json=auth_json)
+    
+    if authed and authed.is_authed():
+        # Get your own user information
+        me = await authed.get_me()
+        
+        print(f"Username: {me.username}")
+        print(f"Display Name: {me.name}")
+        print(f"User ID: {me.id}")
+        print(f"Email: {me.email if hasattr(me, 'email') else 'N/A'}")
+        print(f"Verified: {me.is_verified if hasattr(me, 'is_verified') else 'N/A'}")
 
 asyncio.run(get_my_info())
 ```
@@ -160,22 +186,27 @@ asyncio.run(get_my_info())
 async def get_other_user():
     """Get information about another user."""
     config = UltimaScraperAPIConfig()
-    api = OnlyFansAPI(config)
+    
+    api = UltimaScraperAPI(config)
+    await api.init()
+    
+    onlyfans_api = api.api_instances.OnlyFans
     
     auth_json = {...}
     
-    async with api.login_context(auth_json) as authed:
-        if authed and authed.is_authed():
-            # Get another user by username
-            user = await authed.get_user("username")
-            
-            if user:
-                print(f"Found: {user.name} (@{user.username})")
-                print(f"ID: {user.id}")
-                print(f"Posts: {user.posts_count if hasattr(user, 'posts_count') else 'N/A'}")
-                print(f"Subscribers: {user.subscriber_count if hasattr(user, 'subscriber_count') else 'N/A'}")
-            else:
-                print("User not found")
+    authed = await onlyfans_api.login(auth_json=auth_json)
+    
+    if authed and authed.is_authed():
+        # Get another user by username
+        user = await authed.get_user("username")
+        
+        if user:
+            print(f"Found: {user.name} (@{user.username})")
+            print(f"ID: {user.id}")
+            print(f"Posts: {user.posts_count if hasattr(user, 'posts_count') else 'N/A'}")
+            print(f"Subscribers: {user.subscriber_count if hasattr(user, 'subscriber_count') else 'N/A'}")
+        else:
+            print("User not found")
 
 asyncio.run(get_other_user())
 ```
@@ -298,7 +329,11 @@ from ultima_scraper_api import OnlyFansAPI, UltimaScraperAPIConfig
 async def download_media():
     """Download media from posts."""
     config = UltimaScraperAPIConfig()
-    api = OnlyFansAPI(config)
+    
+    api = UltimaScraperAPI(config)
+    await api.init()
+    
+    onlyfans_api = api.api_instances.OnlyFans
     
     auth_json = {...}
     
@@ -306,34 +341,46 @@ async def download_media():
     download_dir = Path("downloads")
     download_dir.mkdir(exist_ok=True)
     
-    async with api.login_context(auth_json) as authed:
-        if authed and authed.is_authed():
-            user = await authed.get_user("username")
-            posts = await user.get_posts(limit=10)
+    authed = await onlyfans_api.login(auth_json=auth_json)
+    
+    if authed and authed.is_authed():
+        user = await authed.get_user("username")
+        posts = await user.get_posts(limit=10)
+        
+        for post in posts:
+            if not post.media:
+                continue
             
-            for post in posts:
-                if not post.media:
-                    continue
-                
-                print(f"Downloading from post {post.id}...")
-                
-                for media in post.media:
-                    try:
+            print(f"Downloading from post {post.id}...")
+            
+            for media in post.media:
+                try:
+                    # Get media URL using url_picker
+                    from ultima_scraper_api.apis.onlyfans import url_picker
+                    media_url = url_picker(post.get_author(), media)
+                    
+                    if media_url:
                         # Download media content
-                        content = await media.download()
+                        response = await authed.auth_session.request(
+                            media_url.geturl(),
+                            premade_settings=""
+                        )
                         
-                        # Generate filename
-                        filename = f"post_{post.id}_media_{media.id}.{media.extension}"
-                        filepath = download_dir / filename
-                        
-                        # Save to file
-                        with open(filepath, 'wb') as f:
-                            f.write(content)
-                        
-                        print(f"  ✓ Saved: {filename}")
-                        
-                    except Exception as e:
-                        print(f"  ✗ Error downloading media {media.id}: {e}")
+                        if response:
+                            content = await response.read()
+                            
+                            # Generate filename
+                            filename = f"post_{post.id}_media_{media.id}.{media.type}"
+                            filepath = download_dir / filename
+                            
+                            # Save to file
+                            with open(filepath, 'wb') as f:
+                                f.write(content)
+                            
+                            print(f"  ✓ Saved: {filename}")
+                    
+                except Exception as e:
+                    print(f"  ✗ Error downloading media {media.id}: {e}")
 
 asyncio.run(download_media())
 ```

@@ -77,12 +77,25 @@ for post in posts:
 
 ### Download Media
 ```python
+from ultima_scraper_api.apis.onlyfans import url_picker
+
 for post in posts:
     if post.media:
         for media in post.media:
-            content = await media.download()
-            with open(f"{media.id}.{media.type}", "wb") as f:
-                f.write(content)
+            # Get media URL
+            media_url = url_picker(post.get_author(), media)
+            
+            if media_url:
+                # Download content
+                response = await authed.auth_session.request(
+                    media_url.geturl(),
+                    premade_settings=""
+                )
+                
+                if response:
+                    content = await response.read()
+                    with open(f"{media.id}.{media.type}", "wb") as f:
+                        f.write(content)
 ```
 
 ## Subscriptions
@@ -166,12 +179,24 @@ async def main():
         print(f"Posts: {len(posts)}")
         
         # Download media
+        from ultima_scraper_api.apis.onlyfans import url_picker
+        
         for post in posts:
             if post.media:
                 for media in post.media:
                     print(f"Downloading: {media.id}")
-                    content = await media.download()
-                    # Save file...
+                    
+                    media_url = url_picker(post.get_author(), media)
+                    if media_url:
+                        response = await authed.auth_session.request(
+                            media_url.geturl(),
+                            premade_settings=""
+                        )
+                        if response:
+                            content = await response.read()
+                            # Save file...
+                            with open(f"{media.id}.{media.type}", "wb") as f:
+                                f.write(content)
 
 if __name__ == "__main__":
     asyncio.run(main())

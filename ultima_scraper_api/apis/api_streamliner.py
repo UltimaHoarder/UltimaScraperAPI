@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import platform
 from typing import TYPE_CHECKING, TypeVar
 
 import ultima_scraper_api
@@ -67,6 +68,7 @@ class StreamlinedAPI:
             self.api, proxies=self.config.settings.network.proxies
         )
         self.packages = Packages(self.api.site_name)
+        self.system = platform.system()
 
     def add_auth(
         self,

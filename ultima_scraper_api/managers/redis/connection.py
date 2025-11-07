@@ -11,6 +11,7 @@ import logging
 from typing import TYPE_CHECKING, Any, Optional
 
 import redis.asyncio as redis
+from redis.asyncio import ConnectionPool
 from redis.asyncio.client import PubSub
 
 if TYPE_CHECKING:
@@ -34,19 +35,53 @@ class RedisManager:
     LOGS_CHANNEL = f"{KEY_PREFIX}:logs"
     HOOKS_CHANNEL = f"{KEY_PREFIX}:hooks"
 
-    def __init__(self, config: RedisConfig) -> None:
-        """Initialize Redis manager from config.
+    def __init__(
+        self,
+        config: RedisConfig,
+        max_connections: int = 50,
+        socket_timeout: float = 5.0,
+        socket_connect_timeout: float = 5.0,
+        socket_keepalive: bool = True,
+        socket_keepalive_options: Optional[dict[int, int]] = None,
+        retry_on_timeout: bool = True,
+        **pool_kwargs: Any,
+    ) -> None:
+        """Initialize Redis manager with connection pooling.
 
         Args:
             config: Redis configuration object
+            max_connections: Maximum connections in pool (default: 50)
+            socket_timeout: Socket timeout in seconds (default: 5.0)
+            socket_connect_timeout: Connection timeout in seconds (default: 5.0)
+            socket_keepalive: Enable TCP keepalive (default: True)
+            socket_keepalive_options: TCP keepalive options
+            retry_on_timeout: Whether to retry on timeout (default: True)
+            **pool_kwargs: Additional ConnectionPool arguments
         """
         self.config = config
         self.client: Optional[Any] = None
         self._pubsub: Optional[PubSub] = None
         self._connected = False
+        self._pool: Optional[ConnectionPool] = None
+
+        # Store pool configuration
+        self.pool_config: dict[str, Any] = {
+            "host": config.host,
+            "port": config.port,
+            "db": config.db,
+            "password": config.password,
+            "max_connections": max_connections,
+            "socket_timeout": socket_timeout,
+            "socket_connect_timeout": socket_connect_timeout,
+            "socket_keepalive": socket_keepalive,
+            "socket_keepalive_options": socket_keepalive_options,
+            "retry_on_timeout": retry_on_timeout,
+            "decode_responses": True,
+            **pool_kwargs,
+        }
 
     async def connect(self) -> bool:
-        """Connect to Redis server.
+        """Connect to Redis server with connection pooling.
 
         Returns:
             bool: True if connected successfully, False otherwise
@@ -56,31 +91,35 @@ class RedisManager:
             return False
 
         try:
-            self.client = redis.Redis(
-                host=self.config.host,
-                port=self.config.port,
-                db=self.config.db,
-                password=self.config.password,
-                decode_responses=True,
-            )
+            # Create connection pool
+            self._pool = ConnectionPool(**self.pool_config)
+
+            # Create Redis client with pool
+            self.client = redis.Redis(connection_pool=self._pool)
+
             # Test connection
             await self.client.ping()
             self._connected = True
             logger.info(
-                "Connected to Redis at %s:%s (db=%s)",
+                "Connected to Redis at %s:%s (db=%s, pool: max_connections=%s, timeout=%ss)",
                 self.config.host,
                 self.config.port,
                 self.config.db,
+                self.pool_config["max_connections"],
+                self.pool_config["socket_timeout"],
             )
             return True
         except Exception as exc:
             logger.warning("Failed to connect to Redis: %s", exc)
             self.client = None
             self._connected = False
+            if self._pool:
+                await self._pool.aclose()
+                self._pool = None
             return False
 
     async def disconnect(self) -> None:
-        """Disconnect from Redis server."""
+        """Disconnect from Redis server and close connection pool."""
         if self._pubsub:
             try:
                 await self._pubsub.unsubscribe()  # type: ignore
@@ -92,11 +131,19 @@ class RedisManager:
         if self.client:
             try:
                 await self.client.aclose()
-                logger.info("Disconnected from Redis")
             except Exception as exc:
                 logger.debug("Error closing Redis client: %s", exc)
             self.client = None
-            self._connected = False
+
+        if self._pool:
+            try:
+                await self._pool.aclose()
+            except Exception as exc:
+                logger.debug("Error closing connection pool: %s", exc)
+            self._pool = None
+
+        self._connected = False
+        logger.info("Disconnected from Redis")
 
     @property
     def is_connected(self) -> bool:

@@ -108,7 +108,7 @@ class WebSocketConnection:
 
             self._should_stop = False
             self._listen_task = asyncio.create_task(self._listen_loop())
-            logger.info("WebSocket connection started")
+            logger.debug("WebSocket connection started")
             await asyncio.sleep(0)  # Yield to start the task
 
     async def stop(self) -> None:
@@ -196,7 +196,7 @@ class WebSocketConnection:
         await self.websocket_impl.connect()
 
         self._connection_count += 1
-        logger.info(f"WebSocket connected (connection #{self._connection_count})")
+        logger.debug(f"WebSocket connected (connection #{self._connection_count})")
         await self._publish_event(
             {
                 "type": "connected",
@@ -287,7 +287,7 @@ class WebSocketConnection:
                         namespace="websocket",  # Will be prefixed with RedisManager.KEY_PREFIX
                     )
                     self._storage_initialized = True
-                    logger.info("✅ WebSocketStorage initialized for connection")
+                    logger.debug("✅ WebSocketStorage initialized for connection")
                 except Exception as e:
                     logger.warning(
                         f"Failed to create WebSocketStorage: {e}", exc_info=True
@@ -297,15 +297,12 @@ class WebSocketConnection:
 
             # Store message in WebSocketStorage
             if self._websocket_storage:
-                was_stored, msg_id = await self._websocket_storage.store_message(
+                was_stored, _ = await self._websocket_storage.store_message(
                     message,
                     source_id=self.redis_channel,
                 )
                 if was_stored:
                     self._redis_published_count += 1
-                    logger.info(f"📨 Stored WebSocket message {msg_id} in Redis")
-                else:
-                    logger.debug(f"Message {msg_id} was duplicate, not stored")
             else:
                 # Fallback to simple pub/sub if storage failed
                 if self.redis_channel:

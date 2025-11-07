@@ -6,7 +6,7 @@ site_url: https://github.com/UltimaHoarder/UltimaScraperAPI
 repo_name: UltimaHoarder/UltimaScraperAPI
 repo_url: https://github.com/UltimaHoarder/UltimaScraperAPI
 
-docs_dir: documentation/docs
+docs_dir: docs
 site_dir: site
 
 theme:
@@ -63,6 +63,7 @@ nav:
       - Architecture: development/architecture.md
       - Testing: development/testing.md
   - About:
+      - Quick Reference: QUICKREF.md
       - License: about/license.md
       - Changelog: about/changelog.md
 

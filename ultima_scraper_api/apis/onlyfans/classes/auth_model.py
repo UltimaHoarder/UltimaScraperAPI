@@ -63,6 +63,42 @@ class OnlyFansAuthModel(
 
         self.update()
 
+        # Initialize DRM if device files are available
+        self._initialize_drm()
+
+    def _initialize_drm(self) -> None:
+        """Initialize DRM module if device files are available."""
+        import logging
+
+        logger = logging.getLogger(__name__)
+
+        # Check for DRM device files
+        client_id_path = self.api.config.settings.drm.device_client_blob_filepath
+        private_key_path = self.api.config.settings.drm.device_private_key_filepath
+
+        if client_id_path is None or not client_id_path.exists():
+            logger.warning(
+                f"DRM client ID not found at {client_id_path}, DRM support disabled"
+            )
+            return
+
+        if private_key_path is None or not private_key_path.exists():
+            logger.warning(
+                f"DRM private key not found at {private_key_path}, DRM support disabled"
+            )
+            return
+
+        try:
+            from ultima_scraper_api.apis.onlyfans.classes.only_drm import OnlyDRM
+
+            self.drm = OnlyDRM(client_id_path, private_key_path, self)
+            logger.info(
+                f"✓ DRM module initialized for user {self.username} (id={self.id})"
+            )
+        except Exception as e:
+            logger.error(f"Failed to initialize DRM module: {e}", exc_info=True)
+            self.drm = None
+
     def _create_websocket_connection(self):
         """Create WebSocket connection using new centralized manager."""
         # Get centralized WebSocket manager from API
@@ -85,7 +121,7 @@ class OnlyFansAuthModel(
         import logging
 
         logger = logging.getLogger(__name__)
-        logger.info(f"✓ WebSocket connection created for OnlyFans user {self.id}")
+        logger.debug(f"✓ WebSocket connection created for OnlyFans user {self.id}")
 
         return connection
 
@@ -380,15 +416,16 @@ class OnlyFansAuthModel(
 
         # If we want find more subscriptions than the paginated requests returned, use recursion to get the rest
 
-        # raw_recursion = await recursion(
-        #     "list_subscriptions",
-        #     self.get_requester(),
-        #     max_items=limit,
-        #     query_type=sub_type,
-        #     limit=max_pagination_limit,
-        #     offset=len(urls) * limit,
-        # )
-        # raw_subscriptions += raw_recursion
+        raw_recursion = await recursion(
+            "list_subscriptions",
+            self.get_requester(),
+            max_items=limit,
+            query_type=sub_type,
+            limit=max_pagination_limit,
+            offset=len(urls) * max_pagination_limit,
+            item_count=len(raw_subscriptions),
+        )
+        raw_subscriptions += raw_recursion
         raw_subscriptions = raw_subscriptions[:limit]
 
         subscriptions: list[SubscriptionModel] = []

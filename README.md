@@ -119,12 +119,20 @@ uv pip install ultima-scraper-api
 
 ```python
 import asyncio
-from ultima_scraper_api import OnlyFansAPI, UltimaScraperAPIConfig
+from pathlib import Path
+from ultima_scraper_api import UltimaScraperAPI
+from ultima_scraper_api.config import UltimaScraperAPIConfig
 
 async def main():
     # Initialize configuration
     config = UltimaScraperAPIConfig()
-    api = OnlyFansAPI(config)
+    
+    # Initialize UltimaScraperAPI
+    api = UltimaScraperAPI(config)
+    await api.init()  # Initialize the API
+    
+    # Get OnlyFans API instance
+    onlyfans_api = api.api_instances.OnlyFans
     
     # Authentication credentials
     # Obtain these from your browser's Network tab (F12)
@@ -135,33 +143,183 @@ async def main():
         "x-bc": "your_x-bc_token"
     }
     
-    # Use context manager for automatic cleanup
-    async with api.login_context(auth_json) as authed:
-        if authed and authed.is_authed():
-            # Get authenticated user info
-            me = await authed.get_me()
-            print(f"Logged in as: {me.username}")
+    # Login with context manager for automatic cleanup
+    authed = await onlyfans_api.login(auth_json=auth_json)
+    
+    if authed and authed.is_authed():
+        # Get authenticated user info
+        me = await authed.get_me()
+        print(f"Logged in as: {me.username}")
+        
+        # Get user profile
+        user = await authed.get_user("username")
+        if user:
+            print(f"User: {user.username} ({user.name})")
             
-            # Get user profile
-            user = await authed.get_user("username")
-            if user:
-                print(f"User: {user.username} ({user.name})")
-                
-                # Fetch user's posts
-                posts = await user.get_posts(limit=10)
-                print(f"Found {len(posts)} posts")
-                
-                # Download media from posts
-                for post in posts:
-                    if post.media:
-                        for media in post.media:
-                            print(f"Downloading: {media.filename}")
-                            content = await media.download()
-                            # Save content to file...
+            # Fetch user's posts
+            posts = await user.get_posts(limit=10)
+            print(f"Found {len(posts)} posts")
+            
+            # Download media from posts
+            download_dir = Path("downloads")
+            download_dir.mkdir(exist_ok=True)
+            
+            for post in posts:
+                if post.media:
+                    for media in post.media:
+                        print(f"Downloading: {media.id}")
+                        
+                        # Get media URL using url_picker
+                        from ultima_scraper_api.apis.onlyfans import url_picker
+                        media_url = url_picker(post.get_author(), media)
+                        
+                        if media_url:
+                            # Download media content
+                            response = await authed.auth_session.request(
+                                media_url.geturl(),
+                                premade_settings=""
+                            )
+                            
+                            if response:
+                                content = await response.read()
+                                
+                                # Save to file
+                                filename = f"{media.id}.{media.type}"
+                                filepath = download_dir / filename
+                                with open(filepath, 'wb') as f:
+                                    f.write(content)
+                                print(f"  ✓ Saved: {filename}")
 
 if __name__ == "__main__":
     asyncio.run(main())
 ```
+
+### Downloading DRM-Protected Content
+
+For DRM-protected content, you need to configure Widevine CDM and follow a multi-step process:
+
+```python
+import asyncio
+from pathlib import Path
+from ultima_scraper_api import UltimaScraperAPI
+from ultima_scraper_api.config import UltimaScraperAPIConfig, DRM
+
+async def download_drm_content():
+    # Configure DRM settings
+    config = UltimaScraperAPIConfig()
+    config.settings.drm.device_client_blob_filepath = Path("/path/to/device_client_id_blob")
+    config.settings.drm.device_private_key_filepath = Path("/path/to/device_private_key")
+    
+    # Initialize API
+    api = UltimaScraperAPI(config)
+    await api.init()
+    
+    onlyfans_api = api.api_instances.OnlyFans
+    auth_json = {
+        "cookie": "your_cookie_value",
+        "user_agent": "your_user_agent",
+        "x-bc": "your_x-bc_token"
+    }
+    
+    authed = await onlyfans_api.login(auth_json=auth_json)
+    
+    if authed and authed.is_authed():
+        # Get DRM manager
+        only_drm = authed.drm
+        
+        if only_drm:
+            user = await authed.get_user("username")
+            posts = await user.get_posts(limit=10)
+            
+            download_dir = Path("downloads")
+            download_dir.mkdir(exist_ok=True)
+            
+            for post in posts:
+                if post.media:
+                    for media in post.media:
+                        # Check if media has DRM protection
+                        if media.files and media.files.drm:
+                            print(f"Processing DRM-protected media: {media.id}")
+                            
+                            # Get cookies for DRM requests
+                            cookies = media.files.drm.dash.__drm_media__.get_cookies()
+                            
+                            # Resolve DRM URLs and get decryption key
+                            video_url, audio_url, key = await media.files.drm.resolve_drm()
+                            
+                            # Download encrypted video
+                            response = await authed.auth_session.request(
+                                video_url,
+                                premade_settings="",
+                                custom_cookies=cookies
+                            )
+                            
+                            enc_video_filepath = download_dir / f"{video_url.split('/')[-1]}"
+                            with open(enc_video_filepath, "wb") as f:
+                                f.write(await response.read())
+                            print(f"  Downloaded encrypted video: {enc_video_filepath.name}")
+                            
+                            # Download encrypted audio
+                            response = await authed.auth_session.request(
+                                audio_url,
+                                premade_settings="",
+                                custom_cookies=cookies
+                            )
+                            
+                            enc_audio_filepath = download_dir / f"{audio_url.split('/')[-1]}"
+                            with open(enc_audio_filepath, "wb") as f:
+                                f.write(await response.read())
+                            print(f"  Downloaded encrypted audio: {enc_audio_filepath.name}")
+                            
+                            # Decrypt files
+                            decrypted_video = only_drm.decrypt_file(enc_video_filepath, key)
+                            decrypted_audio = only_drm.decrypt_file(enc_audio_filepath, key)
+                            print(f"  Decrypted video: {decrypted_video.name}")
+                            print(f"  Decrypted audio: {decrypted_audio.name}")
+                            
+                            # Merge video and audio
+                            output_filepath = download_dir / f"{media.id}_final.mp4"
+                            future = only_drm.enqueue_merge_task(
+                                output_filepath,
+                                [decrypted_video, decrypted_audio]
+                            )
+                            
+                            # Wait for merge to complete
+                            success = await asyncio.wrap_future(future)
+                            
+                            if success:
+                                print(f"  ✓ Merged to: {output_filepath.name}")
+                                
+                                # Clean up temporary files
+                                enc_video_filepath.unlink()
+                                enc_audio_filepath.unlink()
+                                decrypted_video.unlink()
+                                decrypted_audio.unlink()
+
+if __name__ == "__main__":
+    asyncio.run(download_drm_content())
+```
+
+**DRM Setup Requirements:**
+
+1. **Widevine CDM Files**: You need valid Widevine CDM files:
+   - `device_client_id_blob`: Client ID blob file
+   - `device_private_key`: Private key file
+
+2. **FFmpeg**: Required for merging video and audio streams
+   ```bash
+   # Install FFmpeg
+   sudo apt install ffmpeg  # Ubuntu/Debian
+   brew install ffmpeg      # macOS
+   ```
+
+3. **Configure in your config**:
+   ```python
+   config.settings.drm.device_client_blob_filepath = Path("/path/to/device_client_id_blob")
+   config.settings.drm.device_private_key_filepath = Path("/path/to/device_private_key")
+   ```
+
+**Note**: DRM content requires proper Widevine CDM setup. Obtaining CDM files is beyond the scope of this documentation and must comply with applicable laws and terms of service.
 
 ### Credential Extraction
 

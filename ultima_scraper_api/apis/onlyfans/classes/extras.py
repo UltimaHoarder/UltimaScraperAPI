@@ -333,6 +333,13 @@ class endpoint_links(object):
         else:
             return f"{self.full_url_path}/users/media/{media_id}/drm/?type=widevine"
 
+    def cdn_resolver(self, directory_url: str, base_url: str, drm: bool = False):
+        url: str | None = None
+        if drm:
+            url = f"https://cdn3.onlyfans.com/dash/files/{directory_url}/{base_url}"
+        assert url
+        return url
+
 
 def create_headers(
     dynamic_rules: DynamicRulesModel,

@@ -149,7 +149,6 @@ await user.new_feature_method()
 
 **Additional Context**
 Screenshots, mockups, or references to similar features.
-```
 
 #### Before Submitting
 

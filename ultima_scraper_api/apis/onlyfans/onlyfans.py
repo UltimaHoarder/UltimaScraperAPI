@@ -5,6 +5,7 @@ from typing import TYPE_CHECKING, Any, Literal
 import httpx
 
 from ultima_scraper_api.apis.api_streamliner import StreamlinedAPI
+from ultima_scraper_api.apis.onlyfans.classes.chat_model import ChatModel
 from ultima_scraper_api.apis.onlyfans.classes.extras import AuthDetails, endpoint_links
 from ultima_scraper_api.apis.onlyfans.classes.hightlight_model import HighlightModel
 from ultima_scraper_api.apis.onlyfans.classes.mass_message_model import MassMessageModel
@@ -29,8 +30,15 @@ class DynamicRulesModel:
         self.checksum_constant: int = data["checksum_constant"]
         self.app_token: str = data["app_token"]
         self.remove_headers: list[str] = data["remove_headers"]
-        self.error_code: int = data["error_code"]
-        self.message: str = data["message"]
+
+    def load_from_dict(self, data: dict[str, Any]) -> None:
+        self.static_param = data["static_param"]
+        self.format = data["format"]
+        self.checksum_indexes = data["checksum_indexes"]
+        self.checksum_constants = data["checksum_constants"]
+        self.checksum_constant = data["checksum_constant"]
+        self.app_token = data["app_token"]
+        self.remove_headers = data["remove_headers"]
 
 
 class OnlyFansAPI(StreamlinedAPI):
@@ -62,7 +70,9 @@ class OnlyFansAPI(StreamlinedAPI):
         self._setup_redis()
 
         # Import and store site-specific WebSocket implementation class
-        from ultima_scraper_api.apis.onlyfans.classes.websocket import OnlyFansWebSocket
+        from ultima_scraper_api.apis.onlyfans.classes.websocket.websocket import (
+            OnlyFansWebSocket,
+        )
 
         self.websocket_impl_class = OnlyFansWebSocket
 
@@ -253,7 +263,7 @@ class OnlyFansAPI(StreamlinedAPI):
         def __init__(self) -> None:
             self.MassMessages: dict[int, MassMessageModel] = {}
             self.Stories: dict[int, StoryModel] = {}
-            self.Chats: dict[int, Any] = {}
+            self.Chats: dict[int, ChatModel] = {}
             self.Messages: dict[int, MessageModel] = {}
             self.Highlights: dict[int, HighlightModel] = {}
             self.Posts: dict[int, PostModel] = {}

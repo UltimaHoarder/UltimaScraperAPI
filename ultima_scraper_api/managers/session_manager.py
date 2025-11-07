@@ -263,8 +263,18 @@ class AuthedSession:
             }
         }
 
-    async def bulk_json_requests(self, urls: list[str]) -> list[dict[Any, Any]]:
-        return await asyncio.gather(*[self.json_request(url) for url in urls])
+    async def bulk_json_requests(
+        self,
+        urls: list[str],
+        payloads: list[dict[str, Any]] = [],
+        method: Literal["GET", "POST", "PATCH", "DELETE"] = "GET",
+    ) -> list[dict[Any, Any]]:
+        return await asyncio.gather(
+            *[
+                self.json_request(url, payload=payload, method=method)
+                for url, payload in zip(urls, payloads)
+            ]
+        )
 
 
 class SessionManager:

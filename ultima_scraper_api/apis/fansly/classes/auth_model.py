@@ -124,7 +124,7 @@ class FanslyAuthModel(
         else:
             return False
 
-    async def get_user(self, identifier: int | str):
+    async def get_user(self, identifier: int | str, refresh: bool = False):
         valid_user = self.find_user(identifier)
         if valid_user:
             return valid_user

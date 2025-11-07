@@ -963,17 +963,32 @@ Download media file content.
 **Example:**
 
 ```python
-import aiofiles
+from pathlib import Path
+from ultima_scraper_api.apis.onlyfans import url_picker
+
+download_dir = Path("downloads")
+download_dir.mkdir(exist_ok=True)
 
 for post in posts:
     for media in post.media:
-        if media.can_view:
-            content = await media.download()
+        if media.canView:
+            # Get media URL
+            media_url = url_picker(post.get_author(), media)
             
-            filename = f"downloads/{media.filename}"
-            async with aiofiles.open(filename, "wb") as f:
-                await f.write(content)
-            print(f"Downloaded: {filename}")
+            if media_url:
+                # Download content
+                response = await authed.auth_session.request(
+                    media_url.geturl(),
+                    premade_settings=""
+                )
+                
+                if response:
+                    content = await response.read()
+                    
+                    filename = download_dir / f"{media.id}.{media.type}"
+                    with open(filename, "wb") as f:
+                        f.write(content)
+                    print(f"Downloaded: {filename}")
 ```
 
 ---
@@ -1271,11 +1286,13 @@ async with api.login_context(auth_json) as authed:
 Download media files from posts, messages, or stories:
 
 ```python
-import aiofiles
 import asyncio
 from pathlib import Path
+from ultima_scraper_api.apis.onlyfans import url_picker
 
-async with api.login_context(auth_json) as authed:
+authed = await onlyfans_api.login(auth_json=auth_json)
+
+if authed and authed.is_authed():
     user = await authed.get_user("username")
     posts = await user.get_posts(limit=10)
     
@@ -1289,24 +1306,34 @@ async with api.login_context(auth_json) as authed:
         
         print(f"\nPost {post.id}:")
         for media in post.media:
-            if not media.can_view:
-                print(f"  {media.filename} - LOCKED")
+            if not media.canView:
+                print(f"  {media.id}.{media.type} - LOCKED")
                 continue
             
             try:
-                # Download media
-                content = await media.download()
+                # Get media URL
+                media_url = url_picker(post.get_author(), media)
                 
-                # Save to file
-                filepath = download_dir / media.filename
-                async with aiofiles.open(filepath, "wb") as f:
-                    await f.write(content)
-                
-                size_mb = len(content) / (1024 * 1024)
-                print(f"  ✓ {media.filename} ({size_mb:.2f} MB)")
+                if media_url:
+                    # Download media
+                    response = await authed.auth_session.request(
+                        media_url.geturl(),
+                        premade_settings=""
+                    )
+                    
+                    if response:
+                        content = await response.read()
+                        
+                        # Save to file
+                        filepath = download_dir / f"{media.id}.{media.type}"
+                        with open(filepath, "wb") as f:
+                            f.write(content)
+                        
+                        size_mb = len(content) / (1024 * 1024)
+                        print(f"  ✓ {media.id}.{media.type} ({size_mb:.2f} MB)")
                 
             except Exception as e:
-                print(f"  ✗ {media.filename} - Error: {e}")
+                print(f"  ✗ {media.id}.{media.type} - Error: {e}")
 ```
 
 ### Batch Processing with Pagination
@@ -1427,8 +1454,11 @@ Properly handle errors and edge cases:
 
 ```python
 from aiohttp import ClientError
+from ultima_scraper_api.apis.onlyfans import url_picker
 
-async with api.login_context(auth_json) as authed:
+authed = await onlyfans_api.login(auth_json=auth_json)
+
+if authed and authed.is_authed():
     try:
         user = await authed.get_user("username")
         if not user:
@@ -1440,12 +1470,22 @@ async with api.login_context(auth_json) as authed:
         for post in posts:
             for media in post.media:
                 try:
-                    if not media.can_view:
+                    if not media.canView:
                         print(f"Media {media.id} is locked")
                         continue
                     
-                    content = await media.download()
-                    # Process content...
+                    # Get media URL
+                    media_url = url_picker(post.get_author(), media)
+                    
+                    if media_url:
+                        response = await authed.auth_session.request(
+                            media_url.geturl(),
+                            premade_settings=""
+                        )
+                        
+                        if response:
+                            content = await response.read()
+                            # Process content...
                     
                 except ClientError as e:
                     print(f"Download failed for {media.id}: {e}")

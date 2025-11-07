@@ -35,6 +35,7 @@ async def recursion(
     offset: int = 0,
     before_date: datetime | float | None = None,
     after_date: datetime | float | None = None,
+    item_count: int = 0,
 ):
     sys.setrecursionlimit(1500)
     match category:
@@ -63,7 +64,7 @@ async def recursion(
             return results
     items: list[dict[str, Any]] = results.get("list", [])
     after_date = results.get("tailMarker")
-    if limit + offset >= max_items:
+    if len(items) + item_count >= max_items:
         items = items[:max_items]
         sys.setrecursionlimit(DEFAULT_RECURSION_LIMIT)
         return items
@@ -78,6 +79,7 @@ async def recursion(
             offset=offset + limit,
             before_date=before_date,
             after_date=after_date,
+            item_count=item_count + len(items),
         )
         items.extend(results2)
     return items
@@ -689,7 +691,7 @@ class UserModel(StreamlinedUser["OnlyFansAuthModel", "OnlyFansAPI"]):
         }
 
         authed = self.get_authed()
-        assert authed.user.credit_balance != None
+        assert authed.user.credit_balance is not None
         if authed.user.credit_balance >= subscription_price:
             link = endpoint_links(identifier=self.id).pay
             result = await self.get_requester().json_request(

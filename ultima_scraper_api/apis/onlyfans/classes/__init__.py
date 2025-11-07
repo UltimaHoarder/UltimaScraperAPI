@@ -11,3 +11,7 @@ from ultima_scraper_api.apis.onlyfans.classes import (
     subscription_model,
     user_model,
 )
+
+content_types = (
+    story_model.StoryModel | post_model.PostModel | message_model.MessageModel
+)

@@ -68,10 +68,9 @@ def url_picker(
                     break
 
     if authed.drm:
-        # DRM handler still needs dict format
-        has_drm = authed.drm.has_drm(media_item.to_dict())
-        if has_drm:
-            url = has_drm
+        if media_item.has_drm():
+            assert media_item.files and media_item.files.drm
+            url = media_item.files.drm.get_mpd_url()
     return urlparse(url) if url else None
 
 

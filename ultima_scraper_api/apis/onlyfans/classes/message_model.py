@@ -18,7 +18,7 @@ class MessageModel(SiteContent):
         assert author, "Author not found"
         SiteContent.__init__(self, option, author)
         self.user = user
-        self.responseType: Optional[str] = option.get("responseType")
+        self.responseType: str = option["responseType"]
         self.text: str = option.get("text", "")
         self.lockedText: Optional[bool] = option.get("lockedText")
         self.isFree: Optional[bool] = option.get("isFree")
@@ -26,7 +26,7 @@ class MessageModel(SiteContent):
         self.isMediaReady: Optional[bool] = option.get("isMediaReady")
         self.media_count: Optional[int] = option.get("mediaCount")
         media_data: list[dict[str, Any]] = option.get("media", [])
-        self.media: list[MediaModel] = [MediaModel(m) for m in media_data]
+        self.media: list[MediaModel] = [MediaModel(m, self) for m in media_data]
         self.previews: list[int] = option.get("previews", [])
         self.isTip: Optional[bool] = option.get("isTip")
         self.isReportedByMe: Optional[bool] = option.get("isReportedByMe")
@@ -69,7 +69,7 @@ class MessageModel(SiteContent):
             "unavailablePaymentGates": [],
         }
         authed = self.get_author().get_authed()
-        assert authed.user.credit_balance != None
+        assert authed.user.credit_balance is not None
         link = endpoint_links().pay
         result = (
             await self.get_author()

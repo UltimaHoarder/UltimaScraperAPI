@@ -45,6 +45,7 @@ dependencies = [
     "websockets>=15.0.1,<16.0.0",
     "win32-setctime>=1.1.0; platform_system == 'Windows'",
     "xmltodict>=0.13.0",
+    "ffmpeg-python>=0.2.0",
 ]
 
 [project.optional-dependencies]

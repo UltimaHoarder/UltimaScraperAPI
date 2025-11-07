@@ -38,7 +38,7 @@ class WebSocketManager:
         self.config = config
         self._connections: dict[str, WebSocketConnection] = {}
         if redis_manager:
-            logger.info("WebSocket manager initialized with Redis")
+            logger.debug("WebSocket manager initialized with Redis")
         else:
             logger.warning(
                 "⚠️ WebSocket manager initialized WITHOUT Redis - messages won't be stored"
@@ -113,7 +113,7 @@ class WebSocketManager:
 
         # Track connection
         self._connections[connection_id] = connection
-        logger.info(f"Created WebSocket connection: {connection_id}")
+        logger.debug(f"Created WebSocket connection: {connection_id}")
 
         return connection
 

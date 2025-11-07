@@ -29,7 +29,7 @@ class PostModel(SiteContent):
         self.canEdit: bool = option.get("canEdit", False)
         self.isPinned: bool = option.get("isPinned", False)
         media_data: list[dict[str, Any]] = option.get("media", [])
-        self.media: list[MediaModel] = [MediaModel(m) for m in media_data]
+        self.media: list[MediaModel] = [MediaModel(m, self) for m in media_data]
         self.favoritesCount: int = option.get("favoritesCount", 0)
         self.media_count: int = option.get("mediaCount", 0)
         self.isMediaReady: bool = option.get("isMediaReady", False)
@@ -37,6 +37,7 @@ class PostModel(SiteContent):
         self.isOpened: bool = option.get("isOpened", False)
         self.canToggleFavorite: bool = option.get("canToggleFavorite", False)
         self.streamId: int | None = option.get("streamId")
+        self.stream_duration: int | None = option.get("streamDuration")
         self.price: float | None = option.get("price")
         self.hasVoting: bool = option.get("hasVoting", False)
         self.isAddedToBookmarks: bool = option.get("isAddedToBookmarks", False)
