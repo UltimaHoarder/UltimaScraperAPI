@@ -228,6 +228,8 @@ class UserModel(StreamlinedUser["FanslyAuthModel", "FanslyAPI"]):
         self.pinned_posts_count: int = option.get("pinnedPostsCount")
         self.max_pinned_posts_count: int = option.get("maxPinnedPostsCount")
         # Custom
+        self.ws_url: str = "wss://wsv3.fansly.com/?v=3"
+        self.ws_auth_token: str | None = option.get("wsAuthToken")
         found_user = authed.find_user(self.id)
         if not found_user:
             authed.add_user(self)

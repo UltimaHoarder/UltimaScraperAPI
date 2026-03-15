@@ -36,6 +36,7 @@ class AuthDetails:
         authorization: str = "",
         user_agent: str = "",
         email: str = "",
+        proxy_url: str | None = None,
         active: bool | None = None,
     ) -> None:
         self.id = id
@@ -43,6 +44,7 @@ class AuthDetails:
         self.authorization = authorization
         self.user_agent = user_agent
         self.email = email
+        self.proxy_url = proxy_url
         self.active = active
 
     def export(self):
@@ -53,6 +55,7 @@ class AuthDetails:
             "authorization": self.authorization,
             "user_agent": self.user_agent,
             "email": self.email,
+            "proxy_url": self.proxy_url,
             "active": self.active,
         }
 
@@ -104,24 +107,66 @@ class endpoint_links:
         params = {"limit": limit, "offset": offset}
         return format_url(f"{url}?{urlencode(params)}")
 
-    def create_links(
-        self, url: str, api_count: int, limit: int = 10, offset: int = 0
-    ) -> list[str]:
-        """Create paginated list of URLs based on total count"""
-        final_links: list[str] = []
-        if api_count:
-            ceil = math.ceil(api_count / limit)
-            for num in range(ceil):
-                num = num * limit
-                parsed = urlparse(url)
-                params = dict(parse_qs(parsed.query))
-                params["limit"] = [str(limit)]
-                params["offset"] = [str(num)]
+    def list_subscriptions(
+        self,
+        limit: int = 20,
+        offset: int = 0,
+        filter: str = "",
+    ):
+        url = format_url(f"{self.base_url}/user-lists/users?ngsw-bypass=true")
+        return url
 
-                query = urlencode(params, doseq=True)
-                final_url = f"{parsed.scheme}://{parsed.netloc}{parsed.path}?{query}"
-                final_links.append(final_url)
+    def subscription_count(self):
+        url = f"{self.base_url}/user-lists?ngsw-bypass=true"
+        parsed = urlparse(url)
+        query_params = dict(parse_qsl(parsed.query))
+
+        encoded_params = urlencode(query_params)
+        url = f"{url}?{encoded_params}"
+        return url
+
+    def create_links(
+        self, url: str, max_items: int, pagination_limit: int = 10, offset: int = 0
+    ):
+        """
+        This function will create a list of links depending on their content count.
+
+        Example:\n
+        create_links(link="base_link", limit=100) will return a list with 2 link(s) if pagination_limit=50.
+        """
+        final_links: list[str] = []
+        if max_items:
+            ceil = math.ceil(max_items / pagination_limit)
+            numbers = list(range(ceil))
+            for num in numbers:
+                num = num * pagination_limit
+                parsed_url = urlparse(url)
+                query_params = parse_qs(parsed_url.query)
+                limit_value = query_params["limit"][0]
+                url = url.replace(f"limit={limit_value}", f"limit={pagination_limit}")
+                new_link = url.replace(f"offset={offset}", f"offset={num}")
+                final_links.append(new_link)
         return final_links
+
+    def create_payloads(
+        self,
+        url: str,
+        payload: dict[str, Any],
+        max_items: int,
+        pagination_limit: int = 10,
+    ):
+
+        final_payloads: list[dict[str, Any]] = []
+        if max_items:
+            ceil = math.ceil(max_items / pagination_limit)
+            numbers = list(range(ceil))
+            for num in numbers:
+                new_payload = payload.copy()
+                new_payload["limit"] = pagination_limit
+                new_payload["page"] = num + 1
+                final_payloads.append(new_payload)
+        urls = [url] * len(final_payloads)
+        return urls, final_payloads
 
 
 def create_headers(

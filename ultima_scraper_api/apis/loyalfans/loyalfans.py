@@ -1,3 +1,4 @@
+import re
 from contextlib import asynccontextmanager
 from typing import TYPE_CHECKING, Any, Literal
 
@@ -13,6 +14,65 @@ if TYPE_CHECKING:
     from ultima_scraper_api.apis.loyalfans.classes.user_model import UserModel
 
 
+def extract_auth_details_from_curl(credentials: str) -> AuthDetails:
+    # Support Windows-style curl which escapes quotes with ^ and may include ^ characters
+    windows_curl = credentials.replace("^", "")
+
+    # Try -H "cookie: ..." first, fallback to -b "..." formats for cookies (both *nix and windows-style)
+    cookie_match = re.search(r'-H\s*"cookie:\s*([^\"]+)"', windows_curl, re.I)
+    if not cookie_match:
+        cookie_match = re.search(r"-H\s*'cookie:\s*([^']+)'", windows_curl, re.I)
+    if not cookie_match:
+        cookie_match = re.search(r'-b\s*"([^\"]+)"', windows_curl, re.I)
+    if not cookie_match:
+        cookie_match = re.search(r"-b\s*'([^']+)'", windows_curl, re.I)
+
+    options = cookie_match.group(1) if cookie_match else "N/A"
+    new_dict: dict[str, Any] = {}
+    for crumble in options.strip().split(";"):
+        if crumble:
+            split_value = crumble.strip().split("=", 1)
+            if len(split_value) >= 2:
+                key, value = split_value
+                new_dict[key] = value
+    # First try to extract an Authorization: Bearer <token> header from the curl string
+    auth_match = re.search(
+        r"-H\s*\"authorization:\s*Bearer\s*([^\"]+)\"", windows_curl, re.I
+    )
+    if not auth_match:
+        auth_match = re.search(
+            r"-H\s*'authorization:\s*Bearer\s*([^']+)'", windows_curl, re.I
+        )
+    if not auth_match:
+        # Also accept header formats without surrounding quotes
+        auth_match = re.search(
+            r"-H\s*authorization:\s*Bearer\s*([^\s]+)", windows_curl, re.I
+        )
+
+    # Fallback: some users may provide session cookie (NEXOSESSION) instead of Authorization header
+    authorization = ""
+    if auth_match:
+        authorization = auth_match.group(1)
+    elif "NEXOSESSION" in new_dict:
+        authorization = new_dict["NEXOSESSION"]
+
+    ua_match = re.search(r'-H\s*"user-agent:\s*([^\"]+)"', windows_curl, re.I)
+    if not ua_match:
+        ua_match = re.search(r"-H\s*'user-agent:\s*([^']+)'", windows_curl, re.I)
+    if not ua_match:
+        ua_match = re.search(r"-H\s*user-agent:\s*([^\s]+)", windows_curl, re.I)
+
+    if not (cookie_match and authorization and ua_match):
+        raise ValueError(
+            "Could not parse cookie, x-bc, or user-agent from curl command"
+        )
+
+    return AuthDetails(
+        authorization=authorization,
+        user_agent=ua_match.group(1),
+    )
+
+
 class LoyalFansAPI(StreamlinedAPI):
     def __init__(
         self,
@@ -20,7 +80,6 @@ class LoyalFansAPI(StreamlinedAPI):
         websocket_manager: WebSocketManager | None = None,
     ) -> None:
         self.site_name: Literal["LoyalFans"] = "LoyalFans"
-        site_settings = config.site_apis.get_settings(self.site_name)
         StreamlinedAPI.__init__(self, self, config)
         self.auths: dict[int, "LoyalFansAuthModel"] = {}
 
@@ -48,12 +107,20 @@ class LoyalFansAPI(StreamlinedAPI):
                 users.append(user)
         return users
 
-    async def login(self, auth_json: dict[str, Any] = {}, guest: bool = False):
+    async def login(
+        self,
+        auth_json: dict[str, Any] = {},
+        curl_string: str | None = None,
+        guest: bool = False,
+    ):
         authed = None
         if auth_json:
             authed = self.find_auth(auth_json["id"])
         if not authed:
-            temp_auth_details = self.create_auth_details(auth_json)
+            if curl_string:
+                temp_auth_details = extract_auth_details_from_curl(curl_string)
+            else:
+                temp_auth_details = self.create_auth_details(auth_json)
             authenticator = self.authenticator(self, temp_auth_details)
             authed = await authenticator.login(guest)
             if authed and authenticator.is_authed():
@@ -65,7 +132,12 @@ class LoyalFansAPI(StreamlinedAPI):
         return authed
 
     @asynccontextmanager
-    async def login_context(self, auth_json: dict[str, Any] = {}, guest: bool = False):
+    async def login_context(
+        self,
+        auth_json: dict[str, Any] = {},
+        curl_string: str | None = None,
+        guest: bool = False,
+    ):
         authed = None
         if auth_json:
             authed = self.find_auth(auth_json["id"])
@@ -154,21 +226,5 @@ class LoyalFansAPI(StreamlinedAPI):
         def get_keys(self):
             return [item[0] for item in self]
 
-    class MediaTypes:
-        def __init__(self) -> None:
-            self.Images = ["photo", "image"]
-            self.Videos = ["video", "stream", "gif"]
-            self.Audios = ["audio"]
-            self.Texts = ["text"]
-
-        def get_keys(self):
-            return [item[0] for item in self.__dict__.items()]
-
-        def find_by_value(self, value: str):
-            final_media_type = None
-            for media_type, alt_media_types in self.__dict__.items():
-                if value in alt_media_types:
-                    final_media_type = media_type
-            if not final_media_type:
-                raise Exception("No media type found")
-            return final_media_type
+    # Use centralized MediaTypes from helpers
+    from ultima_scraper_api.helpers import MediaTypes

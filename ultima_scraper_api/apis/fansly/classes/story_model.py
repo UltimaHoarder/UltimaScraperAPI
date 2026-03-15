@@ -1,6 +1,7 @@
 from typing import TYPE_CHECKING, Any
 
 from ultima_scraper_api.apis.fansly import SiteContent
+from datetime import datetime
 
 if TYPE_CHECKING:
     from ultima_scraper_api.apis.fansly.classes.user_model import UserModel
@@ -26,8 +27,8 @@ class StoryModel(SiteContent):
         self.placedContents: list = option.get("placedContents")
         self.answered: int = option.get("answered")
         self.previews: list[dict[str, Any]] = option.get("previews", [])
-        self.created_at: str = option.get("createdAt")
-        self.updated_at: str = option.get("updatedAt")
+        self.created_at: datetime = datetime.fromtimestamp(option.get("createdAt"))
+        self.updated_at: datetime = datetime.fromtimestamp(option.get("updatedAt"))
 
     async def link_picker(self, media: dict[Any, Any], target_quality: str):
         # There are two media results at play here.

@@ -13,6 +13,8 @@ from ultima_scraper_api.apis.fansly.classes.extras import (
 from ultima_scraper_api.apis.fansly.classes.user_model import UserModel
 from ultima_scraper_api.apis.fansly.fansly import FanslyAPI
 from ultima_scraper_api.managers.session_manager import AuthedSession
+from aiohttp_socks import ProxyInfo
+import python_socks
 
 
 class FanslyAuthenticator:
@@ -25,6 +27,16 @@ class FanslyAuthenticator:
         self.api = api
         self.auth_details = auth_details
         self.auth_session = AuthedSession(self, api.session_manager)
+        if self.auth_details.proxy_url:
+            try:
+                proxy_info = ProxyInfo(
+                    *python_socks.parse_proxy_url(self.auth_details.proxy_url)
+                )
+                self.auth_session.active_session = (
+                    self.auth_session.create_client_session(False, proxy_info)
+                )
+            except Exception:
+                pass
         self.auth_attempt = 0
         self.max_attempts = 10
         self.errors: list[ErrorDetails] = []

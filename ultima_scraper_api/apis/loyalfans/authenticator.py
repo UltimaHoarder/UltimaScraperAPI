@@ -8,6 +8,8 @@ from ultima_scraper_api.apis.loyalfans.classes.extras import AuthDetails
 from ultima_scraper_api.apis.loyalfans.classes.user_model import UserModel
 from ultima_scraper_api.apis.loyalfans.loyalfans import LoyalFansAPI
 from ultima_scraper_api.managers.session_manager import AuthedSession
+from aiohttp_socks import ProxyInfo
+import python_socks
 
 
 class LoyalFansAuthenticator:
@@ -20,6 +22,16 @@ class LoyalFansAuthenticator:
         self.api = api
         self.auth_details = auth_details
         self.auth_session = AuthedSession(self, api.session_manager)
+        if self.auth_details and self.auth_details.proxy_url:
+            try:
+                proxy_info = ProxyInfo(
+                    *python_socks.parse_proxy_url(self.auth_details.proxy_url)
+                )
+                self.auth_session.active_session = (
+                    self.auth_session.create_client_session(False, proxy_info)
+                )
+            except Exception:
+                pass
         self.auth_attempt = 0
         self.max_attempts = 10
         self.errors: list["ErrorDetails"] = []
@@ -56,7 +68,7 @@ class LoyalFansAuthenticator:
         # LoyalFans specific authentication logic
         if guest:
             self.guest = True
-            self.__raw__ = {"id": 0, "username": "guest"}  # Guest user data
+            self.__raw__ = {"user": {"uid": 0, "slug": "guest"}}  # Guest user data
             return self.create_auth()
 
         while self.auth_attempt < self.max_attempts:
@@ -81,11 +93,10 @@ class LoyalFansAuthenticator:
             link = "https://www.loyalfans.com/api/v1/auth/user/me?ngsw-bypass=true"
             json_resp = await self.auth_session.json_request(link)
             await self.resolve_auth_errors(json_resp)
-            self.__raw__ = json_resp
 
             if not self.errors and json_resp.get("success"):
+                self.__raw__ = json_resp["response"]
                 self.auth_details.active = True
-                self.auth_details.email = self.__raw__.get("email", "")
             else:
                 self.auth_details.active = False
         return self

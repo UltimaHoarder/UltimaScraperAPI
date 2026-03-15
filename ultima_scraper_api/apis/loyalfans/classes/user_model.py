@@ -10,12 +10,20 @@ if TYPE_CHECKING:
 
 class UserModel(StreamlinedUser["LoyalFansAuthModel", "LoyalFansAPI"]):
     def __init__(self, option: dict[str, Any], authed: "LoyalFansAuthModel") -> None:
-        self.id: int = int(option.get("id", 0))
-        self.username: str = option.get("username", f"u{self.id}")
-        self.name: str = option.get("name", self.username)
-        self.avatar: str | None = option.get("avatar")
-        self.header: str | None = option.get("header")
-        self.about: str = option.get("about", "")
+        user_option = option["user"]
+        profile_option = option.get("profile", {})
+        self.id: str = str(user_option.get("uid", 0))
+        self.username: str = user_option.get("slug", f"u{self.id}")
+        self.name: str = user_option.get("name", self.username)
+        profile_photo_dict: dict[str, Any] | None = user_option.get("profile_photo")
+        self.avatar: str | None = (
+            profile_photo_dict["images"]["original"] if profile_photo_dict else None
+        )
+        cover_photo_dict: dict[str, Any] | None = user_option.get("cover_photo")
+        self.header: str | None = (
+            cover_photo_dict["url_original"] if cover_photo_dict else None
+        )
+        self.about: str = profile_option.get("about", "")
         self.location: str | None = option.get("location")
         self.website: str | None = option.get("website")
         self.is_verified: bool = option.get("isVerified", False)
@@ -26,9 +34,12 @@ class UserModel(StreamlinedUser["LoyalFansAuthModel", "LoyalFansAPI"]):
         self.is_subscribed: bool = option.get("isSubscribed", False)
         self.is_blocked: bool = option.get("isBlocked", False)
         self.can_message: bool = option.get("canMessage", False)
-        self.join_date: str | None = option.get("joinDate")
-        self.last_seen: str | None = option.get("lastSeen")
-        self.is_online: bool = option.get("isOnline", False)
+        created_at_dict: dict[str, Any] | None = option.get("created_at")
+        self.join_date: str | None = (
+            created_at_dict.get("date") if created_at_dict else None
+        )
+        self.last_seen: str | None = option.get("online_activity_at")
+        self.is_online: bool = option.get("is_online", False)
 
         # Custom fields for internal use
         found_user = authed.find_user(self.id)
@@ -73,15 +84,14 @@ class UserModel(StreamlinedUser["LoyalFansAuthModel", "LoyalFansAPI"]):
         """Checks if user matches any of the provided identifiers"""
         return self.id in identifiers or self.username in identifiers
 
-    async def get_posts(self, limit: int = 50, offset: int = 0) -> list[dict[str, Any]]:
+    async def get_posts(self, limit: int = 20, offset: int = 0) -> list[dict[str, Any]]:
         """Gets user's posts with pagination"""
-        if not self.is_subscribed:
-            return []
+        max_pagination_limit = 20  # maximum number of results per request
+        page = offset // max_pagination_limit + 1
 
-        link = f"https://www.loyalfans.com/api/v2/user/{self.id}/posts"
-        params = {"limit": limit, "offset": offset}
-        results = await self.get_requester().json_request(link, params=params)
-        return results.get("posts", [])
+        link = f"https://www.loyalfans.com/api/v2/social/timeline/{self.username}?limit={limit}&page={page}&ngsw-bypass=true"
+        results = await self.get_requester().json_request(link)
+        return results.get("timeline", [])
 
     async def get_messages(
         self, limit: int = 50, offset: int = 0

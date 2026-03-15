@@ -179,21 +179,5 @@ class FanslyAPI(StreamlinedAPI):
                     if content_type.lower() == part.lower():
                         return content_type
 
-    class MediaTypes:
-        def __init__(self) -> None:
-            self.Images = ["photo", "image"]
-            self.Videos = ["video", "stream", "gif"]
-            self.Audios = ["audio"]
-            self.Texts = ["text"]
-
-        def get_keys(self):
-            return [item[0] for item in self.__dict__.items()]
-
-        def find_by_value(self, value: str):
-            final_media_type = None
-            for media_type, alt_media_types in self.__dict__.items():
-                if value in alt_media_types:
-                    final_media_type = media_type
-            if not final_media_type:
-                raise Exception("No media type found")
-            return final_media_type
+    # Use centralized MediaTypes from helpers
+    from ultima_scraper_api.helpers import MediaTypes

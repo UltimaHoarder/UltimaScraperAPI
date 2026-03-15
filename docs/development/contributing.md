@@ -1501,7 +1501,7 @@ pip install mkdocs-material
 # Serve documentation locally
 mkdocs serve
 
-# Open in browser: http://localhost:8000
+# Open in browser: http://localhost:2110
 
 # Build static site
 mkdocs build

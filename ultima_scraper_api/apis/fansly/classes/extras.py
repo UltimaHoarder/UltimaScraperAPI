@@ -62,6 +62,7 @@ class AuthDetails:
         user_agent: str = "",
         email: str = "",
         password: str = "",
+        proxy_url: str | None = None,
         hashed: bool = False,
         support_2fa: bool = True,
         active: bool | None = None,
@@ -72,6 +73,7 @@ class AuthDetails:
         self.user_agent = user_agent
         self.email = email
         self.password = password
+        self.proxy_url = proxy_url
         self.hashed = hashed
         self.support_2fa = support_2fa
         self.active = active
@@ -198,7 +200,7 @@ class endpoint_links(object):
     ):
         if not performer_id:
             return f"{self.full_url_path}/posts/paid?limit={limit}&offset={offset}&format=infinite"
-        return f"{self.full_url_path}/posts/paid?limit={limit}&offset={offset}&user_id=u{performer_id}&skip_users=all&format=infinite&sort=all"
+        return f"{self.full_url_path}/posts/paid?limit={limit}&offset={offset}&user_id=u{performer_id}&format=infinite&sort=all"
 
     def create_links(self, link: str, api_count: int, limit: int = 10, offset: int = 0):
         """
