@@ -9,7 +9,6 @@ if TYPE_CHECKING:
 class HighlightModel(SiteContent):
     def __init__(self, options: dict[str, Any], user: "UserModel") -> None:
         SiteContent.__init__(self, options, user)
-        self.id: int = options["id"]
         self.userId: int = options["userId"]
         self.title: str = options["title"]
         self.coverStoryId: int = options["coverStoryId"]

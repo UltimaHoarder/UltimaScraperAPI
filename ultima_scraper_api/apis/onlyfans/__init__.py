@@ -47,16 +47,18 @@ def url_picker(
     if media_item.source:
         source = media_item.source
     elif media_item.files and media_item.files.full:
+        full = media_item.files.full
         source = {
-            "url": media_item.files.full.url,
-            "width": media_item.files.full.width,
-            "height": media_item.files.full.height,
+            "source": full.source_url,
+            "url": full.url,
+            "width": full.width,
+            "height": full.height,
         }
     else:
         return
 
     quality_key = "source"
-    url = source.get(quality_key, source.get("url"))
+    url = source.get(quality_key) or source.get("url")
 
     if media_type == "video":
         video_qualities = dict(sorted(media_item.videoSources.items(), reverse=False))

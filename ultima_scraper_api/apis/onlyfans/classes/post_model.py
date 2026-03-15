@@ -12,6 +12,22 @@ if TYPE_CHECKING:
     from ultima_scraper_api.apis.onlyfans.classes.user_model import UserModel
 
 
+class PromotionContentModel:
+    """Represents promotion/tracking metadata attached to a post."""
+
+    def __init__(self, option: dict[str, Any]) -> None:
+        self.type: str = option.get("type", "")
+        self.id: str = option.get("id", "")
+        self.login: str = option.get("login", "")
+        self.userId: str = option.get("userId", "")
+
+    def __repr__(self) -> str:
+        return (
+            f"PromotionContentModel(type={self.type!r}, id={self.id!r}, "
+            f"login={self.login!r}, userId={self.userId!r})"
+        )
+
+
 class PostModel(SiteContent):
     def __init__(self, option: dict[str, Any], user: UserModel) -> None:
         SiteContent.__init__(self, option, user)
@@ -46,8 +62,25 @@ class PostModel(SiteContent):
         self.hasUrl: bool = option.get("hasUrl", False)
         self.commentsCount: int = option.get("commentsCount", 0)
         self.mentionedUsers: list[dict[str, Any]] = option.get("mentionedUsers", [])
-        self.linkedUsers: list[dict[str, Any]] = option.get("linkedUsers", [])
-        self.linkedPosts: list[dict[str, Any]] = option.get("linkedPosts", [])
+        self.linkedUsers: list[UserModel] = [
+            self.get_author().get_authed().resolve_user(x)
+            for x in option.get("linkedUsers", [])
+        ]
+
+        self.linkedPosts: list[PostModel] = [
+            PostModel(p, self.get_author().get_authed().resolve_user(p["author"]))
+            for p in option.get("linkedPosts", [])
+        ]
+        self.promotionContent: list[PromotionContentModel] = [
+            PromotionContentModel(p) for p in option.get("promotionContent", [])
+        ]
+        if self.linkedUsers:
+            pass
+        if self.linkedUsers and not self.promotionContent:
+            pass
+        if self.linkedPosts and not self.promotionContent:
+            pass
+
         self.canViewMedia: bool = option.get("canViewMedia", False)
         self.previews: list[int] = option.get("preview", [])
         self.canPurchase: bool = option.get("canPurchase", False)
@@ -116,11 +149,10 @@ class PostModel(SiteContent):
         self.isFavorite = True
         return results
 
-    async def bought(self):
-        return all(media.canView for media in self.media)
-
     def is_bought(self):
-        return self.bought()
+        if self.price and self.price > 0:
+            return all(media.canView for media in self.media)
+        return False
 
     def get_previews(self):
         return [x for x in self.media if x.id in self.previews]

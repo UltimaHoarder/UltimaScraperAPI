@@ -6,7 +6,11 @@ import httpx
 
 from ultima_scraper_api.apis.api_streamliner import StreamlinedAPI
 from ultima_scraper_api.apis.onlyfans.classes.chat_model import ChatModel
-from ultima_scraper_api.apis.onlyfans.classes.extras import AuthDetails, endpoint_links
+from ultima_scraper_api.apis.onlyfans.classes.extras import (
+    AuthDetails,
+    ContentTypeTransformer,
+    endpoint_links,
+)
 from ultima_scraper_api.apis.onlyfans.classes.hightlight_model import HighlightModel
 from ultima_scraper_api.apis.onlyfans.classes.mass_message_model import MassMessageModel
 from ultima_scraper_api.apis.onlyfans.classes.message_model import MessageModel
@@ -136,7 +140,7 @@ class OnlyFansAPI(StreamlinedAPI):
                 temp_auth_details = self.create_auth_details(auth_json)
 
             # Create authenticator only once
-            authenticator = self.authenticator(self, temp_auth_details)
+            authenticator = self.authenticator(self, temp_auth_details, guest)
             authed = await authenticator.login(guest)
             if authed and authenticator.is_authed():
                 issues = await authed.get_login_issues()
@@ -207,13 +211,13 @@ class OnlyFansAPI(StreamlinedAPI):
         make_plural: bool = True,
     ):
         if isinstance(value, StoryModel):
-            final_value = self.ContentTypeTransformer("Story")
+            final_value = ContentTypeTransformer("Story")
         elif isinstance(value, PostModel):
-            final_value = self.ContentTypeTransformer("Post")
+            final_value = ContentTypeTransformer("Post")
         elif isinstance(value, MessageModel):
-            final_value = self.ContentTypeTransformer("Message")
+            final_value = ContentTypeTransformer("Message")
         elif isinstance(value, MassMessageModel):
-            final_value = self.ContentTypeTransformer("MassMessage")
+            final_value = ContentTypeTransformer("MassMessage")
         else:
             raise Exception("api content type not found")
         if make_plural:
@@ -221,43 +225,6 @@ class OnlyFansAPI(StreamlinedAPI):
         else:
             final_value = final_value.value
         return final_value
-
-    class ContentTypeTransformer:
-        def __init__(self, value: str) -> None:
-            self._original_value = value
-            self.value = (
-                self._original_value
-                if is_pascal_case(self._original_value)
-                else self._original_value.capitalize()
-            )
-
-        def plural(self):
-            match self.value:
-                case "Story":
-                    final_value = "Stories"
-                case "Post":
-                    final_value = "Posts"
-                case "Message":
-                    final_value = "Messages"
-                case "MassMessage":
-                    final_value = "MassMessages"
-                case _:
-                    raise Exception("key not found")
-            return final_value
-
-        def singular(self):
-            match self.value:
-                case "Stories":
-                    final_value = "Story"
-                case "Posts":
-                    final_value = "Post"
-                case "Messages":
-                    final_value = "Message"
-                case "MassMessages":
-                    final_value = "MassMessage"
-                case _:
-                    raise Exception("key not found")
-            return final_value
 
     class CategorizedContent:
         def __init__(self) -> None:
@@ -281,21 +248,5 @@ class OnlyFansAPI(StreamlinedAPI):
                     if content_type.lower() == part.lower():
                         return content_type
 
-    class MediaTypes:
-        def __init__(self) -> None:
-            self.Images = ["photo", "image"]
-            self.Videos = ["video", "stream", "gif", "application"]
-            self.Audios = ["audio"]
-            self.Texts = ["text"]
-
-        def get_keys(self):
-            return [item[0] for item in self.__dict__.items()]
-
-        def find_by_value(self, value: str):
-            final_media_type = None
-            for media_type, alt_media_types in self.__dict__.items():
-                if value in alt_media_types:
-                    final_media_type = media_type
-            if not final_media_type:
-                raise Exception("No media type found")
-            return final_media_type
+    # Use centralized MediaTypes from helpers
+    from ultima_scraper_api.helpers import MediaTypes

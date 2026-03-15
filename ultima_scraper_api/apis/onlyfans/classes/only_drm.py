@@ -18,6 +18,7 @@ import subprocess
 from concurrent.futures import Future, ThreadPoolExecutor
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
+from urllib.parse import urlparse
 
 import ffmpeg  # type: ignore
 import orjson
@@ -27,6 +28,7 @@ from pywidevine.cdm import Cdm
 from pywidevine.pssh import PSSH
 
 from ultima_scraper_api.apis.onlyfans.classes.extras import endpoint_links
+from ultima_scraper_api.apis.onlyfans.urls import APIRoutes
 
 if TYPE_CHECKING:
     import ultima_scraper_api
@@ -39,7 +41,7 @@ os_name = platform.system()
 
 # API Endpoint Notes:
 # Replace authed with your ClientSession
-# Replace endpoint_links.drm_resolver with "https://onlyfans.com/api2/v2/users/media/{MEDIA_ID}/drm/{RESPONSE_TYPE}/{CONTENT_ID}?type=widevine"
+# Replace APIRoutes().drm_resolver with "https://onlyfans.com/api2/v2/users/media/{MEDIA_ID}/drm/{RESPONSE_TYPE}/{CONTENT_ID}?type=widevine"
 # If the content is from mass messages, omit the response_type and content_id, the end result will look like "https://onlyfans.com/api2/v2/users/media/{MEDIA_ID}/drm/?type=widevine"
 
 
@@ -150,10 +152,13 @@ class MediaFormatter:
             True if merge successful, False otherwise
         """
         # Skip merge if only one file (nothing to merge)
-        if len(media_paths) <= 1:
+        if len(media_paths) == 1:
             logger.info(
-                f"Single file provided, no merge needed: {media_paths[0].name if media_paths else 'none'}"
+                f"Single file provided, no merge needed: {media_paths[0].name}. Copying to {output_filepath.name}"
             )
+            shutil.copy(media_paths[0], output_filepath)
+            return True
+        elif len(media_paths) == 0:
             return True
 
         try:
@@ -366,20 +371,43 @@ class DRMMedia:
 
     async def get_pssh(self, mpd: dict[str, Any]) -> str | None:
         tracks = mpd["MPD"]["Period"]["AdaptationSet"]
-        pssh_str = ""
+        if isinstance(tracks, dict):
+            tracks = [tracks]
         for video_tracks in tracks:
-            if video_tracks["@mimeType"] == "video/mp4":
-                for t in video_tracks["ContentProtection"]:
+            mime_type = video_tracks.get("@mimeType", "")
+            if mime_type.startswith("video/") or mime_type.startswith("audio/"):
+                content_protection = video_tracks.get("ContentProtection", [])
+                if isinstance(content_protection, dict):
+                    content_protection = [content_protection]
+                for t in content_protection:
                     if (
-                        t["@schemeIdUri"].lower()
+                        t.get("@schemeIdUri", "").lower()
                         == "urn:uuid:edef8ba9-79d6-4ace-a3c8-27dcd51d21ed"
                     ):
-                        pssh_str = t["cenc:pssh"]
-                        return pssh_str
+                        return t.get("cenc:pssh")
+        return None
 
     def get_video_url(self, mpd: dict[str, Any]):
         directory_url = self.extract_directory_from_url(self.manifest_url)
-        adaptation_set = mpd["MPD"]["Period"]["AdaptationSet"][0]
+        adaptation_sets = mpd["MPD"]["Period"]["AdaptationSet"]
+        if isinstance(adaptation_sets, dict):
+            if adaptation_sets.get("@mimeType", "").startswith("video/"):
+                adaptation_set = adaptation_sets
+            else:
+                return None
+        else:
+            adaptation_set = next(
+                (
+                    s
+                    for s in adaptation_sets
+                    if s.get("@mimeType", "").startswith("video/")
+                ),
+                None,
+            )
+
+        if not adaptation_set:
+            return None
+
         representation: list[dict[str, Any]] | dict[str, Any] = adaptation_set[
             "Representation"
         ]
@@ -387,12 +415,34 @@ class DRMMedia:
             base_url = representation[0]["BaseURL"]
         else:
             base_url = representation["BaseURL"]
-        media_url = endpoint_links().cdn_resolver(directory_url, base_url, drm=True)
+        if isinstance(base_url, dict):
+            base_url = base_url.get("#text", "")
+        media_url = endpoint_links().cdn_resolver(
+            directory_url, base_url, drm=True, manifest_type=self.get_manifest_type()
+        )
         return media_url
 
     def get_audio_url(self, mpd: dict[str, Any]):
         directory_url = self.extract_directory_from_url(self.manifest_url)
-        adaptation_set = mpd["MPD"]["Period"]["AdaptationSet"][1]
+        adaptation_sets = mpd["MPD"]["Period"]["AdaptationSet"]
+        if isinstance(adaptation_sets, dict):
+            if adaptation_sets.get("@mimeType", "").startswith("audio/"):
+                adaptation_set = adaptation_sets
+            else:
+                return None
+        else:
+            adaptation_set = next(
+                (
+                    s
+                    for s in adaptation_sets
+                    if s.get("@mimeType", "").startswith("audio/")
+                ),
+                None,
+            )
+
+        if not adaptation_set:
+            return None
+
         representation: list[dict[str, Any]] | dict[str, Any] = adaptation_set[
             "Representation"
         ]
@@ -400,8 +450,20 @@ class DRMMedia:
             base_url: str = representation[0]["BaseURL"]
         else:
             base_url: str = representation["BaseURL"]
-        media_url = endpoint_links().cdn_resolver(directory_url, base_url, drm=True)
+        if isinstance(base_url, dict):
+            base_url = base_url.get("#text", "")
+        media_url = endpoint_links().cdn_resolver(
+            directory_url, base_url, drm=True, manifest_type=self.get_manifest_type()
+        )
         return media_url
+
+    def get_manifest_type(self) -> str:
+        for part in urlparse(self.manifest_url).path.split("/"):
+            if part == "dash" or part.endswith("_dash"):
+                return part
+        raise ValueError(
+            f"Could not determine manifest type from URL: {self.manifest_url}"
+        )
 
 
 class OnlyDRM:
@@ -590,7 +652,7 @@ class OnlyDRM:
         challenge = self.cdm.get_license_challenge(self.session_id, pssh)
 
         # Build license server URL
-        url = endpoint_links().drm_resolver(
+        url = APIRoutes().drm_resolver(
             drm_media.media_id, drm_media.content_type, drm_media.content_id
         )
 

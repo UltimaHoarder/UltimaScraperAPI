@@ -14,7 +14,10 @@ from ultima_scraper_api.apis.onlyfans.classes.mass_message_model import MassMess
 from ultima_scraper_api.apis.onlyfans.classes.story_model import StoryModel
 from ultima_scraper_api.apis.user_streamliner import StreamlinedUser
 from ultima_scraper_api.managers.redis import with_hooks
-from ultima_scraper_api.managers.scrape_manager import ScrapeManager
+from ultima_scraper_api.managers.scrape_manager import (
+    ScrapeManager,
+    ScrapeProgressCallback,
+)
 
 if TYPE_CHECKING:
     from ultima_scraper_api import OnlyFansAPI
@@ -36,7 +39,9 @@ async def recursion(
     before_date: datetime | float | None = None,
     after_date: datetime | float | None = None,
     item_count: int = 0,
-):
+) -> list[dict[str, Any]]:
+    if item_count >= max_items:
+        return []
     sys.setrecursionlimit(1500)
     match category:
         case "list_posts":
@@ -191,6 +196,9 @@ class UserModel(StreamlinedUser["OnlyFansAuthModel", "OnlyFansAPI"]):
         self.is_credits_enabled: bool | None = option.get("isCreditsEnabled")
         self.credit_balance: float | None = option.get("creditBalance")
         self.is_make_payment: bool | None = option.get("isMakePayment")
+        self.age_verification_required: bool | None = option.get(
+            "ageVerificationRequired"
+        )
         self.is_age_verified: bool | None = option.get("isAgeVerified")
         self.is_otp_enabled: bool | None = option.get("isOtpEnabled")
         self.email: str | None = option.get("email")
@@ -343,8 +351,8 @@ class UserModel(StreamlinedUser["OnlyFansAuthModel", "OnlyFansAPI"]):
         self.pinned_posts_count: int | None = option.get("pinnedPostsCount")
         self.credits_min_alternatives: int | None = option.get("creditsMinAlternatives")
         self.max_pinned_posts_count: int | None = option.get("maxPinnedPostsCount")
-        self.ws_url = option.get("wsUrl")
-        self.ws_auth_token = option.get("wsAuthToken")
+        self.ws_url: str | None = option.get("wsUrl")
+        self.ws_auth_token: str | None = option.get("wsAuthToken")
         # Custom
         found_user = authed.find_user(self.id)
         if not found_user:
@@ -399,14 +407,50 @@ class UserModel(StreamlinedUser["OnlyFansAuthModel", "OnlyFansAPI"]):
         else:
             return False
 
-    async def get_stories(self, limit: int = 100, offset: int = 0) -> list[StoryModel]:
+    async def get_stories(
+        self,
+        limit: int = 100,
+        offset: int = 0,
+        on_progress: ScrapeProgressCallback | None = None,
+        job_id: str | None = None,
+    ) -> list[StoryModel]:
+        from ultima_scraper_api.managers.redis import publish_custom_event
+
+        # Use provided job_id or fall back to "api" for standalone usage
+        effective_job_id = job_id or "api"
+
         links = [
             endpoint_links(
                 identifier=self.id, global_limit=limit, global_offset=offset
             ).stories_api
         ]
 
-        results = await self.scrape_manager.bulk_scrape(links)
+        # Create internal progress callback that publishes events with user context
+        async def _emit_progress(
+            completed_pages: int, total_pages: int, items_so_far: int
+        ) -> None:
+            await publish_custom_event(
+                {
+                    "event": "scrape_progress",
+                    "job_id": effective_job_id,
+                    "username": self.username,
+                    "user_id": self.id,
+                    "content_type": "Stories",
+                    "status": "progress",
+                    "items_scraped": items_so_far,
+                    "items_saved": 0,
+                    "total_items": None,  # Stories count unknown upfront
+                    "page": completed_pages,
+                    "total_pages": total_pages,
+                    "has_more": completed_pages < total_pages,
+                }
+            )
+            if on_progress:
+                await on_progress(completed_pages, total_pages, items_so_far)
+
+        results = await self.scrape_manager.bulk_scrape(
+            links, on_progress=_emit_progress
+        )
         final_results = [StoryModel(x, self) for x in results]
         return final_results
 
@@ -435,7 +479,9 @@ class UserModel(StreamlinedUser["OnlyFansAuthModel", "OnlyFansAPI"]):
             if not self.is_deleted:
                 result = await self.get_requester().json_request(link)
                 if not isinstance(result, error_types):
-                    final_results = [StoryModel(x, self) for x in result["stories"]]
+                    final_results = [
+                        StoryModel(x, self, highlight=True) for x in result["stories"]
+                    ]
         return final_results
 
     @with_hooks
@@ -445,6 +491,8 @@ class UserModel(StreamlinedUser["OnlyFansAuthModel", "OnlyFansAPI"]):
         limit: int | None = None,
         before_date: datetime | float | None = None,
         after_date: datetime | float | None = None,
+        on_progress: ScrapeProgressCallback | None = None,
+        job_id: str | None = None,
     ) -> list[PostModel]:
         """
         Retrieves posts from the user's profile.
@@ -454,10 +502,17 @@ class UserModel(StreamlinedUser["OnlyFansAuthModel", "OnlyFansAPI"]):
             limit (int, optional): Maximum number of posts to retrieve. Defaults to 50.
             offset (int, optional): Offset for pagination. Defaults to 0.
             after_date (datetime | float | None, optional): Retrieve posts after this date. Defaults to None.
+            on_progress: Optional callback for progress updates (completed_pages, total_pages, items_so_far).
+            job_id: Optional job ID to use for progress events. If not provided, uses "api".
 
         Returns:
             list[create_post]: List of scraped posts.
         """
+        from ultima_scraper_api.managers.redis import publish_custom_event
+
+        # Use provided job_id or fall back to "api" for standalone usage
+        effective_job_id = job_id or "api"
+
         max_pagination_limit = 50  # maximum number of results per request
         epl = endpoint_links()
         api_count = self.posts_count
@@ -469,6 +524,30 @@ class UserModel(StreamlinedUser["OnlyFansAuthModel", "OnlyFansAPI"]):
             api_count = self.private_archived_posts_count
         limit = limit if limit else api_count
 
+        # Create internal progress callback that publishes events with user context
+        async def _emit_progress(
+            completed_pages: int, total_pages: int, items_so_far: int
+        ) -> None:
+            await publish_custom_event(
+                {
+                    "event": "scrape_progress",
+                    "job_id": effective_job_id,
+                    "username": self.username,
+                    "user_id": self.id,
+                    "content_type": "Posts",
+                    "status": "progress",
+                    "items_scraped": items_so_far,
+                    "items_saved": 0,
+                    "total_items": limit,  # Expected total items from API count
+                    "page": completed_pages,
+                    "total_pages": total_pages,
+                    "has_more": completed_pages < total_pages,
+                }
+            )
+            # Also call external callback if provided
+            if on_progress:
+                await on_progress(completed_pages, total_pages, items_so_far)
+
         if after_date is None and before_date is None:
             link = epl.list_posts(self.id, label=label)
             links = epl.create_links(
@@ -476,7 +555,9 @@ class UserModel(StreamlinedUser["OnlyFansAuthModel", "OnlyFansAPI"]):
                 limit,
                 pagination_limit=max_pagination_limit,
             )
-            results = await self.scrape_manager.bulk_scrape(links)
+            results = await self.scrape_manager.bulk_scrape(
+                links, on_progress=_emit_progress
+            )
         else:
             results = await recursion(
                 category="list_posts",
@@ -513,6 +594,8 @@ class UserModel(StreamlinedUser["OnlyFansAuthModel", "OnlyFansAPI"]):
         limit: int = 20,
         offset_id: int | None = None,
         cutoff_id: int | None = None,
+        on_progress: ScrapeProgressCallback | None = None,
+        job_id: str | None = None,
     ):
         """
         Retrieves messages for the user.
@@ -521,25 +604,62 @@ class UserModel(StreamlinedUser["OnlyFansAuthModel", "OnlyFansAPI"]):
             limit (int, optional): The maximum number of messages to retrieve. Defaults to 10.
             offset_id (int | None, optional): The ID of the message to start retrieving from. Defaults to None.
             cutoff_id (int | None, optional): The ID of the message to stop retrieving at. Defaults to None.
+            on_progress: Optional callback for progress updates (completed_pages, total_pages, items_so_far).
+                         Note: total_pages is estimated and may increase as more pages are discovered.
+            job_id: Optional job ID to use for progress events. If not provided, uses "api".
 
         Returns:
             list[message_model.create_message]: A list of message objects.
         """
+        from ultima_scraper_api.managers.redis import publish_custom_event
+
+        # Use provided job_id or fall back to "api" for standalone usage
+        effective_job_id = job_id or "api"
+
         if not self.cache.messages.is_released() or self.is_deleted:
             return list(self.scrape_manager.scraped.Messages.values())
         final_results: list[message_model.MessageModel] = []
         if self.is_authed_user() or self.is_deleted:
             return final_results
 
+        pages_completed = 0
+        total_items = 0
+
         async def recursive(
             limit: int = limit, offset_id: int | str | None = offset_id
         ):
+            nonlocal pages_completed, total_items
             link = endpoint_links().list_messages(
                 self.id, global_limit=limit, global_offset=offset_id
             )
             results = await self.get_requester().json_request(link)
 
             items: list[dict[str, Any]] = results.get("list", [])
+            pages_completed += 1
+            total_items += len(items)
+
+            # Emit progress after each page via Redis
+            estimated_total = pages_completed + (1 if results.get("hasMore") else 0)
+            await publish_custom_event(
+                {
+                    "event": "scrape_progress",
+                    "job_id": effective_job_id,
+                    "username": self.username,
+                    "user_id": self.id,
+                    "content_type": "Messages",
+                    "status": "progress",
+                    "items_scraped": total_items,
+                    "items_saved": 0,
+                    "total_items": None,  # Messages count unknown with recursive pagination
+                    "page": pages_completed,
+                    "total_pages": estimated_total,
+                    "has_more": results.get("hasMore", False),
+                }
+            )
+            # Also call external callback if provided
+            if on_progress:
+                await on_progress(pages_completed, estimated_total, total_items)
+
             if cutoff_id:
                 for item in items:
                     if item["id"] == cutoff_id:

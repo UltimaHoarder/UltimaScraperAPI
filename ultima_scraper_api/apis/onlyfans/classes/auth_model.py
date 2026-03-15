@@ -4,6 +4,8 @@ import asyncio
 from itertools import chain, product
 from typing import TYPE_CHECKING, Any, cast
 
+from pydantic import BaseModel, ConfigDict, Field
+
 from ultima_scraper_api.apis import api_helper
 from ultima_scraper_api.apis.auth_streamliner import StreamlinedAuth
 from ultima_scraper_api.apis.onlyfans import (
@@ -25,6 +27,7 @@ from ultima_scraper_api.apis.onlyfans.classes.subscription_model import (
 )
 from ultima_scraper_api.apis.onlyfans.classes.user_model import UserModel, recursion
 from ultima_scraper_api.apis.onlyfans.classes.vault import VaultListModel
+from ultima_scraper_api.apis.onlyfans.urls import APIRoutes
 from ultima_scraper_api.managers.redis import with_hooks
 
 if TYPE_CHECKING:
@@ -32,6 +35,72 @@ if TYPE_CHECKING:
     from ultima_scraper_api.apis.onlyfans.classes.extras import AuthDetails
     from ultima_scraper_api.apis.onlyfans.classes.only_drm import OnlyDRM
     from ultima_scraper_api.apis.onlyfans.onlyfans import OnlyFansAPI
+
+
+class SettingsModel(BaseModel):
+    model_config = ConfigDict(populate_by_name=True)
+
+    is_delete_initiated: bool = Field(alias="isDeleteInitiated")
+    last_subscription_expired_at: Any | None = Field(alias="lastSubscriptionExpiredAt")
+    streaming_obs_key: Any | None = Field(alias="streamingObsKey")
+    streaming_obs_server: Any | None = Field(alias="streamingObsServer")
+    streaming_mux_key: Any | None = Field(alias="streamingMuxKey")
+    streaming_mux_server: Any | None = Field(alias="streamingMuxServer")
+    streaming_mux_key_expired_at: Any | None = Field(alias="streamingMuxKeyExpiredAt")
+    activity_hub_allowed: bool = Field(alias="activityHubAllowed")
+    activity_hub_tokens: list[Any] = Field(alias="activityHubTokens")
+    confirm_email_sent_at: Any | None = Field(alias="confirmEmailSentAt")
+    hide_after_mass_messages: bool = Field(alias="hideAfterMassMessages")
+    changelog_updates: int = Field(alias="changelogUpdates")
+    show_full_text_in_email_notify: bool = Field(alias="showFullTextInEmailNotify")
+    is_private: bool = Field(alias="isPrivate")
+    blocked_countries: list[Any] = Field(alias="blockedCountries")
+    blocked_states: list[Any] = Field(alias="blockedStates")
+    blocked_ips: list[Any] = Field(alias="blockedIps")
+    show_posts_tips: bool = Field(alias="showPostsTips")
+    recommender_reward: Any | None = Field(alias="recommenderReward")
+    show_friends_to_subscribers: bool = Field(alias="showFriendsToSubscribers")
+    show_subscribes_offers: bool = Field(alias="showSubscribesOffers")
+    disable_subscribes_offers: bool = Field(alias="disableSubscribesOffers")
+    is_email_notifications_enabled: bool = Field(alias="isEmailNotificationsEnabled")
+    can_accept_message_only_from_friends: bool = Field(
+        alias="canAcceptMessageOnlyFromFriends"
+    )
+    is_auto_follow_back: bool = Field(alias="isAutoFollowBack")
+    unfollow_auto_follow_back: bool = Field(alias="unfollowAutoFollowBack")
+    change_email_step: Any | None = Field(alias="changeEmailStep")
+    new_email: Any | None = Field(alias="newEmail")
+    life_time_email_code: Any | None = Field(alias="lifeTimeEmailCode")
+    co_streaming_request_from: str = Field(alias="coStreamingRequestFrom")
+    has_paid_posts: bool = Field(alias="hasPaidPosts")
+    is_co_streaming_allowed: bool = Field(alias="isCoStreamingAllowed")
+    is_monthly_newsletters: bool = Field(alias="isMonthlyNewsletters")
+    strong_otp: bool = Field(alias="strongOtp")
+    phone_otp: bool = Field(alias="phoneOtp")
+    app_otp: bool = Field(alias="appOtp")
+    is_otp_app_connected: bool = Field(alias="isOtpAppConnected")
+    is_old_login_redirect: bool = Field(alias="isOldLoginRedirect")
+    face_otp: bool = Field(alias="faceOtp")
+    can_socials_connect: bool = Field(alias="canSocialsConnect")
+    socials_connects: list[Any] = Field(alias="socialsConnects")
+    important_subscription_notifications: bool = Field(
+        alias="importantSubscriptionNotifications"
+    )
+    is_opensea_connected: bool = Field(alias="isOpenseaConnected")
+    force_face_otp: bool = Field(alias="forceFaceOtp")
+    has_password: bool = Field(alias="hasPassword")
+    can_add_subscriber_by_bundle: bool = Field(alias="canAddSubscriberByBundle")
+    bundle_max_price: int = Field(alias="bundleMaxPrice")
+    can_make_profile_links: bool = Field(alias="canMakeProfileLinks")
+    is_suggestions_opt_out: bool = Field(alias="isSuggestionsOptOut")
+    is_telegram_connected: bool = Field(alias="isTelegramConnected")
+    reply_on_subscribe: bool = Field(alias="replyOnSubscribe")
+    should_receive_less_notifications: bool = Field(
+        alias="shouldReceiveLessNotifications"
+    )
+    avatar_header_converter_upload: bool = Field(alias="avatarHeaderConverterUpload")
+    can_add_phone: bool = Field(alias="canAddPhone")
+    phone_last4: Any | None = Field(alias="phoneLast4")
 
 
 class OnlyFansAuthModel(
@@ -57,6 +126,7 @@ class OnlyFansAuthModel(
         self.blacklist: list[str] = []
         self.guest = self.authenticator.guest
         self.drm: OnlyDRM | None = None
+        self.settings: SettingsModel | None = None
 
         # WebSocket connection (new architecture)
         self.websocket_connection = self._create_websocket_connection()
@@ -76,14 +146,26 @@ class OnlyFansAuthModel(
         client_id_path = self.api.config.settings.drm.device_client_blob_filepath
         private_key_path = self.api.config.settings.drm.device_private_key_filepath
 
-        if client_id_path is None or not client_id_path.exists():
-            logger.warning(
+        if client_id_path is None:
+            logger.debug(
+                "DRM device client blob path not configured, DRM support disabled"
+            )
+            return
+
+        if not client_id_path.exists():
+            logger.debug(
                 f"DRM client ID not found at {client_id_path}, DRM support disabled"
             )
             return
 
-        if private_key_path is None or not private_key_path.exists():
-            logger.warning(
+        if private_key_path is None:
+            logger.debug(
+                "DRM device private key path not configured, DRM support disabled"
+            )
+            return
+
+        if not private_key_path.exists():
+            logger.debug(
                 f"DRM private key not found at {private_key_path}, DRM support disabled"
             )
             return
@@ -359,6 +441,7 @@ class OnlyFansAuthModel(
         limit: int | None = None,
         sub_type: SubscriptionType = SubscriptionTypeEnum.ALL,
         filter_by: str = "",
+        job_id: str | None = None,
     ):
         """
         Retrieves the subscriptions based on the given parameters.
@@ -369,6 +452,7 @@ class OnlyFansAuthModel(
             limit (int, optional): Maximum number of subscriptions to retrieve. Defaults to 100.
            sub_type (SubscriptionType, optional): Type of subscriptions to retrieve. Defaults to "all".
              filter_by (str, optional): Filter subscriptions by a specific value. Defaults to "".
+            job_id (str, optional): Job ID for progress event publishing. Defaults to None.
 
         Returns:
             list[SubscriptionModel]: List of SubscriptionModel objects representing the subscriptions.
@@ -422,7 +506,7 @@ class OnlyFansAuthModel(
             max_items=limit,
             query_type=sub_type,
             limit=max_pagination_limit,
-            offset=len(urls) * max_pagination_limit,
+            offset=len(raw_subscriptions),
             item_count=len(raw_subscriptions),
         )
         raw_subscriptions += raw_recursion
@@ -451,12 +535,16 @@ class OnlyFansAuthModel(
 
         redis = get_redis()
 
+        # Use provided job_id or fall back to "api" for standalone usage
+        effective_job_id = job_id or "api"
+
         # Publish initial progress event
         if redis and redis.is_connected:
             await redis.publish_hook(
                 {
                     "event": "subscription_processing",
                     "event_type": "started",
+                    "job_id": effective_job_id,
                     "auth_id": self.id,
                     "username": self.username,
                     "total": total_subs,
@@ -475,7 +563,6 @@ class OnlyFansAuthModel(
             processed = 0
             for completed_task in asyncio.as_completed(tasks):
                 subscription = await completed_task
-                subscriptions.append(subscription)
                 processed += 1
 
                 # Publish progress every 10 subscriptions or at completion
@@ -488,6 +575,7 @@ class OnlyFansAuthModel(
                         {
                             "event": "subscription_processing",
                             "event_type": "progress",
+                            "job_id": effective_job_id,
                             "auth_id": self.id,
                             "username": self.username,
                             "total": total_subs,
@@ -507,6 +595,7 @@ class OnlyFansAuthModel(
                 {
                     "event": "subscription_processing",
                     "event_type": "finished",
+                    "job_id": effective_job_id,
                     "auth_id": self.id,
                     "username": self.username,
                     "total": total_subs,
@@ -514,9 +603,9 @@ class OnlyFansAuthModel(
                     "timestamp": datetime.now(timezone.utc).isoformat(),
                 }
             )
-
-        self.subscriptions = subscriptions
-        return self.subscriptions
+        for subscription in subscriptions:
+            self.add_subscription(subscription)
+        return subscriptions
 
     async def get_chats(
         self,
@@ -617,7 +706,7 @@ class OnlyFansAuthModel(
             return self.paid_content
 
         async def recursive(limit: int, offset: int):
-            url = endpoint_links().list_paid_posts(
+            url = APIRoutes().list_paid_content(
                 limit=limit, offset=offset, performer_id=performer_id
             )
             results = await self.auth_session.json_request(url)
@@ -666,6 +755,110 @@ class OnlyFansAuthModel(
         return response
 
     async def get_transactions(self):
-        link = endpoint_links(self.id).transactions
-        results = await self.get_requester().json_request(link)
+        url = APIRoutes().transaction_history()
+        results = await self.get_requester().json_request(url)
         return results
+
+    def add_subscription(self, subscription: SubscriptionModel):
+        if subscription.user.id not in [x.user.id for x in self.subscriptions]:
+            self.subscriptions.append(subscription)
+
+    async def needs_age_verification(self):
+        user = await self.get_authed_user()
+        if user.is_age_verified is False:
+            reverification = False
+            auth_issues = self.issues
+            if auth_issues:
+                auth_issues_data = auth_issues["data"]
+                reverification = (
+                    True if auth_issues_data["source"] == "av_reverification" else False
+                )
+            if user.age_verification_required or reverification:
+                return True
+        return False
+
+    async def get_identity_verification(self):
+        url = APIRoutes().start_identity_verification()
+        # login | secondary are valid sources
+        payload = {"source": "login"}
+        response = await self.get_requester().json_request(
+            url, method="POST", payload=payload
+        )
+
+        # Extract the ID from redirectUrl
+        redirect_url = response.get("redirectUrl", "")
+        identity_verification_id: str | None = None
+        if redirect_url and "id=" in redirect_url:
+            identity_verification_id = redirect_url.split("id=")[1].split("&")[0]
+        assert (
+            identity_verification_id
+        ), "Failed to extract identity verification ID from redirect URL"
+
+        ondato_sessions_url = "https://idvs.api.ondato.net/v1/sessions"
+        payload2 = {"identityVerificationId": identity_verification_id}
+        response2 = await self.get_requester().request(
+            ondato_sessions_url, method="POST", json=payload2
+        )
+        assert response2, "Failed to create session with Ondato sessions API"
+        result2: dict[str, Any] = await response2.json()
+        authorization_bearer = result2.get("accessToken")
+        assert (
+            authorization_bearer
+        ), "Failed to retrieve access token from Ondato sessions API"
+        omnichannels_url = "https://idvs.api.ondato.net/v1/omnichannels/url"
+        headers = {"Authorization": f"Bearer {authorization_bearer}"}
+        payload3 = {
+            "identityVerificationId": identity_verification_id,
+            "urlPath": f"?id={identity_verification_id}&ip-type=v4",
+        }
+        response3 = await self.get_requester().request(
+            omnichannels_url,
+            method="POST",
+            json=payload3,
+            custom_headers=headers,
+        )
+        assert response3, "Failed to retrieve omnichannel URL from Ondato API"
+        result3: dict[str, Any] = await response3.json()
+        short_url = result3.get("shortUrl")
+        return short_url
+
+    async def get_age_verification(self):
+        if await self.needs_age_verification():
+            url = APIRoutes().start_age_verification()
+            result = await self.get_requester().json_request(url, method="POST")
+            return result
+
+    async def get_settings(self):
+        url = APIRoutes().settings()
+        result = await self.get_requester().json_request(url)
+        settings = SettingsModel.model_validate(result)
+        self.settings = settings
+        return settings
+
+    async def notification_settings(
+        self,
+        email_notifications_enabled: bool | None = None,
+        monthly_newsletters: bool | None = None,
+        important_subscription_notifications: bool | None = None,
+    ):
+        url = APIRoutes().notifications_settings()
+        data: dict[str, bool] = {}
+        if email_notifications_enabled is not None:
+            data["isEmailNotificationsEnabled"] = email_notifications_enabled
+        if monthly_newsletters is not None:
+            data["isMonthlyNewsletters"] = monthly_newsletters
+        if important_subscription_notifications is not None:
+            data["importantSubscriptionNotifications"] = (
+                important_subscription_notifications
+            )
+        response = await self.get_requester().request(url, method="PATCH", json=data)
+        if email_notifications_enabled is not None and self.settings:
+            self.settings.is_email_notifications_enabled = email_notifications_enabled
+        if monthly_newsletters is not None and self.settings:
+            self.settings.is_monthly_newsletters = monthly_newsletters
+        if important_subscription_notifications is not None and self.settings:
+            self.settings.important_subscription_notifications = (
+                important_subscription_notifications
+            )
+        assert response, "Failed to update notification settings"
+        return await response.json()

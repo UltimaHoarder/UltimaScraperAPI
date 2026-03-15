@@ -64,3 +64,18 @@ class MassMessageModel(SiteContent):
             else self.created_at + timedelta(0, self.unsend_seconds)
         )
         self.get_author().scrape_manager.scraped.MassMessages[self.id] = self
+
+    def is_bought(self) -> bool:
+        if self.mass_message_stat:
+            if self.mass_message_stat.price > 1:
+                return True
+            else:
+                return False
+        else:
+            message = [
+                x
+                for x in self.get_author().scrape_manager.scraped.Messages.values()
+                if x.queue_id == self.id
+            ]
+            assert message, "Message not found for mass message"
+            return all(media.canView for media in message[0].media)

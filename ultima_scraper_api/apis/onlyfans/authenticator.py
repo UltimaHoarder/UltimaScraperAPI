@@ -19,6 +19,9 @@ from ultima_scraper_api.apis.onlyfans.classes.extras import (
 )
 from ultima_scraper_api.apis.onlyfans.onlyfans import OnlyFansAPI
 from ultima_scraper_api.managers.session_manager import AuthedSession
+from aiohttp_socks import ProxyInfo
+import python_socks
+from ultima_scraper_api.apis.onlyfans.urls import APIRoutes
 
 
 def extract_auth_details_from_curl(credentials: str) -> AuthDetails:
@@ -70,6 +73,16 @@ class OnlyFansAuthenticator:
         self.api = api
         self.auth_details = auth_details
         self.auth_session = AuthedSession(self, api.session_manager)
+        if self.auth_details.proxy_url:
+            try:
+                proxy_info = ProxyInfo(
+                    *python_socks.parse_proxy_url(self.auth_details.proxy_url)
+                )
+                self.auth_session.active_session = (
+                    self.auth_session.create_client_session(False, proxy_info)
+                )
+            except Exception:
+                pass
         self.auth_attempt = 0
         self.max_attempts = 10
         self.errors: list[ErrorDetails] = []
@@ -105,87 +118,114 @@ class OnlyFansAuthenticator:
         assert self.__raw__ is not None
         return auth.resolve_user(self.__raw__)
 
-    async def login(self, guest: bool = False):
+    async def login(self, guest: bool = False) -> OnlyFansAuthModel | None:
+        """Authenticate with OnlyFans API, optionally as guest."""
         asyncio.create_task(self.auth_session.session_manager.check_rate_limit())
-        auth_items = self.auth_details
-        if guest and auth_items:
-            auth_items.cookie.auth_id = "0"
-            auth_items.user_agent = generate_user_agent()
-            auth_items.active = True
-        link = endpoint_links().customer
-        user_agent = auth_items.user_agent
-        auth_id = str(auth_items.cookie.auth_id)
-        # expected string error is fixed by auth_id
-        auth_session = self.auth_session
-        dynamic_rules = self.api.dynamic_rules
-        a: list[Any] = [dynamic_rules, auth_id, auth_items.x_bc, user_agent, link]
-        auth_session.headers = create_headers(*a)
-        if guest:
-            self.guest = True
-            self.__raw__ = await self.auth_session.json_request(link)
-            return self.create_auth()
 
+        # Setup authentication headers
+        url = APIRoutes().me()
+        auth_id = str(self.auth_details.cookie.auth_id)
+        self.auth_session.headers = create_headers(
+            self.api.dynamic_rules,
+            auth_id,
+            self.auth_details.x_bc,
+            self.auth_details.user_agent,
+            url,
+        )
+
+        # Determine if we should use guest mode
+        has_auth_id = bool(auth_id)
+        should_fallback_to_guest = has_auth_id and guest
+
+        if guest and not should_fallback_to_guest:
+            return await self._login_as_guest(url)
+
+        self.guest = False
+
+        # Attempt authentication with retry logic
         while self.auth_attempt < self.max_attempts:
             await self.process_auth()
             self.auth_attempt += 1
 
-            async def resolve_auth(auth: OnlyFansAuthenticator):
-                if self.errors:
-                    error = self.errors[-1]
-                    if error.code == 101:
-                        if auth_items.support_2fa:
-                            link = f"https://onlyfans.com/api2/v2/users/otp/check"
-                            count = 1
-                            max_count = 3
-                            while count < max_count + 1:
-                                print(
-                                    "2FA Attempt " + str(count) + "/" + str(max_count)
-                                )
-                                code = input("Enter 2FA Code\n")
-                                data: dict[str, Any] = {
-                                    "code": code,
-                                    "rememberMe": True,
-                                }
-                                response = await self.auth_session.json_request(
-                                    link, method="POST", payload=data
-                                )
-                                if isinstance(response, ErrorDetails):
-                                    error.message = response.message
-                                    count += 1
-                                else:
-                                    print("Success")
-                                    auth.active = False
-                                    auth.errors.remove(error)
-                                    await self.process_auth()
-                                    break
+            # Handle 2FA if needed
+            await self._handle_2fa()
 
-            await resolve_auth(self)
-            if not self.is_authed():
-                if self.errors:
-                    error = self.errors[-1]
-                    error_message = error.message
-                    if "token" in error_message:
-                        break
-                    if "Code wrong" in error_message:
-                        break
-                    if "Please refresh" in error_message:
-                        break
+            # Check for terminal errors
+            if not self.is_authed() and self.errors:
+                error_message = self.errors[-1].message
+                if any(
+                    term in error_message
+                    for term in ("token", "Code wrong", "Please refresh")
+                ):
+                    break
                 continue
+
             if self.is_authed():
                 return self.create_auth()
 
-    async def process_auth(self):
+        # Fallback to guest mode if authentication failed
+        if should_fallback_to_guest:
+            return await self._login_as_guest(url)
+
+        return None
+
+    async def _login_as_guest(self, link: str) -> OnlyFansAuthModel:
+        """Login as a guest user without authentication."""
+        self.guest = True
+        self.__raw__ = await self.auth_session.json_request(link)
+        self.auth_details.activate_guest()
+        return self.create_auth()
+
+    async def _handle_2fa(self) -> None:
+        """Handle 2FA authentication if required."""
+        if not self.errors:
+            return
+
+        error = self.errors[-1]
+        if error.code != 101:
+            return
+
+        if not self.auth_details.support_2fa:
+            return
+
+        url = APIRoutes().two_factor_challenge()
+        max_attempts = 3
+
+        for attempt in range(1, max_attempts + 1):
+            print(f"2FA Attempt {attempt}/{max_attempts}")
+            code = input("Enter 2FA Code\n")
+
+            data: dict[str, Any] = {
+                "code": code,
+                "rememberMe": True,
+            }
+
+            response = await self.auth_session.json_request(
+                url, method="POST", payload=data
+            )
+
+            if isinstance(response, ErrorDetails):
+                error.message = response.message
+            else:
+                print("Success")
+                self.active = False
+                self.errors.remove(error)
+                await self.process_auth()
+                break
+
+    async def process_auth(self) -> "OnlyFansAuthenticator":
         if not self.maxed_out_auth_attempts():
-            link = endpoint_links().customer
-            json_resp = await self.auth_session.json_request(link)
+            url = APIRoutes().me()
+            json_resp = await self.auth_session.json_request(url)
             await self.resolve_auth_errors(json_resp)
             self.__raw__ = json_resp
             if not self.errors and json_resp["isAuth"]:
                 self.auth_details.active = True
                 self.auth_details.email = self.__raw__.get("email", "")
             else:
-                link = endpoint_links(self.auth_details.cookie.auth_id).users
-                json_resp = await self.auth_session.json_request(link)
+                assert self.auth_details.id
+                url = APIRoutes().users(self.auth_details.id)
+                json_resp = await self.auth_session.json_request(url)
                 await self.resolve_auth_errors(json_resp)
                 self.auth_details.active = False
         return self

@@ -14,6 +14,7 @@ class SubscriptionModel(BaseSubscriptionModel):
     def __init__(
         self, data: dict[str, Any], user: "user_types", subscriber: "auth_types"
     ) -> None:
+        super().__init__(data, user, subscriber)
         self.active = data["subscribedBy"]
         self.subscribed_by_data: dict[str, Any] = data["subscribedByData"]
         self.subscribed_by_expire: bool = data["subscribedByExpire"]
@@ -28,9 +29,6 @@ class SubscriptionModel(BaseSubscriptionModel):
         self.subscribed_on_expired_now: bool = data["subscribedOnExpiredNow"]
         self.subscribed_on_duration: str = data["subscribedOnDuration"]
         self.subscribe_price: int = data["subscribePrice"]
-        self.user = user
-        self.subscriber = subscriber
-        self.__raw__ = data
 
     def is_active(self):
         time_now = datetime.now().astimezone()

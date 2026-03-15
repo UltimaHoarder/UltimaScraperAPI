@@ -2,7 +2,10 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any
 
+from inflection import singularize
+
 from ultima_scraper_api.apis.onlyfans.classes.only_drm import DRMMedia
+from ultima_scraper_api.helpers import media_types
 
 if TYPE_CHECKING:
     from ultima_scraper_api.apis.onlyfans.classes import content_types
@@ -13,6 +16,7 @@ class MediaFileSource:
 
     def __init__(self, option: dict[str, Any]) -> None:
         self.url: str = option.get("url", "")
+        self.source_url: str = option.get("source", "")
         self.width: int = option.get("width", 0)
         self.height: int = option.get("height", 0)
         self.size: int = option.get("size", 0)
@@ -71,7 +75,7 @@ class MediaFiles:
     """Container for different media file versions (full, thumb, preview, etc.)."""
 
     def __init__(self, option: dict[str, Any], media: MediaModel) -> None:
-        full_opt: dict[str, Any] | None = option.get("full")
+        full_opt: dict[str, Any] | None = option.get("full") or option.get("source")
         thumb_opt: dict[str, Any] | None = option.get("thumb")
         preview_opt: dict[str, Any] | None = option.get("preview")
         square_opt: dict[str, Any] | None = option.get("squarePreview")
@@ -95,13 +99,17 @@ class MediaModel:
     """Model for OnlyFans media items (photos, videos, etc.)."""
 
     def __init__(self, option: dict[str, Any], content: content_types) -> None:
+        from ultima_scraper_api import MediaType
+
         self.id: int = option["id"]
         self.content: content_types = content
-        self.type: str = option["type"]
+        if (media_type_value := MediaType.from_api_type(option["type"])) is None:
+            raise ValueError(f"Unknown media type: {option['type']}")
+        self.type: str = singularize(media_type_value)
         self.convertedToVideo: bool = option.get("convertedToVideo", False)
         self.canView: bool = option.get("canView", False)
         self.hasError: bool = option.get("hasError", False)
-        self.createdAt: str | None = option.get("createdAt")
+        self.created_at: str | None = option.get("createdAt")
         self.isReady: bool = option.get("isReady", False)
         self.duration: int = option.get("duration", 0)
         self.hasCustomPreview: bool = option.get("hasCustomPreview", False)

@@ -1,11 +1,15 @@
 import copy
 import math
+import secrets
 from datetime import datetime
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Literal, Optional, Union
 from urllib.parse import parse_qs, parse_qsl, urlencode, urlparse, urlunparse
 
+from user_agent import generate_user_agent
+
 from ultima_scraper_api.apis.onlyfans import SubscriptionType, SubscriptionTypeEnum
+from ultima_scraper_api.helpers.main_helper import is_pascal_case
 from ultima_scraper_api.managers.session_manager import SessionManager
 
 if TYPE_CHECKING:
@@ -88,6 +92,7 @@ class AuthDetails:
         user_agent: str = "",
         email: str = "",
         password: str = "",
+        proxy_url: str | None = None,
         hashed: bool = False,
         support_2fa: bool = True,
         active: bool | None = None,
@@ -99,9 +104,17 @@ class AuthDetails:
         self.user_agent = user_agent
         self.email = email
         self.password = password
+        self.proxy_url = proxy_url
         self.hashed = hashed
         self.support_2fa = support_2fa
         self.active = active
+
+    def activate_guest(self):
+        self.cookie.auth_id = "0"
+        self.x_bc = secrets.token_bytes(20).hex()
+        self.user_agent = generate_user_agent()
+        self.active = True
+        return self
 
     def upgrade_legacy(self, options: dict[str, Any]):
         if "cookie" not in options:
@@ -322,21 +335,17 @@ class endpoint_links(object):
                 final_links.append(new_link)
         return final_links
 
-    def drm_resolver(
+    def cdn_resolver(
         self,
-        media_id: int | str,
-        response_type: str | None = None,
-        content_id: int | str | None = None,
-    ):
-        if response_type:
-            return f"{self.full_url_path}/users/media/{media_id}/drm/{response_type}/{content_id}?type=widevine"
-        else:
-            return f"{self.full_url_path}/users/media/{media_id}/drm/?type=widevine"
-
-    def cdn_resolver(self, directory_url: str, base_url: str, drm: bool = False):
+        directory_url: str,
+        base_url: str,
+        drm: bool = False,
+        manifest_type: str | None = None,
+    ) -> str:
         url: str | None = None
         if drm:
-            url = f"https://cdn3.onlyfans.com/dash/files/{directory_url}/{base_url}"
+            assert manifest_type is not None, "manifest_type is required when drm=True"
+            url = f"https://cdn3.onlyfans.com/{manifest_type}/files/{directory_url}/{base_url}"
         assert url
         return url
 
@@ -357,3 +366,41 @@ def create_headers(
         remove_header = remove_header.replace("_", "-")
         headers.pop(remove_header)
     return headers
+
+
+class ContentTypeTransformer:
+    def __init__(self, value: str) -> None:
+        self._original_value = value
+        self.value = (
+            self._original_value
+            if is_pascal_case(self._original_value)
+            else self._original_value.capitalize()
+        )
+
+    def plural(self):
+        match self.value:
+            case "Story":
+                final_value = "Stories"
+            case "Post":
+                final_value = "Posts"
+            case "Message":
+                final_value = "Messages"
+            case "MassMessage":
+                final_value = "MassMessages"
+            case _:
+                raise Exception("key not found")
+        return final_value
+
+    def singular(self):
+        match self.value:
+            case "Stories":
+                final_value = "Story"
+            case "Posts":
+                final_value = "Post"
+            case "Messages":
+                final_value = "Message"
+            case "MassMessages":
+                final_value = "MassMessage"
+            case _:
+                raise Exception("key not found")
+        return final_value
