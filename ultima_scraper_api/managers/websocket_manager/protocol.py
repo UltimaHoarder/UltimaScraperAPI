@@ -3,7 +3,10 @@
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
-from typing import Any
+from typing import TYPE_CHECKING, Any
+
+if TYPE_CHECKING:
+    from ultima_scraper_api import auth_types
 
 
 class WebSocketProtocol(ABC):
@@ -14,7 +17,7 @@ class WebSocketProtocol(ABC):
     and message formatting.
     """
 
-    def __init__(self, auth: Any) -> None:
+    def __init__(self, auth: auth_types) -> None:
         """Initialize WebSocket protocol with auth model.
 
         Args:

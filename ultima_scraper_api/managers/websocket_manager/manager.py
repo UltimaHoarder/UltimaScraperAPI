@@ -40,8 +40,8 @@ class WebSocketManager:
         if redis_manager:
             logger.debug("WebSocket manager initialized with Redis")
         else:
-            logger.warning(
-                "⚠️ WebSocket manager initialized WITHOUT Redis - messages won't be stored"
+            logger.debug(
+                "WebSocket manager initialized without Redis - messages won't be stored"
             )
 
     def set_redis_manager(self, redis_manager: RedisManager) -> None:

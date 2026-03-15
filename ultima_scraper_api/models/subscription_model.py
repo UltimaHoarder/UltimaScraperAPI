@@ -7,10 +7,11 @@ if TYPE_CHECKING:
     user_types = ultima_scraper_api.user_types
 
 
-class BaseSubscriptionModel:
+class BaseSubscriptionModel(dict):
     def __init__(
         self, data: dict[str, Any], user: "user_types", subscriber: "auth_types"
     ) -> None:
+        dict.__init__(self, data)
         self.id = user.id
         self.username = user.username
         self.name = user.name

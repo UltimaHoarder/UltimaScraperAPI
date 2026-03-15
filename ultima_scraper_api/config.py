@@ -1,9 +1,6 @@
 from pathlib import Path
-from typing import Literal
 
 from pydantic import BaseModel
-
-site_name_literals = Literal["OnlyFans", "Fansly"]
 
 
 class Webhook(BaseModel):
@@ -23,17 +20,26 @@ class MediaQuality(BaseModel):
     audio: str = "source"
 
 
+class DownloadSettings(BaseModel):
+    max_concurrency: int = 64
+    per_domain_concurrency: int = 8
+    head_concurrency: int = 64
+    buffer_size_bytes: int = 10 * 1024 * 1024
+
+
 class Proxy(BaseModel):
     url: str
     username: str | None = None
     password: str | None = None
     max_connections: int = -1
+    downloads: DownloadSettings = DownloadSettings()
 
 
 class Network(BaseModel):
     max_connections: int = -1
     proxies: list[Proxy] = []
     proxy_fallback: bool = False
+    downloads: DownloadSettings = DownloadSettings()
 
 
 class Server(BaseModel):
@@ -90,15 +96,25 @@ class FanslyAPIConfig(GlobalAPI):
     cache: FanslyCache = FanslyCache()
 
 
+class LoyalFansAPIConfig(GlobalAPI):
+    class LoyalFansCache(GlobalCache):
+        pass
+
+    cache: LoyalFansCache = LoyalFansCache()
+
+
 class Sites(BaseModel):
     onlyfans: OnlyFansAPIConfig = OnlyFansAPIConfig()
     fansly: FanslyAPIConfig = FanslyAPIConfig()
+    loyalfans: LoyalFansAPIConfig = LoyalFansAPIConfig()
 
     def get_settings(self, site_name: str):
         if site_name == "OnlyFans":
             return self.onlyfans
-        else:
+        elif site_name == "Fansly":
             return self.fansly
+        else:
+            return self.loyalfans
 
 
 class UltimaScraperAPIConfig(BaseModel):
@@ -106,4 +122,4 @@ class UltimaScraperAPIConfig(BaseModel):
     site_apis: Sites = Sites()
 
 
-api_config_types = OnlyFansAPIConfig | FanslyAPIConfig
+api_config_types = OnlyFansAPIConfig | FanslyAPIConfig | LoyalFansAPIConfig

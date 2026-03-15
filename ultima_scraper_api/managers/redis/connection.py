@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import json
 import logging
-from typing import TYPE_CHECKING, Any, Optional
+from typing import TYPE_CHECKING, Any
 
 import redis.asyncio as redis
 from redis.asyncio import ConnectionPool
@@ -35,14 +35,18 @@ class RedisManager:
     LOGS_CHANNEL = f"{KEY_PREFIX}:logs"
     HOOKS_CHANNEL = f"{KEY_PREFIX}:hooks"
 
+    # Log history storage (list)
+    LOGS_HISTORY_KEY = f"{KEY_PREFIX}:logs:history"
+    LOGS_HISTORY_MAX = 5000
+
     def __init__(
         self,
         config: RedisConfig,
-        max_connections: int = 50,
+        max_connections: int = 200,
         socket_timeout: float = 5.0,
         socket_connect_timeout: float = 5.0,
         socket_keepalive: bool = True,
-        socket_keepalive_options: Optional[dict[int, int]] = None,
+        socket_keepalive_options: dict[int, int] | None = None,
         retry_on_timeout: bool = True,
         **pool_kwargs: Any,
     ) -> None:
@@ -50,7 +54,7 @@ class RedisManager:
 
         Args:
             config: Redis configuration object
-            max_connections: Maximum connections in pool (default: 50)
+            max_connections: Maximum connections in pool (default: 200)
             socket_timeout: Socket timeout in seconds (default: 5.0)
             socket_connect_timeout: Connection timeout in seconds (default: 5.0)
             socket_keepalive: Enable TCP keepalive (default: True)
@@ -59,10 +63,10 @@ class RedisManager:
             **pool_kwargs: Additional ConnectionPool arguments
         """
         self.config = config
-        self.client: Optional[Any] = None
-        self._pubsub: Optional[PubSub] = None
+        self.client: redis.Redis
+        self._pubsub: PubSub | None = None
         self._connected = False
-        self._pool: Optional[ConnectionPool] = None
+        self._pool: ConnectionPool
 
         # Store pool configuration
         self.pool_config: dict[str, Any] = {
@@ -98,7 +102,7 @@ class RedisManager:
             self.client = redis.Redis(connection_pool=self._pool)
 
             # Test connection
-            await self.client.ping()
+            await self.client.ping()  # pyright: ignore[reportUnknownMemberType]
             self._connected = True
             logger.info(
                 "Connected to Redis at %s:%s (db=%s, pool: max_connections=%s, timeout=%ss)",
@@ -111,12 +115,10 @@ class RedisManager:
             return True
         except Exception as exc:
             logger.warning("Failed to connect to Redis: %s", exc)
-            self.client = None
             self._connected = False
-            if self._pool:
+            if hasattr(self, "_pool"):
                 await self._pool.aclose()
-                self._pool = None
-            return False
+            raise RuntimeError(f"Failed to connect to Redis: {exc}") from exc
 
     async def disconnect(self) -> None:
         """Disconnect from Redis server and close connection pool."""
@@ -128,19 +130,15 @@ class RedisManager:
                 logger.debug("Error closing pubsub: %s", exc)
             self._pubsub = None
 
-        if self.client:
-            try:
-                await self.client.aclose()
-            except Exception as exc:
-                logger.debug("Error closing Redis client: %s", exc)
-            self.client = None
+        try:
+            await self.client.aclose()
+        except Exception as exc:
+            logger.debug("Error closing Redis client: %s", exc)
 
-        if self._pool:
-            try:
-                await self._pool.aclose()
-            except Exception as exc:
-                logger.debug("Error closing connection pool: %s", exc)
-            self._pool = None
+        try:
+            await self._pool.aclose()
+        except Exception as exc:
+            logger.debug("Error closing connection pool: %s", exc)
 
         self._connected = False
         logger.info("Disconnected from Redis")
@@ -148,7 +146,7 @@ class RedisManager:
     @property
     def is_connected(self) -> bool:
         """Check if connected to Redis."""
-        return self._connected and self.client is not None
+        return self._connected
 
     # Pub/Sub Operations
 
@@ -162,11 +160,13 @@ class RedisManager:
         Returns:
             bool: True if published successfully
         """
-        if not self.is_connected or not self.client:
+        if not self.is_connected:
             return False
 
         try:
-            await self.client.publish(channel, message)
+            await self.client.publish(
+                channel, message  # pyright: ignore[reportUnknownMemberType]
+            )  # pyright: ignore[reportUnknownMemberType]
             return True
         except Exception as exc:
             logger.debug("Failed to publish to Redis: %s", exc)
@@ -189,7 +189,7 @@ class RedisManager:
             logger.debug("Failed to serialize/publish JSON to Redis: %s", exc)
             return False
 
-    async def subscribe(self, *channels: str) -> Optional[PubSub]:
+    async def subscribe(self, *channels: str) -> PubSub | None:
         """Subscribe to Redis channels.
 
         Args:
@@ -198,11 +198,13 @@ class RedisManager:
         Returns:
             PubSub object if successful, None otherwise
         """
-        if not self.is_connected or not self.client:
+        if not self.is_connected:
             return None
 
         try:
-            self._pubsub = self.client.pubsub()
+            self._pubsub = (
+                self.client.pubsub()  # pyright: ignore[reportUnknownMemberType]
+            )
             await self._pubsub.subscribe(*channels)  # type: ignore
             return self._pubsub
         except Exception as exc:
@@ -211,7 +213,7 @@ class RedisManager:
 
     # Key-Value Operations
 
-    async def set(self, key: str, value: str, ex: Optional[int] = None) -> bool:
+    async def set(self, key: str, value: str, ex: int | None = None) -> bool:
         """Set a key-value pair in Redis.
 
         Args:
@@ -222,7 +224,7 @@ class RedisManager:
         Returns:
             bool: True if set successfully
         """
-        if not self.is_connected or not self.client:
+        if not self.is_connected:
             return False
 
         try:
@@ -232,7 +234,7 @@ class RedisManager:
             logger.debug("Failed to set Redis key: %s", exc)
             return False
 
-    async def get(self, key: str) -> Optional[str]:
+    async def get(self, key: str) -> str | None:
         """Get value from Redis.
 
         Args:
@@ -241,7 +243,7 @@ class RedisManager:
         Returns:
             Value if found, None otherwise
         """
-        if not self.is_connected or not self.client:
+        if not self.is_connected:
             return None
 
         try:
@@ -259,7 +261,7 @@ class RedisManager:
         Returns:
             bool: True if deleted successfully
         """
-        if not self.is_connected or not self.client:
+        if not self.is_connected:
             return False
 
         try:
@@ -278,7 +280,7 @@ class RedisManager:
         Returns:
             bool: True if key exists
         """
-        if not self.is_connected or not self.client:
+        if not self.is_connected:
             return False
 
         try:
@@ -297,7 +299,7 @@ class RedisManager:
         Returns:
             bool: True if expiration set successfully
         """
-        if not self.is_connected or not self.client:
+        if not self.is_connected:
             return False
 
         try:
@@ -318,7 +320,32 @@ class RedisManager:
         Returns:
             bool: True if published successfully
         """
-        return await self.publish_json(self.LOGS_CHANNEL, log_data)
+        published = await self.publish_json(self.LOGS_CHANNEL, log_data)
+        await self._store_log_history(log_data)
+        return published
+
+    async def _store_log_history(self, log_data: dict[str, Any]) -> None:
+        """Store log event in Redis history list.
+
+        Args:
+            log_data: Log data to store
+        """
+        if not self.is_connected:
+            return
+
+        if self.LOGS_HISTORY_MAX <= 0:
+            return
+
+        try:
+            payload = json.dumps(log_data, default=str)
+            await self.client.lpush(
+                self.LOGS_HISTORY_KEY, payload
+            )  # pyright: ignore[reportGeneralTypeIssues]
+            await self.client.ltrim(
+                self.LOGS_HISTORY_KEY, 0, self.LOGS_HISTORY_MAX - 1
+            )  # pyright: ignore[reportGeneralTypeIssues]
+        except Exception as exc:
+            logger.debug("Failed to store log history: %s", exc)
 
     async def publish_hook(self, hook_data: dict[str, Any]) -> bool:
         """Publish hook event to hooks channel.
@@ -333,7 +360,7 @@ class RedisManager:
 
 
 # Global Redis manager instance
-_redis_manager: Optional[RedisManager] = None
+_redis_manager: RedisManager | None = None
 
 
 def initialize_redis(config: RedisConfig) -> RedisManager:
@@ -352,7 +379,7 @@ def initialize_redis(config: RedisConfig) -> RedisManager:
     return _redis_manager
 
 
-def get_redis() -> Optional[RedisManager]:
+def get_redis() -> RedisManager | None:
     """Get global Redis manager instance.
 
     Returns:

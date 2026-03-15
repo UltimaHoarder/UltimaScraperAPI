@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import inspect
 import logging
 from collections import deque
 from datetime import datetime, timezone
@@ -32,7 +33,7 @@ class WebSocketConnection:
         websocket_impl: WebSocketProtocol,
         redis_manager: RedisManager | None = None,
         redis_channel: str | None = None,
-        max_reconnect_attempts: int = 5,
+        max_reconnect_attempts: int = 50,
         initial_reconnect_delay: float = 1.0,
         max_reconnect_delay: float = 60.0,
         record_all_messages: bool = True,
@@ -92,8 +93,16 @@ class WebSocketConnection:
         self._messages_published = 0
         self._last_message_time: float | None = None
 
+        # Content event staleness tracking
+        # Heartbeat pongs keep the connection alive but don't indicate content
+        # flow.  If no real content events arrive for `content_stale_threshold`
+        # seconds the health monitor forces a reconnect.
+        self._last_content_event_time: float | None = None
+        self.content_stale_threshold: float = 1 * 300  # 5 minutes
+
         # Task management
         self._listen_task: asyncio.Task[None] | None = None
+        self._health_task: asyncio.Task[None] | None = None
         self._ws_lock = asyncio.Lock()
 
     async def start(self) -> None:
@@ -108,6 +117,7 @@ class WebSocketConnection:
 
             self._should_stop = False
             self._listen_task = asyncio.create_task(self._listen_loop())
+            self._health_task = asyncio.create_task(self._health_monitor())
             logger.debug("WebSocket connection started")
             await asyncio.sleep(0)  # Yield to start the task
 
@@ -119,6 +129,14 @@ class WebSocketConnection:
                 return
 
             self._should_stop = True
+
+            # Stop health monitor
+            if self._health_task and not self._health_task.done():
+                self._health_task.cancel()
+                try:
+                    await self._health_task
+                except asyncio.CancelledError:
+                    pass
 
             # Disconnect the websocket implementation
             try:
@@ -244,6 +262,79 @@ class WebSocketConnection:
             )
             raise  # Re-raise to trigger reconnection
 
+    # ------------------------------------------------------------------
+    # Content-event staleness tracking
+    # ------------------------------------------------------------------
+
+    def content_event_received(self) -> None:
+        """Mark that a real content event (not a heartbeat) was received.
+
+        Call this from the application layer whenever a meaningful event
+        (``post_published``, ``chat_message``, ``stories``, etc.) is
+        processed so the health monitor can distinguish between an idle
+        but healthy connection and a stale one where the auth token has
+        expired server-side.
+        """
+        import time
+
+        self._last_content_event_time = time.time()
+
+    async def force_reconnect(self, reason: str = "manual") -> None:
+        """Force the WebSocket to disconnect and reconnect.
+
+        Resets reconnect-attempt counter so the listen loop retries
+        instead of giving up.
+        """
+        logger.info(f"Forcing WebSocket reconnect: {reason}")
+        self._reconnect_attempts = 0
+        try:
+            await self.websocket_impl.disconnect()
+        except Exception as exc:
+            logger.debug(f"Error during force-reconnect disconnect: {exc}")
+
+    async def _health_monitor(self) -> None:
+        """Periodically check for content-event staleness.
+
+        If no content events have been received for
+        ``content_stale_threshold`` seconds the connection is assumed to
+        have a stale auth token — the server keeps the TCP socket open
+        but stops routing events.  Force-disconnect to trigger a
+        reconnect (which will refresh credentials).
+        """
+        import time
+
+        check_interval = 300  # 5 minutes
+        try:
+            while not self._should_stop:
+                await asyncio.sleep(check_interval)
+                if self._should_stop:
+                    break
+                last_content = self._last_content_event_time
+                if last_content is None:
+                    # No content events yet — give 2× threshold before complaining
+                    if (
+                        self._last_message_time is not None
+                        and time.time() - self._last_message_time
+                        > self.content_stale_threshold * 2
+                    ):
+                        await self.force_reconnect(
+                            "no content events ever received within threshold"
+                        )
+                    continue
+
+                age = time.time() - last_content
+                if age > self.content_stale_threshold:
+                    logger.warning(
+                        f"No content events for {age / 3600:.1f}h "
+                        f"(threshold {self.content_stale_threshold / 3600:.0f}h) "
+                        f"— forcing reconnect to refresh auth token"
+                    )
+                    await self.force_reconnect("content event staleness")
+        except asyncio.CancelledError:
+            pass
+        except Exception as exc:
+            logger.error(f"Health monitor error: {exc}", exc_info=True)
+
     async def _publish_to_subscribers(self, message: dict[str, Any]) -> None:
         """Publish message to all subscribers."""
         self._messages_published += 1
@@ -349,7 +440,7 @@ class WebSocketConnection:
         callbacks = self._callbacks.get(event_type, [])
         for callback in callbacks:
             try:
-                if asyncio.iscoroutinefunction(callback):
+                if inspect.iscoroutinefunction(callback):
                     await callback(data)
                 else:
                     callback(data)

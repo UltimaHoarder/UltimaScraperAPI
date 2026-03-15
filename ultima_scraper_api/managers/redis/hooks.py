@@ -166,7 +166,6 @@ def with_hooks(func: F) -> F:
 
         @functools.wraps(func)
         async def async_wrapper(*args: Any, **kwargs: Any) -> Any:
-            logger.info(f"🎣 Hook wrapper called for {func.__module__}.{func.__name__}")
             # Publish started event
             started_metadata = _get_hook_metadata(func, args, kwargs, "started")
             await _publish_hook_event(started_metadata)
@@ -196,15 +195,12 @@ def with_hooks(func: F) -> F:
         @functools.wraps(func)
         def sync_wrapper(*args: Any, **kwargs: Any) -> Any:
             # For sync functions, we can't await publish
-            # So we just log locally (Redis requires async)
-            logger.debug("Hook: %s.%s started", func.__module__, func.__name__)
-
+            # So we just execute without logging to avoid spam
             try:
                 result = func(*args, **kwargs)
-                logger.debug("Hook: %s.%s finished", func.__module__, func.__name__)
                 return result
             except Exception as exc:
-                logger.debug(
+                logger.warning(
                     "Hook: %s.%s error: %s", func.__module__, func.__name__, exc
                 )
                 raise

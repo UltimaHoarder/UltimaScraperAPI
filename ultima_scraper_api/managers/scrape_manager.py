@@ -1,5 +1,5 @@
 import asyncio
-from itertools import chain
+from collections.abc import Awaitable, Callable
 from typing import TYPE_CHECKING, Any, Generic, TypeVar
 
 from ultima_scraper_api.apis.api_helper import handle_error_details
@@ -11,6 +11,9 @@ if TYPE_CHECKING:
 TAPI = TypeVar("TAPI")
 TCC = TypeVar("TCC")
 
+# Progress callback type: (completed_pages, total_pages, items_so_far) -> Awaitable[None]
+type ScrapeProgressCallback = Callable[[int, int, int], Awaitable[None]]
+
 
 class ScrapeManager(Generic[TAPI, TCC]):
     def __init__(self, authed: TAPI) -> None:
@@ -18,13 +21,54 @@ class ScrapeManager(Generic[TAPI, TCC]):
         self.scraped: TCC = authed.api.CategorizedContent()  # type: ignore
         self.handle_errors = True
 
-    async def bulk_scrape(self, urls: list[str]):
-        result = await asyncio.gather(
-            *[self.scrape(x) for x in urls], return_exceptions=True
-        )
-        valid_results = [r for r in result if not isinstance(r, BaseException)]
-        final_result: list[Any] = list(chain(*valid_results))
-        return final_result
+    async def bulk_scrape(
+        self,
+        urls: list[str],
+        on_progress: ScrapeProgressCallback | None = None,
+    ) -> list[Any]:
+        """Scrape multiple URLs in parallel with optional progress callback.
+
+        Args:
+            urls: List of URLs to scrape.
+            on_progress: Optional async callback called after each page completes.
+                         Signature: (completed_pages, total_pages, items_so_far) -> Awaitable[None]
+
+        Returns:
+            Flattened list of all scraped items.
+        """
+        total = len(urls)
+        if total == 0:
+            return []
+
+        # Create tasks for all URLs
+        tasks = [asyncio.create_task(self.scrape(url)) for url in urls]
+
+        results: list[Any] = []
+        completed = 0
+        items_count = 0
+
+        # Process as each task completes (maintains parallelism)
+        for coro in asyncio.as_completed(tasks):
+            try:
+                page_result = await coro
+                if page_result and not isinstance(page_result, BaseException):
+                    if isinstance(page_result, list):
+                        results.extend(page_result)
+                        items_count += len(page_result)
+                    else:
+                        results.append(page_result)
+                        items_count += 1
+            except Exception:
+                # Silently skip failed requests (matches original behavior)
+                pass
+
+            completed += 1
+
+            # Call progress callback if provided (caller handles event publishing)
+            if on_progress:
+                await on_progress(completed, total, items_count)
+
+        return results
 
     async def scrape(self, url: str):
         auth_session = self.auth_session
