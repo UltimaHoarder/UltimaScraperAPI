@@ -35,6 +35,12 @@ class APIRoutes:
     def users(self, identifier: int) -> str:
         return f"{STANDARD_API_URL}/users/{identifier}"
 
+    def blocked_users(self, limit: int = 10, offset: int = 0) -> str:
+        return f"{STANDARD_API_URL}/users/blocked?limit={limit}&offset={offset}"
+
+    def restricted_users(self, limit: int = 10, offset: int = 0) -> str:
+        return f"{STANDARD_API_URL}/users/restrict?limit={limit}&offset={offset}"
+
     def list_archived_stories(
         self,
         limit: int = 100,

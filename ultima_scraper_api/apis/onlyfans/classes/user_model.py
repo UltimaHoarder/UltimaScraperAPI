@@ -12,6 +12,7 @@ from ultima_scraper_api.apis.onlyfans.classes.extras import ErrorDetails, endpoi
 from ultima_scraper_api.apis.onlyfans.classes.hightlight_model import HighlightModel
 from ultima_scraper_api.apis.onlyfans.classes.mass_message_model import MassMessageModel
 from ultima_scraper_api.apis.onlyfans.classes.story_model import StoryModel
+from ultima_scraper_api.apis.onlyfans.urls import APIRoutes
 from ultima_scraper_api.apis.user_streamliner import StreamlinedUser
 from ultima_scraper_api.managers.redis import with_hooks
 from ultima_scraper_api.managers.scrape_manager import (
@@ -29,7 +30,15 @@ DEFAULT_RECURSION_LIMIT = sys.getrecursionlimit()
 
 
 async def recursion(
-    category: Literal["list_posts", "list_vault_media", "list_subscriptions"],
+    category: Literal[
+        "list_posts",
+        "list_vault_media",
+        "list_subscriptions",
+        "list_paid_content",
+        "list_blocked_users",
+        "list_restricted_users",
+        "list_transactions",
+    ],
     requester: AuthedSession,
     max_items: int,
     identifier: int | str | None = None,
@@ -61,6 +70,16 @@ async def recursion(
             link = endpoint_links().list_subscriptions(
                 limit=limit, offset=offset, sub_type=SubscriptionTypeEnum(query_type)
             )
+        case "list_paid_content":
+            link = APIRoutes().list_paid_content(
+                limit=limit, offset=offset, performer_id=identifier
+            )
+        case "list_blocked_users":
+            link = APIRoutes().blocked_users(limit=limit, offset=offset)
+        case "list_restricted_users":
+            link = APIRoutes().restricted_users(limit=limit, offset=offset)
+        case "list_transactions":
+            link = APIRoutes().transaction_history(limit=limit, offset=offset)
 
     results = await requester.json_request(link)
     if isinstance(results, list):

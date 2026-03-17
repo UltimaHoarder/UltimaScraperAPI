@@ -698,30 +698,22 @@ class OnlyFansAuthModel(
 
     async def get_paid_content(
         self,
-        performer_id: int | str | None = None,
+        performer_id: int | None = None,
         limit: int = 10,
         offset: int = 0,
     ):
+        max_pagination_limit = 50  # maximum number of results per request
         if not self.cache.paid_content.is_released():
             return self.paid_content
 
-        async def recursive(limit: int, offset: int):
-            url = APIRoutes().list_paid_content(
-                limit=limit, offset=offset, performer_id=performer_id
-            )
-            results = await self.auth_session.json_request(url)
-            items = results.get("list", [])
-            if not items:
-                return items
-            if results["hasMore"]:
-                results2 = await recursive(limit=limit, offset=limit + offset)
-                items.extend(results2)
-            else:
-                if not performer_id:
-                    self.cache.mass_message_stats.activate()
-            return items
-
-        items = await recursive(limit, offset)
+        items = await recursion(
+            category="list_paid_content",
+            requester=self.auth_session,
+            max_items=limit,
+            identifier=performer_id,
+            limit=max_pagination_limit,
+            offset=offset,
+        )
         for item in items:
             content = None
             if item["responseType"] == "message":
@@ -736,8 +728,6 @@ class OnlyFansAuthModel(
                 author = content.get_author()
                 if performer_id:
                     if performer_id == author.id:
-                        self.paid_content.append(content)
-                    elif performer_id == author.username:
                         self.paid_content.append(content)
                 else:
                     self.paid_content.append(content)
@@ -754,10 +744,38 @@ class OnlyFansAuthModel(
         response = await self.auth_session.json_request(url, method="POST")
         return response
 
-    async def get_transactions(self):
-        url = APIRoutes().transaction_history()
-        results = await self.get_requester().json_request(url)
-        return results
+    async def get_transactions(self, limit: int = 100, offset: int = 0):
+        max_pagination_limit = 100  # maximum number of results per request
+        items = await recursion(
+            category="list_transactions",
+            requester=self.auth_session,
+            max_items=limit,
+            limit=max_pagination_limit,
+            offset=offset,
+        )
+        return items
+
+    async def blocked_users(self, limit: int = 100, offset: int = 0):
+        max_pagination_limit = 100  # maximum number of results per request
+        items = await recursion(
+            category="list_blocked_users",
+            requester=self.auth_session,
+            max_items=limit,
+            limit=max_pagination_limit,
+            offset=offset,
+        )
+        return items
+
+    async def restricted_users(self, limit: int = 100, offset: int = 0):
+        max_pagination_limit = 100  # maximum number of results per request
+        items = await recursion(
+            category="list_restricted_users",
+            requester=self.auth_session,
+            max_items=limit,
+            limit=max_pagination_limit,
+            offset=offset,
+        )
+        return items
 
     def add_subscription(self, subscription: SubscriptionModel):
         if subscription.user.id not in [x.user.id for x in self.subscriptions]:
