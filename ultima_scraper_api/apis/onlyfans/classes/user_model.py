@@ -38,9 +38,10 @@ async def recursion(
         "list_blocked_users",
         "list_restricted_users",
         "list_transactions",
+        "search_chats",
     ],
     requester: AuthedSession,
-    max_items: int,
+    max_items: int | None,
     identifier: int | str | None = None,
     query_type: str | None = None,
     limit: int = 10,
@@ -49,6 +50,8 @@ async def recursion(
     after_date: datetime | float | None = None,
     item_count: int = 0,
 ) -> list[dict[str, Any]]:
+    if max_items is None:
+        max_items = sys.maxsize
     if item_count >= max_items:
         return []
     sys.setrecursionlimit(1500)
@@ -80,6 +83,11 @@ async def recursion(
             link = APIRoutes().restricted_users(limit=limit, offset=offset)
         case "list_transactions":
             link = APIRoutes().transaction_history(limit=limit, offset=offset)
+        case "search_chats":
+            assert isinstance(identifier, str)
+            link = APIRoutes().search_chats(
+                query=identifier, limit=limit, offset=offset
+            )
 
     results = await requester.json_request(link)
     if isinstance(results, list):

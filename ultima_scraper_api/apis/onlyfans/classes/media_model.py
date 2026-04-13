@@ -38,7 +38,7 @@ class DRM:
         assert authed_drm
         return self.dash.manifest_url
 
-    async def resolve_drm(self) -> tuple[str, str, str]:
+    async def resolve_drm(self) -> tuple[str | None, str | None, str]:
         authed_drm = self.__media__.content.author.get_authed().drm
         if not authed_drm:
             raise ValueError("Authed does not have DRM capabilities.")
@@ -60,13 +60,13 @@ class DRMManifest:
         self.signature: str = option["CloudFront-Signature"]
         response_type = getattr(media.content, "responseType", None)
         self.__drm_media__ = DRMMedia(
-            media.id,
-            self.manifest_url,
-            self.key_pair_id,
-            self.policy,
-            self.signature,
-            media.content.id,
-            response_type,
+            media_id=media.id,
+            manifest_url=self.manifest_url,
+            key_pair_id=self.key_pair_id,
+            policy=self.policy,
+            signature=self.signature,
+            content_id=media.content.id,
+            content_type=response_type,
         )
         self.__media__ = media
 

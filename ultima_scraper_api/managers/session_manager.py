@@ -44,6 +44,13 @@ EXCEPTION_TEMPLATE = (
 )
 
 
+def _format_exception_message(error: BaseException) -> str:
+    detail = str(error).strip()
+    if detail:
+        return f"{type(error).__name__}: {detail}"
+    return type(error).__name__
+
+
 class ProxyManager:
     def __init__(self) -> None:
         self.proxies: list[ProxyInfo] = []
@@ -136,8 +143,6 @@ class AuthedSession:
             else aiohttp.TCPConnector(limit=limit, ssl=ssl_context)
         )
         final_cookies = self.get_cookies()
-        # Had to remove final_cookies and cookies=final_cookies due to it conflicting with headers
-        # timeout = aiohttp.ClientTimeout(None)
         timeout = aiohttp.ClientTimeout(
             total=None, connect=10, sock_connect=10, sock_read=60
         )
@@ -172,34 +177,15 @@ class AuthedSession:
         Make an HTTP request with automatic retry logic and error handling.
 
         Performs an HTTP request with support for rate limiting, proxy rotation, and
-        comprehensive error recovery. The method will retry indefinitely on transient
-        failures and handle rate limiting by pausing subsequent requests.
-
-        Args:
-            url: The URL to request.
-            method: HTTP method to use. Defaults to "GET".
-            data: Form data to send with POST/PATCH requests.
-            json: JSON payload to send with POST/PATCH requests.
-            premade_settings: Header preset to use ("json" for JSON content type).
-                Defaults to "json".
-            custom_cookies: Optional custom cookies to include in the request.
-            range_header: Optional range header dict for partial content requests.
-
-        Returns:
-            ClientResponse if request succeeded, None if Range (416) error occurred.
-
-        Raises:
-            Exception: If an unhandled HTTP status code is returned.
-
-        Note:
-            - Automatically retries on transient errors (timeouts, connection errors).
-            - Rate limit (429) errors trigger backoff for subsequent requests.
-            - HTTP errors 400, 401, 403, 404 are returned immediately without retry.
-            - Server errors (500, 502, 503, 504) trigger automatic retry.
+        comprehensive error recovery. The method retries transient failures up to
+        ``session_manager.max_attempts`` and handles rate limiting by pausing
+        subsequent requests.
         """
-        # NOTE: Some apis need data= or json= when posting
         session_manager = self.get_session_manager()
         retries = 0
+        max_attempts = max(1, int(getattr(session_manager, "max_attempts", 10) or 1))
+        backoff_seconds = 1.0
+        max_backoff_seconds = 30.0
         while True:
             if session_manager.rate_limit_check:
                 if retries == 0:
@@ -224,7 +210,6 @@ class AuthedSession:
             if custom_headers:
                 headers.update(custom_headers)
 
-            # await self.limit_rate()
             result = None
             try:
                 match method.upper():
@@ -265,42 +250,75 @@ class AuthedSession:
                         raise Exception("Method not found")
             except ServerTimeoutError as _e:
                 retries += 1
-                logger.warning(
-                    "Request timeout (attempt %d): %s %s — %s",
-                    retries,
-                    method,
-                    url,
-                    _e,
-                )
-                if session_manager.is_rate_limited is None:
-                    logger.info(
-                        "Activating rate limit check due to timeout: %s %s",
+                if retries >= max_attempts:
+                    logger.error(
+                        "Request timeout after %d/%d attempts: %s %s — %s",
+                        retries,
+                        max_attempts,
                         method,
                         url,
+                        _format_exception_message(_e),
                     )
-                    session_manager.rate_limit_check = True
+                    raise
+                logger.warning(
+                    "Request timeout (attempt %d/%d): %s %s — %s; retrying in %.1fs",
+                    retries,
+                    max_attempts,
+                    method,
+                    url,
+                    _format_exception_message(_e),
+                    backoff_seconds,
+                )
+                await asyncio.sleep(backoff_seconds)
+                backoff_seconds = min(backoff_seconds * 2, max_backoff_seconds)
                 continue
             except EXCEPTION_TEMPLATE as _e:
                 retries += 1
+                if retries >= max_attempts:
+                    logger.error(
+                        "Transient error after %d/%d attempts: %s %s — %s",
+                        retries,
+                        max_attempts,
+                        method,
+                        url,
+                        _format_exception_message(_e),
+                    )
+                    raise
                 logger.warning(
-                    "Transient error (attempt %d): %s %s — %s: %s",
+                    "Transient error (attempt %d/%d): %s %s — %s; retrying in %.1fs",
                     retries,
+                    max_attempts,
                     method,
                     url,
-                    type(_e).__name__,
-                    _e,
+                    _format_exception_message(_e),
+                    backoff_seconds,
                 )
+                await asyncio.sleep(backoff_seconds)
+                backoff_seconds = min(backoff_seconds * 2, max_backoff_seconds)
                 continue
             except Exception as _e:
                 retries += 1
+                if retries >= max_attempts:
+                    logger.error(
+                        "Unexpected error after %d/%d attempts: %s %s — %s",
+                        retries,
+                        max_attempts,
+                        method,
+                        url,
+                        _format_exception_message(_e),
+                    )
+                    raise
                 logger.warning(
-                    "Unexpected error (attempt %d): %s %s — %s: %s",
+                    "Unexpected error (attempt %d/%d): %s %s — %s; retrying in %.1fs",
                     retries,
+                    max_attempts,
                     method,
                     url,
-                    type(_e).__name__,
-                    _e,
+                    _format_exception_message(_e),
+                    backoff_seconds,
                 )
+                await asyncio.sleep(backoff_seconds)
+                backoff_seconds = min(backoff_seconds * 2, max_backoff_seconds)
                 continue
             try:
                 assert result
@@ -313,16 +331,28 @@ class AuthedSession:
                 result.raise_for_status()
                 return result
             except EXCEPTION_TEMPLATE as _e:
-                # Can retry
                 retries += 1
+                if retries >= max_attempts:
+                    logger.error(
+                        "Response processing error after %d/%d attempts: %s %s — %s",
+                        retries,
+                        max_attempts,
+                        method,
+                        url,
+                        _format_exception_message(_e),
+                    )
+                    raise
                 logger.warning(
-                    "Response processing error (attempt %d): %s %s — %s: %s",
+                    "Response processing error (attempt %d/%d): %s %s — %s; retrying in %.1fs",
                     retries,
+                    max_attempts,
                     method,
                     url,
-                    type(_e).__name__,
-                    _e,
+                    _format_exception_message(_e),
+                    backoff_seconds,
                 )
+                await asyncio.sleep(backoff_seconds)
+                backoff_seconds = min(backoff_seconds * 2, max_backoff_seconds)
                 continue
             except ClientResponseError as _e:
                 match _e.status:
@@ -330,7 +360,6 @@ class AuthedSession:
                         assert result
                         return result
                     case 416:
-                        # Range not satisfiable, return None
                         return None
                     case 429:
                         logger.warning(
@@ -343,20 +372,56 @@ class AuthedSession:
                         continue
                     case 500 | 502 | 503 | 504:
                         retries += 1
+                        if retries >= max_attempts:
+                            logger.error(
+                                "Server error %d after %d/%d attempts: %s %s",
+                                _e.status,
+                                retries,
+                                max_attempts,
+                                method,
+                                url,
+                            )
+                            raise
                         logger.warning(
-                            "Server error %d (attempt %d): %s %s",
+                            "Server error %d (attempt %d/%d): %s %s — retrying in %.1fs",
                             _e.status,
                             retries,
+                            max_attempts,
                             method,
                             url,
+                            backoff_seconds,
                         )
+                        await asyncio.sleep(backoff_seconds)
+                        backoff_seconds = min(backoff_seconds * 2, max_backoff_seconds)
                         continue
                     case _:
                         raise Exception(
                             f"Infinite Loop Detected for unhandled status error: {_e.status}"
                         )
             except Exception as _e:
-                pass
+                retries += 1
+                if retries >= max_attempts:
+                    logger.error(
+                        "Unhandled response error after %d/%d attempts: %s %s — %s",
+                        retries,
+                        max_attempts,
+                        method,
+                        url,
+                        _format_exception_message(_e),
+                    )
+                    raise
+                logger.warning(
+                    "Unhandled response error (attempt %d/%d): %s %s — %s; retrying in %.1fs",
+                    retries,
+                    max_attempts,
+                    method,
+                    url,
+                    _format_exception_message(_e),
+                    backoff_seconds,
+                )
+                await asyncio.sleep(backoff_seconds)
+                backoff_seconds = min(backoff_seconds * 2, max_backoff_seconds)
+                continue
 
     async def bulk_requests(self, urls: list[str]) -> list[ClientResponse | None]:
         return await asyncio.gather(*[self.request(url) for url in urls])
@@ -367,7 +432,15 @@ class AuthedSession:
         method: Literal["GET", "POST", "PUT", "PATCH", "DELETE"] = "GET",
         payload: dict[str, Any] = {},
     ) -> dict[str, Any]:
-        response = await self.request(url, method, data=payload)
+        try:
+            response = await self.request(url, method, data=payload)
+        except Exception as exc:
+            return {
+                "error": {
+                    "code": 0,
+                    "message": _format_exception_message(exc),
+                }
+            }
         if not response:
             return {}
 
@@ -389,7 +462,6 @@ class AuthedSession:
         payloads: list[dict[str, Any]] = [],
         method: Literal["GET", "POST", "PATCH", "DELETE"] = "GET",
     ) -> list[dict[Any, Any]]:
-        # If no payloads provided, use empty dicts for each URL
         if not payloads:
             payloads = [{} for _ in urls]
         return await asyncio.gather(
@@ -420,15 +492,12 @@ class SessionManager:
 
         self.use_cookies: bool = use_cookies
         self.request_count = 0
-        # self.last_request_time: float | None = None
-        # self.rate_limit_wait_minutes = 6
         self.proxies = proxies
         self.lock = self.lock = asyncio.Lock()
         self.rate_limit_check = False
         self.is_rate_limited = None
         self.time2sleep = 0
         self.rate_limit_checker_active = False
-        # asyncio.create_task(self.check_rate_limit())
 
     def created_authed_session(
         self, authenticator: ultima_scraper_api.authenticator_types
@@ -439,28 +508,6 @@ class SessionManager:
         proxies = self.proxies
         proxy = self.proxies[randint(0, len(proxies) - 1)] if proxies else ""
         return proxy
-
-    # async def limit_rate(self):
-    #     if self.auth.api.site_name == "OnlyFans":
-    #         # [OF] 1,000 requests every 5 minutes
-    #         # Can batch  =< 5,000 amount of requests, but will get rate limited and throw 429 error
-    #         MAX_REQUEST_LIMIT = 900  # 900 instead of 1,000 to be safe
-    #         rate_limit_wait_minutes = self.rate_limit_wait_minutes
-    #         RATE_LIMIT_WAIT_TIME = 60 * rate_limit_wait_minutes
-    #         if self.request_count >= MAX_REQUEST_LIMIT:
-    #             # Wait until 5 minutes have elapsed since last request
-    #             if self.last_request_time is not None:
-    #                 elapsed_time = time.time() - self.last_request_time
-    #                 if elapsed_time < RATE_LIMIT_WAIT_TIME:
-    #                     time2sleep = RATE_LIMIT_WAIT_TIME - elapsed_time
-    #                     print(time2sleep)
-    #                     await asyncio.sleep(time2sleep)
-    #             # Reset counter and timer
-    #             self.request_count = 0
-    #             self.last_request_time = None
-    #         self.request_count += 1
-    #         if self.last_request_time is None:
-    #             self.last_request_time = time.time()
 
     async def check_rate_limit(self):
         if self.rate_limit_checker_active:
@@ -475,11 +522,6 @@ class SessionManager:
 
                     try:
                         url = "https://onlyfans.com/api2/v2/init"
-                        # proxy_manager = self.proxy_manager
-                        # if proxy_manager.proxies:
-                        #     await proxy_manager.proxy_switcher()
-                        #     print(proxy_manager.get_current_proxy().host)
-
                         result = requests.get(url)
                         if result.status_code == 429:
                             result.raise_for_status()
@@ -501,7 +543,6 @@ class SessionManager:
                         continue
                     except requests.HTTPError as _e:
                         if _e.response and _e.response.status_code == 429:
-                            # Still rate limited, wait 5 seconds and retry
                             self.is_rate_limited = True
                             rate_limit_count += 1
                             logger.warning(

@@ -83,6 +83,9 @@ class APIRoutes:
             f"&order=publish_date_desc&skip_users_dups=0&label={label}"
         )
 
+    def search_chats(self, query: str, limit: int = 100, offset: int = 0) -> str:
+        return f"{STANDARD_API_URL}/chats?limit={limit}&offset={offset}&order=recent&query={query}"
+
     def list_messages(
         self,
         chat_id: int | str,

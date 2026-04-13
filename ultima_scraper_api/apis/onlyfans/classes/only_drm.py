@@ -11,6 +11,7 @@ Compatible with Python 3.14+
 
 import asyncio
 import logging
+import os
 import platform
 import re
 import shutil
@@ -342,7 +343,11 @@ class DRMMedia:
         policy: str,
         signature: str,
         content_id: int,
-        content_type: str | None,
+        video_url: str | None = None,
+        audio_url: str | None = None,
+        video_size: int | None = None,
+        audio_size: int | None = None,
+        content_type: str | None = None,
     ) -> None:
         self.media_id = media_id
 
@@ -350,6 +355,10 @@ class DRMMedia:
         self.key_pair_id = key_pair_id
         self.policy = policy
         self.signature = signature
+        self.video_url = video_url
+        self.audio_url = audio_url
+        self.video_size = video_size
+        self.audio_size = audio_size
 
         self.content_id = content_id
         self.content_type = content_type
@@ -456,6 +465,10 @@ class DRMMedia:
             directory_url, base_url, drm=True, manifest_type=self.get_manifest_type()
         )
         return media_url
+
+    def resolve_filename(self) -> str | None:
+        url = self.video_url or self.audio_url
+        return os.path.basename(urlparse(url).path) if url else None
 
     def get_manifest_type(self) -> str:
         for part in urlparse(self.manifest_url).path.split("/"):
@@ -685,7 +698,9 @@ class OnlyDRM:
         logger.debug(f"Extracted {len(keys)} decryption keys from license")
         return keys
 
-    async def resolve_drm(self, drm_media: "DRMMedia") -> tuple[str, str, str]:
+    async def resolve_drm(
+        self, drm_media: "DRMMedia"
+    ) -> tuple[str | None, str | None, str]:
         """
         Complete DRM resolution workflow: fetch manifest, acquire license, extract keys.
 
@@ -713,11 +728,11 @@ class OnlyDRM:
         key = f"{content_key.kid.hex}:{content_key.key.hex()}"  # type: ignore
 
         # Step 5: Extract media URLs from manifest
-        video_url = drm_media.get_video_url(manifest)
-        audio_url = drm_media.get_audio_url(manifest)
+        drm_media.video_url = drm_media.get_video_url(manifest)
+        drm_media.audio_url = drm_media.get_audio_url(manifest)
 
         logger.info(f"DRM resolution complete for media {drm_media.media_id}")
-        return video_url, audio_url, key
+        return drm_media.video_url, drm_media.audio_url, key
 
     def decrypt_file(
         self, filepath: Path, key: str, temp_output_path: Path | None = None

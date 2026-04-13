@@ -652,6 +652,18 @@ class OnlyFansAuthModel(
         self.chats = chats
         return self.chats
 
+    async def search_chats(self, query: str, limit: int = 100, offset: int = 0):
+        items = await recursion(
+            category="search_chats",
+            requester=self.get_requester(),
+            max_items=limit,
+            identifier=query,
+            limit=limit,
+            offset=offset,
+        )
+        chats = [ChatModel(x, self) for x in items]
+        return chats
+
     async def get_mass_message_stats(
         self,
         resume: list[dict[str, Any]] | None = None,
@@ -699,7 +711,7 @@ class OnlyFansAuthModel(
     async def get_paid_content(
         self,
         performer_id: int | None = None,
-        limit: int = 10,
+        limit: int | None = None,
         offset: int = 0,
     ):
         max_pagination_limit = 50  # maximum number of results per request
