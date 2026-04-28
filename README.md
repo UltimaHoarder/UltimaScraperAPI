@@ -1,7 +1,7 @@
 # UltimaScraperAPI
 
 [![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
-[![Version](https://img.shields.io/badge/version-2.2.46-green.svg)](https://github.com/UltimaHoarder/UltimaScraperAPI/releases)
+[![Version](https://img.shields.io/badge/version-3.0.0b4-green.svg)](https://github.com/UltimaHoarder/UltimaScraperAPI/releases)
 [![License: AGPL v3](https://img.shields.io/badge/License-AGPL%20v3-blue.svg)](https://www.gnu.org/licenses/agpl-3.0)
 [![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
 
@@ -483,28 +483,49 @@ async with api.login_context(auth_json) as authed:
                 print(f"Downloaded: {filename}")
 ```
 
-### Pagination and Batch Processing
+### Pagination and Progress Tracking
+
+`UserModel.get_posts`, `get_stories`, and `get_messages` accept an optional
+`on_progress` callback (and `job_id` for Redis event correlation) so you can
+stream progress as pages are fetched:
 
 ```python
 async with api.login_context(auth_json) as authed:
     user = await authed.get_user("username")
-    
-    # Fetch all posts with pagination
-    all_posts = []
-    offset = 0
-    limit = 50
-    
-    while True:
-        posts = await user.get_posts(limit=limit, offset=offset)
-        if not posts:
-            break
-            
-        all_posts.extend(posts)
-        offset += limit
-        
-        print(f"Fetched {len(all_posts)} posts so far...")
-    
-    print(f"Total posts: {len(all_posts)}")
+
+    async def on_progress(done_pages: int, total_pages: int, items_so_far: int):
+        print(f"Posts: page {done_pages}/{total_pages} — {items_so_far} fetched")
+
+    # Fetch all posts up to the user's total in one call (paginated internally)
+    posts = await user.get_posts(on_progress=on_progress)
+
+    # Or filter by date / label
+    archived = await user.get_posts(label="archived")
+
+    from datetime import datetime, timezone
+    recent = await user.get_posts(
+        after_date=datetime(2026, 1, 1, tzinfo=timezone.utc),
+    )
+
+    print(f"Total posts: {len(posts)}")
+```
+
+### Search Chats (3.0.0b4+)
+
+```python
+async with api.login_context(auth_json) as authed:
+    chats = await authed.search_chats("happy birthday", limit=50)
+    for chat in chats:
+        print(chat.user.username)
+```
+
+### Diagnosing Signed CDN URLs
+
+```python
+from ultima_scraper_api.helpers import diagnose_url
+
+diag = diagnose_url(media.url)
+print(diag.get_diagnosis())  # e.g. "URL valid for ~5.2 hours" or "URL expired ..."
 ```
 
 ### Concurrent Operations

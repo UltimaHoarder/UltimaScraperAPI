@@ -494,30 +494,183 @@ Get chat conversations.
 
 ```python
 async send_message(
-    user: UserModel,
-    text: str,
-    media_ids: list[int] = []
-) -> MessageModel | None
+    to_user_id: int,
+    text: str = "",
+    *,
+    lockedText: bool | None = None,
+    mediaFiles: list[dict[str, Any]] | None = None,
+    price: float | None = None,
+    previews: list[dict[str, Any]] | None = None,
+    rfTag: list[Any] | None = None,
+    rfGuest: list[Any] | None = None,
+    rfPartner: list[Any] | None = None,
+    isForward: bool | None = None,
+) -> dict[str, Any]
 ```
 
-Send a message to a user.
+Send a message to a user's chat with full OnlyFans payload support. Backward compatible: can be called with just `(to_user_id, text)`.
 
 **Parameters:**
 
-- `user` (UserModel): Recipient user
+- `to_user_id` (int): Recipient user ID
 - `text` (str): Message text
-- `media_ids` (list): IDs of media to attach
+- `lockedText` (bool, optional): Whether the message text is locked behind a price
+- `mediaFiles` (list[dict], optional): Media file payloads to attach
+- `price` (float, optional): Price for paid messages
+- `previews` (list[dict], optional): Preview media payloads
+- `rfTag` / `rfGuest` / `rfPartner` (list, optional): Referral metadata fields
+- `isForward` (bool, optional): Mark message as forwarded
 
-**Returns:** Sent `MessageModel` if successful
+**Returns:** Raw API response dict
 
 **Example:**
 
 ```python
 user = await auth_model.get_user("username")
-message = await auth_model.send_message(user, "Hello!")
-if message:
-    print(f"Message sent: {message.id}")
+response = await auth_model.send_message(user.id, "Hello!")
+print(f"Message sent: {response.get('id')}")
 ```
+
+###### message_create
+
+```python
+async message_create(
+    to_user_id: int,
+    text: str = "",
+    **kwargs: Any,
+) -> dict[str, Any]
+```
+
+Alias for `send_message` retained for older call sites; forwards extra payload fields.
+
+###### search_chats
+
+```python
+async search_chats(
+    query: str,
+    limit: int = 100,
+    offset: int = 0
+) -> list[ChatModel]
+```
+
+Search chats by free-text query (added in 3.0.0b4).
+
+**Parameters:**
+
+- `query` (str): Search query
+- `limit` (int): Maximum results
+- `offset` (int): Pagination offset
+
+**Returns:** List of `ChatModel` instances matching the query
+
+**Example:**
+
+```python
+chats = await auth_model.search_chats("happy birthday")
+for chat in chats:
+    print(f"{chat.user.username}")
+```
+
+##### Paid Content & Transactions
+
+###### get_paid_content
+
+```python
+async get_paid_content(
+    performer_id: int | None = None,
+    limit: int | None = None,
+    offset: int = 0,
+) -> list[MessageModel | PostModel]
+```
+
+Get all purchased (paid) posts and messages, optionally filtered to a single performer.
+
+**Parameters:**
+
+- `performer_id` (int | None): Filter to a specific performer's content
+- `limit` (int | None): Maximum number of items (defaults to all available)
+- `offset` (int): Pagination offset
+
+**Returns:** List of paid `MessageModel` and `PostModel` instances
+
+###### get_transactions
+
+```python
+async get_transactions(
+    limit: int = 100,
+    offset: int = 0,
+) -> list[dict[str, Any]]
+```
+
+Get the authenticated user's payment transaction history.
+
+**Returns:** List of raw transaction dictionaries
+
+##### Moderation Lists
+
+###### blocked_users
+
+```python
+async blocked_users(
+    limit: int = 100,
+    offset: int = 0,
+) -> list[dict[str, Any]]
+```
+
+Get the authenticated user's list of blocked users.
+
+###### restricted_users
+
+```python
+async restricted_users(
+    limit: int = 100,
+    offset: int = 0,
+) -> list[dict[str, Any]]
+```
+
+Get the authenticated user's list of restricted users.
+
+##### Account Settings & Verification
+
+###### get_settings
+
+```python
+async get_settings() -> SettingsModel
+```
+
+Fetch the authenticated user's full settings (notifications, privacy, OTP, payouts, etc.) as a typed `SettingsModel`.
+
+###### notification_settings
+
+```python
+async notification_settings() -> dict[str, Any]
+```
+
+Fetch granular notification preferences.
+
+###### needs_age_verification
+
+```python
+async needs_age_verification() -> bool
+```
+
+Returns whether the account needs to complete age verification before accessing NSFW content.
+
+###### get_age_verification
+
+```python
+async get_age_verification() -> dict[str, Any]
+```
+
+Start or fetch the age verification flow.
+
+###### get_identity_verification
+
+```python
+async get_identity_verification() -> dict[str, Any]
+```
+
+Start or fetch the identity verification flow (e.g. for becoming a creator or unlocking a locked account).
 
 ##### Utility Methods
 
@@ -604,49 +757,56 @@ user.can_look_story: bool             # Can view stories
 
 ```python
 async get_posts(
-    limit: int = 100,
-    offset: int = 0,
-    refresh: bool = True
+    label: Literal["archived", "private_archived"] | str = "",
+    limit: int | None = None,
+    before_date: datetime | float | None = None,
+    after_date: datetime | float | None = None,
+    on_progress: ScrapeProgressCallback | None = None,
+    job_id: str | None = None,
 ) -> list[PostModel]
 ```
 
-Get user's posts with pagination.
+Get user's posts with pagination, label filtering, date filtering, and optional progress callbacks.
 
 **Parameters:**
 
-- `limit` (int): Maximum number of posts to retrieve
-- `offset` (int): Pagination offset
-- `refresh` (bool): Force refresh from API
+- `label` (str): `""` for default feed, `"archived"`, `"private_archived"`, or any custom label slug
+- `limit` (int | None): Maximum number of posts (defaults to the user's full post count)
+- `before_date` / `after_date` (datetime | float | None): Filter posts before/after a publish time
+- `on_progress` (callable, optional): Async callback `(completed_pages, total_pages, items_so_far)` invoked per page
+- `job_id` (str | None): Optional job identifier surfaced in published `scrape_progress` Redis events (defaults to `"api"`)
 
 **Returns:** List of `PostModel` instances
 
 **Example:**
 
 ```python
-posts = await user.get_posts(limit=50)
-for post in posts:
-    print(f"Post {post.id}: {post.text}")
-    if post.media:
-        print(f"  Media count: {len(post.media)}")
+async def progress(done, total, items):
+    print(f"Posts: page {done}/{total} — {items} fetched")
+
+posts = await user.get_posts(limit=200, on_progress=progress)
 ```
 
 ###### get_archived_posts
 
+Archived posts are fetched through `get_posts` using the `label` parameter:
+
 ```python
-async get_archived_posts(
-    limit: int = 100,
-    offset: int = 0
-) -> list[PostModel]
+archived = await user.get_posts(label="archived")
+private_archived = await user.get_posts(label="private_archived")  # authed user only
 ```
 
-Get user's archived posts.
+###### get_post
 
-**Parameters:**
+```python
+async get_post(
+    identifier: int | str | None = None,
+    limit: int = 10,
+    offset: int = 0,
+) -> PostModel
+```
 
-- `limit` (int): Maximum results
-- `offset` (int): Pagination offset
-
-**Returns:** List of archived `PostModel` instances
+Fetch a single post by ID. If `identifier` is omitted, the user's own ID is used.
 
 ###### get_stories
 
@@ -654,19 +814,12 @@ Get user's archived posts.
 async get_stories(
     limit: int = 100,
     offset: int = 0,
-    refresh: bool = True
+    on_progress: ScrapeProgressCallback | None = None,
+    job_id: str | None = None,
 ) -> list[StoryModel]
 ```
 
-Get user's active stories.
-
-**Parameters:**
-
-- `limit` (int): Maximum results
-- `offset` (int): Pagination offset
-- `refresh` (bool): Force refresh from API
-
-**Returns:** List of `StoryModel` instances
+Get user's active stories. Supports the same `on_progress` / `job_id` callback contract as `get_posts`.
 
 **Example:**
 
@@ -718,29 +871,53 @@ Get user's story highlights.
 
 ```python
 async get_messages(
-    limit: int = 100,
-    offset: int = 0,
-    refresh: bool = True
+    limit: int = 20,
+    offset_id: int | None = None,
+    cutoff_id: int | None = None,
+    on_progress: ScrapeProgressCallback | None = None,
+    job_id: str | None = None,
 ) -> list[MessageModel]
 ```
 
-Get messages with this user.
+Get the chat history with this user.
 
 **Parameters:**
 
-- `limit` (int): Maximum messages
-- `offset` (int): Pagination offset
-- `refresh` (bool): Force refresh from API
+- `limit` (int): Page size for each request
+- `offset_id` (int | None): Start pagination from a specific message ID
+- `cutoff_id` (int | None): Stop pagination once this message ID is encountered
+- `on_progress` / `job_id`: Progress reporting (see `get_posts`)
 
 **Returns:** List of `MessageModel` instances
 
-**Example:**
+###### get_mass_messages
 
 ```python
-messages = await user.get_messages(limit=50)
-for msg in messages:
-    print(f"[{msg.created_at}] {msg.from_user.username}: {msg.text}")
+async get_mass_messages(
+    message_cutoff_id: int | None = None,
+) -> list[MassMessageModel]
 ```
+
+Return mass-message instances detected within this user's message history and paid content.
+
+###### get_paid_contents
+
+```python
+async get_paid_contents(
+    content_type: str | None = None,
+) -> list[MessageModel | PostModel]
+```
+
+Get paid content purchased from this performer. Pass `"message"` or `"post"` to filter.
+
+###### block / unblock
+
+```python
+async block() -> dict[str, Any]
+async unblock() -> dict[str, Any]
+```
+
+Block or unblock this user.
 
 ##### Utility Methods
 
@@ -841,7 +1018,12 @@ post.comments_count: int              # Number of comments
 ```python
 post.get_author() -> UserModel        # Get post author
 post.get_text() -> str                # Get post text (empty string if None)
+post.is_bought() -> bool              # True if the post has been purchased
+                                      # (or is free) based on media visibility/price
 ```
+
+`PostModel` also exposes a `promotion: PromotionContentModel | None` attribute
+that wraps any associated promotion metadata (price, discount, expiration).
 
 **Example:**
 
@@ -888,6 +1070,15 @@ for msg in messages:
     print(f"{msg.from_user.username}: {msg.text}")
     if msg.media:
         print(f"  {len(msg.media)} media attached")
+```
+
+#### Methods
+
+```python
+message.is_bought() -> bool                          # Whether the message has been purchased
+message.is_mass_message() -> bool                    # Whether the message is from a mass send
+await message.buy_message() -> dict[str, Any]        # Purchase a paid message
+await message.like_message() -> dict[str, Any]       # Like / unlike toggle (server toggles state)
 ```
 
 ---

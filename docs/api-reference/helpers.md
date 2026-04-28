@@ -1283,4 +1283,85 @@ await fn_streamliner.close_pools()
 
 ---
 
-**Last Updated**: October 2024 | **Version**: 2.2.46
+## URL Diagnostics (`ultima_scraper_api.helpers.url_diagnostics`)
+
+Added in 3.0.0b3. Tools for decoding and inspecting signed CDN URLs (CloudFront for OnlyFans, Fansly CDN URLs).
+
+### `diagnose_url(url: str) -> UrlDiagnostics`
+
+Parse a CDN URL and return a `UrlDiagnostics` dataclass containing the decoded CloudFront policy, expiration time, IP-lock state, and a human-readable diagnosis string.
+
+```python
+from ultima_scraper_api.helpers import diagnose_url
+
+diag = diagnose_url(media.url)
+print(diag.get_diagnosis())  # "URL valid for ~5.2 hours" / "URL expired 2 hour(s) ago at ..." / etc.
+print(diag.to_dict())
+```
+
+### `diagnose_download_failure(url, http_status=None) -> UrlDiagnostics`
+
+Same as `diagnose_url` but enriched with HTTP status context for failed downloads.
+
+### `decode_cloudfront_policy(policy_b64: str) -> CloudFrontPolicy`
+
+Low-level helper that returns the decoded `Resource`, `expires_at`, and `ip_address` constraints from a CloudFront `Policy` query parameter.
+
+### `is_onlyfans_cdn_url(url) -> bool` / `is_fansly_cdn_url(url) -> bool`
+
+Quick predicates used to route URLs to the right diagnostics path.
+
+---
+
+## Media Types (`ultima_scraper_api.helpers.media_types`)
+
+Added in 3.0.0b3. Provides the `MediaTypes` enum and a `media_types` registry mapping API media kinds (`photo`, `video`, `audio`, `gif`, `stream`, `application`) to canonical buckets (`images`, `videos`, `audios`, `gifs`).
+
+```python
+from ultima_scraper_api.helpers import media_types, MediaTypes
+
+bucket = MediaTypes.from_api_type("photo")  # MediaTypes.IMAGES
+```
+
+The same conversion is also exposed at the package level via `MediaType.from_api_type()` and `map_api_media_types()` in `ultima_scraper_api`.
+
+---
+
+## Job Events (`ultima_scraper_api.job_events`)
+
+Added in 3.0.0b3. Pydantic models that define the canonical schema for events published on Redis pub/sub channels (consumed by the TUI and worker processes).
+
+Key models:
+
+| Model | Purpose |
+|-------|---------|
+| `OperationProgressEvent` | Generic progress event for downloads/scrapes |
+| `DownloadFailureReason` | Categorized enum (with `is_recoverable` and `human_readable`) for failed downloads |
+| `ScrapeProgressEvent` | Per-page scraping progress (emitted by `UserModel.get_posts/get_messages/get_stories`) |
+| `ApiCommandResult` | Standardized response envelope for API commands |
+
+Helper:
+
+```python
+from ultima_scraper_api.job_events import create_download_progress_event
+
+event = create_download_progress_event(
+    job_id="job-123",
+    task_id="task-1",
+    download_id="dl-1",
+    username="creator",
+    user_id=42,
+    content_type="Posts",
+    worker_id="worker-1",
+    dm_event=dm_event,
+    progress_state=state,
+    progress_start=start,
+    total_downloads=total,
+)
+```
+
+Scrape progress events are emitted automatically when the new `on_progress` / `job_id` parameters are passed to `UserModel.get_posts`, `get_stories`, and `get_messages`.
+
+---
+
+**Last Updated**: April 2026 | **Version**: 3.0.0b4

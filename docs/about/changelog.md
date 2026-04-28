@@ -21,6 +21,69 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [3.0.0b4] - 2026-04-14
+
+### Added
+- `OnlyFansAuthModel.search_chats(query, limit, offset)` — full-text chat search returning `ChatModel` instances.
+- `APIRoutes.search_chats` route on the centralized `APIRoutes` registry.
+
+### Changed
+- `SessionManager` refactored to consolidate request handling, retry/backoff, and Cloudflare bypass logic.
+- `OnlyDRM` now derives manifest type and CDN URLs more robustly when resolving DRM media.
+- `MediaModel` improved source-URL handling for streamed/DRM content.
+
+### Fixed
+- Edge cases in user-model lookups when DRM-only media is present.
+
+---
+
+## [3.0.0b3] - 2026-03-17
+
+### Added
+- New OnlyFans endpoints and helpers:
+  - `OnlyFansAuthModel.blocked_users()` and `restricted_users()`
+  - `OnlyFansAuthModel.get_paid_content(performer_id=…)` with optional per-performer filtering
+  - `OnlyFansAuthModel.get_transactions()` for payment history
+  - `UserModel.block()` / `UserModel.unblock()`
+- `APIRoutes` class (`ultima_scraper_api/apis/onlyfans/urls.py`) — centralized, typed registry of every OnlyFans API endpoint.
+- `PromotionContentModel` exposed via `PostModel.promotion`.
+- `MassMessageModel.is_bought()`, `MessageModel.is_bought()`, `PostModel.is_bought()` — uniform purchase-state detection based on media visibility and price.
+- `MessageModel.buy_message()` and `MessageModel.like_message()` for purchase / like flows.
+- `ScrapeProgressCallback` and `on_progress` / `job_id` parameters on `UserModel.get_posts`, `get_stories`, and `get_messages` for real-time progress reporting (also published as Redis `scrape_progress` events).
+- `ultima_scraper_api.helpers.url_diagnostics` — `diagnose_url`, `diagnose_download_failure`, `decode_cloudfront_policy`, `is_onlyfans_cdn_url`, `is_fansly_cdn_url`, plus `CloudFrontPolicy` / `UrlDiagnostics` dataclasses for inspecting signed CDN URLs.
+- `ultima_scraper_api.helpers.media_types` — `MediaTypes` enum and registry shared with the package-level `MediaType.from_api_type()` and `map_api_media_types()` utilities.
+- `ultima_scraper_api.job_events` — Pydantic event models (`OperationProgressEvent`, `DownloadFailureReason`, `ApiCommandResult`, …) and `create_download_progress_event()` for typed Redis pub/sub events.
+- `ProxyManager` and `AuthedSession` now support custom SSL contexts for Cloudflare bypass.
+- Proxy support added to Fansly and LoyalFans authenticators.
+- `BaseSubscriptionModel` now inherits from `dict` for easier serialization.
+- `ScrapeManager` supports progress callbacks during bulk scraping; WebSocket connection manager tracks content-event staleness.
+- Redis log history and improved connection/error handling in `managers/redis`.
+
+### Changed
+- `OnlyFansAuthModel.send_message` rewritten to accept the full OnlyFans payload (`to_user_id`, `text`, `lockedText`, `mediaFiles`, `price`, `previews`, `rfTag`, `rfGuest`, `rfPartner`, `isForward`); old signature replaced. `message_create` is kept as a thin alias.
+- `UserModel.get_posts` now accepts `label` (`""`, `"archived"`, `"private_archived"`, …), `before_date`, `after_date`, plus the new progress callbacks.
+- `UserModel.get_messages` paginates via `offset_id` / `cutoff_id` instead of numeric offsets and emits per-page progress events.
+- `MediaModel`, `PostModel`, `StoryModel`, `SubscriptionModel`, and `UserModel` updated for naming consistency and improved error handling.
+- `OnlyFansAuthenticator` flow refactored for clarity.
+- `WebSocketManager` / protocol cleaned up for type safety.
+
+### Fixed
+- Several edge cases in user resolution and paid-content aggregation.
+
+---
+
+## [3.0.0b2] - 2025-10-18
+
+### Added
+- Major project restructure with new MkDocs Material documentation site.
+- Initial **LoyalFans** API scaffolding.
+- Build improvements and updated packaging metadata.
+
+### Changed
+- Auth model initialization streamlined; subscription-fetching logic cleaned up (3.0.0b3 build).
+
+---
+
 ## [2.2.46] - 2025-10-18
 
 ### Added
