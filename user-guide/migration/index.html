@@ -2493,7 +2493,7 @@
 <li><strong>Patch versions</strong> (2.2.47): Bug fixes, security patches</li>
 </ul>
 <h3 id="current-version">Current Version</h3>
-<p><strong>Latest Stable:</strong> 2.2.46 (October 18, 2025)</p>
+<p><strong>Latest Beta:</strong> 3.0.0b4 (April 14, 2026)</p>
 <h3 id="supported-versions">Supported Versions</h3>
 <table>
 <thead>
@@ -2741,8 +2741,8 @@
 <a id="__codelineno-9-8" name="__codelineno-9-8" href="#__codelineno-9-8"></a>git<span class="w"> </span>checkout<span class="w"> </span>-b<span class="w"> </span>migration-2.2.x
 </code></pre></div>
 <h4 id="step-1-update-dependencies">Step 1: Update Dependencies</h4>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a><span class="c1"># Update to latest 2.2.x</span>
-<a id="__codelineno-10-2" name="__codelineno-10-2" href="#__codelineno-10-2"></a>uv<span class="w"> </span>pip<span class="w"> </span>install<span class="w"> </span>--upgrade<span class="w"> </span><span class="s2">&quot;ultima-scraper-api&gt;=2.2.46&quot;</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a><span class="c1"># Update to latest 3.0 beta</span>
+<a id="__codelineno-10-2" name="__codelineno-10-2" href="#__codelineno-10-2"></a>uv<span class="w"> </span>pip<span class="w"> </span>install<span class="w"> </span>--upgrade<span class="w"> </span><span class="s2">&quot;ultima-scraper-api&gt;=3.0.0b4&quot;</span>
 <a id="__codelineno-10-3" name="__codelineno-10-3" href="#__codelineno-10-3"></a>
 <a id="__codelineno-10-4" name="__codelineno-10-4" href="#__codelineno-10-4"></a><span class="c1"># Update Pydantic to v2</span>
 <a id="__codelineno-10-5" name="__codelineno-10-5" href="#__codelineno-10-5"></a>uv<span class="w"> </span>pip<span class="w"> </span>install<span class="w"> </span>--upgrade<span class="w"> </span><span class="s2">&quot;pydantic&gt;=2.0&quot;</span>
@@ -3030,7 +3030,7 @@
 <li><strong><a href="../../about/changelog/">Changelog</a></strong> - Detailed version history</li>
 <li><strong><a href="../troubleshooting/">Troubleshooting Guide</a></strong> - Common issues</li>
 <li><strong><a href="../../api-reference/onlyfans/">API Reference</a></strong> - Current API documentation</li>
-<li><strong><a href="https://github.com/DIGITALCRIMINAL/UltimaScraperAPI/issues">GitHub Issues</a></strong> - Report problems</li>
+<li><strong><a href="https://github.com/UltimaHoarder/UltimaScraperAPI/issues">GitHub Issues</a></strong> - Report problems</li>
 </ul>
 <h3 id="community-support">Community Support</h3>
 <ul>
@@ -3177,14 +3177,15 @@
 <a id="__codelineno-41-3" name="__codelineno-41-3" href="#__codelineno-41-3"></a><span class="n">logger</span> <span class="o">=</span> <span class="n">logging</span><span class="o">.</span><span class="n">getLogger</span><span class="p">(</span><span class="vm">__name__</span><span class="p">)</span>
 <a id="__codelineno-41-4" name="__codelineno-41-4" href="#__codelineno-41-4"></a>
 <a id="__codelineno-41-5" name="__codelineno-41-5" href="#__codelineno-41-5"></a><span class="c1"># Log migration progress</span>
-<a id="__codelineno-41-6" name="__codelineno-41-6" href="#__codelineno-41-6"></a><span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Using UltimaScraperAPI v</span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">api</span><span class="o">.</span><span class="n">__version__</span><span class="p">)</span>
-<a id="__codelineno-41-7" name="__codelineno-41-7" href="#__codelineno-41-7"></a>
-<a id="__codelineno-41-8" name="__codelineno-41-8" href="#__codelineno-41-8"></a><span class="c1"># Track errors</span>
-<a id="__codelineno-41-9" name="__codelineno-41-9" href="#__codelineno-41-9"></a><span class="k">try</span><span class="p">:</span>
-<a id="__codelineno-41-10" name="__codelineno-41-10" href="#__codelineno-41-10"></a>    <span class="n">user</span> <span class="o">=</span> <span class="n">UserModel</span><span class="p">(</span><span class="o">**</span><span class="n">data</span><span class="p">)</span>
-<a id="__codelineno-41-11" name="__codelineno-41-11" href="#__codelineno-41-11"></a><span class="k">except</span> <span class="n">ValidationError</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
-<a id="__codelineno-41-12" name="__codelineno-41-12" href="#__codelineno-41-12"></a>    <span class="n">logger</span><span class="o">.</span><span class="n">error</span><span class="p">(</span><span class="s2">&quot;Pydantic validation error: </span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">e</span><span class="p">)</span>
-<a id="__codelineno-41-13" name="__codelineno-41-13" href="#__codelineno-41-13"></a>    <span class="c1"># Handle gracefully</span>
+<a id="__codelineno-41-6" name="__codelineno-41-6" href="#__codelineno-41-6"></a><span class="kn">from</span><span class="w"> </span><span class="nn">importlib.metadata</span><span class="w"> </span><span class="kn">import</span> <span class="n">version</span>
+<a id="__codelineno-41-7" name="__codelineno-41-7" href="#__codelineno-41-7"></a><span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Using UltimaScraperAPI v</span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">version</span><span class="p">(</span><span class="s2">&quot;ultima-scraper-api&quot;</span><span class="p">))</span>
+<a id="__codelineno-41-8" name="__codelineno-41-8" href="#__codelineno-41-8"></a>
+<a id="__codelineno-41-9" name="__codelineno-41-9" href="#__codelineno-41-9"></a><span class="c1"># Track errors</span>
+<a id="__codelineno-41-10" name="__codelineno-41-10" href="#__codelineno-41-10"></a><span class="k">try</span><span class="p">:</span>
+<a id="__codelineno-41-11" name="__codelineno-41-11" href="#__codelineno-41-11"></a>    <span class="n">user</span> <span class="o">=</span> <span class="n">UserModel</span><span class="p">(</span><span class="o">**</span><span class="n">data</span><span class="p">)</span>
+<a id="__codelineno-41-12" name="__codelineno-41-12" href="#__codelineno-41-12"></a><span class="k">except</span> <span class="n">ValidationError</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+<a id="__codelineno-41-13" name="__codelineno-41-13" href="#__codelineno-41-13"></a>    <span class="n">logger</span><span class="o">.</span><span class="n">error</span><span class="p">(</span><span class="s2">&quot;Pydantic validation error: </span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">e</span><span class="p">)</span>
+<a id="__codelineno-41-14" name="__codelineno-41-14" href="#__codelineno-41-14"></a>    <span class="c1"># Handle gracefully</span>
 </code></pre></div>
 <hr />
 <h2 id="version-history-summary">Version History Summary</h2>
@@ -3199,8 +3200,20 @@
 </thead>
 <tbody>
 <tr>
+<td><strong>3.0.0b4</strong></td>
+<td>2026-04-14</td>
+<td>Chat search, session/DRM/media refactors</td>
+<td><code>send_message</code> payload signature</td>
+</tr>
+<tr>
+<td><strong>3.0.0b3</strong></td>
+<td>2026-03-17</td>
+<td>API routes, progress callbacks, typed events, URL diagnostics</td>
+<td>OnlyFans <code>get_posts</code>/<code>get_messages</code> pagination parameters</td>
+</tr>
+<tr>
 <td><strong>2.2.46</strong></td>
-<td>2024-10-18</td>
+<td>2025-10-18</td>
 <td>Documentation overhaul</td>
 <td>None</td>
 </tr>
@@ -3231,9 +3244,9 @@
 </tbody>
 </table>
 <hr />
-<p><strong>Last Updated:</strong> October 18, 2025<br />
-<strong>Guide Version:</strong> 2.2.46</p>
-<p>For the most up-to-date information, always check the <a href="../../about/changelog/">Changelog</a> and <a href="https://github.com/DIGITALCRIMINAL/UltimaScraperAPI/releases">GitHub Releases</a>.</p>
+<p><strong>Last Updated:</strong> April 28, 2026<br />
+<strong>Guide Version:</strong> 3.0.0b4</p>
+<p>For the most up-to-date information, always check the <a href="../../about/changelog/">Changelog</a> and <a href="https://github.com/UltimaHoarder/UltimaScraperAPI/releases">GitHub Releases</a>.</p>
 
 
 

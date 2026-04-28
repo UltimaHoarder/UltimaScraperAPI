@@ -2326,21 +2326,22 @@
 <a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a>    <span class="n">api</span> <span class="o">=</span> <span class="n">OnlyFansAPI</span><span class="p">(</span><span class="n">config</span><span class="p">)</span>
 <a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a>
 <a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a>    <span class="n">auth_json</span> <span class="o">=</span> <span class="p">{</span>
-<a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a>        <span class="s2">&quot;cookie&quot;</span><span class="p">:</span> <span class="s2">&quot;your_cookie&quot;</span><span class="p">,</span>
-<a id="__codelineno-0-10" name="__codelineno-0-10" href="#__codelineno-0-10"></a>        <span class="s2">&quot;user_agent&quot;</span><span class="p">:</span> <span class="s2">&quot;your_user_agent&quot;</span><span class="p">,</span>
-<a id="__codelineno-0-11" name="__codelineno-0-11" href="#__codelineno-0-11"></a>        <span class="s2">&quot;x-bc&quot;</span><span class="p">:</span> <span class="s2">&quot;your_x-bc&quot;</span>
-<a id="__codelineno-0-12" name="__codelineno-0-12" href="#__codelineno-0-12"></a>    <span class="p">}</span>
-<a id="__codelineno-0-13" name="__codelineno-0-13" href="#__codelineno-0-13"></a>
-<a id="__codelineno-0-14" name="__codelineno-0-14" href="#__codelineno-0-14"></a>    <span class="c1"># Session is automatically created and cleaned up</span>
-<a id="__codelineno-0-15" name="__codelineno-0-15" href="#__codelineno-0-15"></a>    <span class="k">async</span> <span class="k">with</span> <span class="n">api</span><span class="o">.</span><span class="n">login_context</span><span class="p">(</span><span class="n">auth_json</span><span class="p">)</span> <span class="k">as</span> <span class="n">authed</span><span class="p">:</span>
-<a id="__codelineno-0-16" name="__codelineno-0-16" href="#__codelineno-0-16"></a>        <span class="k">if</span> <span class="n">authed</span> <span class="ow">and</span> <span class="n">authed</span><span class="o">.</span><span class="n">is_authed</span><span class="p">():</span>
-<a id="__codelineno-0-17" name="__codelineno-0-17" href="#__codelineno-0-17"></a>            <span class="c1"># Session is active here</span>
-<a id="__codelineno-0-18" name="__codelineno-0-18" href="#__codelineno-0-18"></a>            <span class="n">user</span> <span class="o">=</span> <span class="k">await</span> <span class="n">authed</span><span class="o">.</span><span class="n">get_user</span><span class="p">(</span><span class="s2">&quot;username&quot;</span><span class="p">)</span>
-<a id="__codelineno-0-19" name="__codelineno-0-19" href="#__codelineno-0-19"></a>            <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Connected: </span><span class="si">{</span><span class="n">user</span><span class="o">.</span><span class="n">username</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
-<a id="__codelineno-0-20" name="__codelineno-0-20" href="#__codelineno-0-20"></a>    <span class="c1"># Session is automatically closed here</span>
-<a id="__codelineno-0-21" name="__codelineno-0-21" href="#__codelineno-0-21"></a>
-<a id="__codelineno-0-22" name="__codelineno-0-22" href="#__codelineno-0-22"></a><span class="k">if</span> <span class="vm">__name__</span> <span class="o">==</span> <span class="s2">&quot;__main__&quot;</span><span class="p">:</span>
-<a id="__codelineno-0-23" name="__codelineno-0-23" href="#__codelineno-0-23"></a>    <span class="n">asyncio</span><span class="o">.</span><span class="n">run</span><span class="p">(</span><span class="n">main</span><span class="p">())</span>
+<a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a>        <span class="s2">&quot;id&quot;</span><span class="p">:</span> <span class="mi">123456</span><span class="p">,</span>
+<a id="__codelineno-0-10" name="__codelineno-0-10" href="#__codelineno-0-10"></a>        <span class="s2">&quot;cookie&quot;</span><span class="p">:</span> <span class="s2">&quot;your_cookie&quot;</span><span class="p">,</span>
+<a id="__codelineno-0-11" name="__codelineno-0-11" href="#__codelineno-0-11"></a>        <span class="s2">&quot;user_agent&quot;</span><span class="p">:</span> <span class="s2">&quot;your_user_agent&quot;</span><span class="p">,</span>
+<a id="__codelineno-0-12" name="__codelineno-0-12" href="#__codelineno-0-12"></a>        <span class="s2">&quot;x-bc&quot;</span><span class="p">:</span> <span class="s2">&quot;your_x-bc&quot;</span>
+<a id="__codelineno-0-13" name="__codelineno-0-13" href="#__codelineno-0-13"></a>    <span class="p">}</span>
+<a id="__codelineno-0-14" name="__codelineno-0-14" href="#__codelineno-0-14"></a>
+<a id="__codelineno-0-15" name="__codelineno-0-15" href="#__codelineno-0-15"></a>    <span class="c1"># Session is automatically created and cleaned up</span>
+<a id="__codelineno-0-16" name="__codelineno-0-16" href="#__codelineno-0-16"></a>    <span class="k">async</span> <span class="k">with</span> <span class="n">api</span><span class="o">.</span><span class="n">login_context</span><span class="p">(</span><span class="n">auth_json</span><span class="p">)</span> <span class="k">as</span> <span class="n">authed</span><span class="p">:</span>
+<a id="__codelineno-0-17" name="__codelineno-0-17" href="#__codelineno-0-17"></a>        <span class="k">if</span> <span class="n">authed</span> <span class="ow">and</span> <span class="n">authed</span><span class="o">.</span><span class="n">is_authed</span><span class="p">():</span>
+<a id="__codelineno-0-18" name="__codelineno-0-18" href="#__codelineno-0-18"></a>            <span class="c1"># Session is active here</span>
+<a id="__codelineno-0-19" name="__codelineno-0-19" href="#__codelineno-0-19"></a>            <span class="n">user</span> <span class="o">=</span> <span class="k">await</span> <span class="n">authed</span><span class="o">.</span><span class="n">get_user</span><span class="p">(</span><span class="s2">&quot;username&quot;</span><span class="p">)</span>
+<a id="__codelineno-0-20" name="__codelineno-0-20" href="#__codelineno-0-20"></a>            <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Connected: </span><span class="si">{</span><span class="n">user</span><span class="o">.</span><span class="n">username</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+<a id="__codelineno-0-21" name="__codelineno-0-21" href="#__codelineno-0-21"></a>    <span class="c1"># Session is automatically closed here</span>
+<a id="__codelineno-0-22" name="__codelineno-0-22" href="#__codelineno-0-22"></a>
+<a id="__codelineno-0-23" name="__codelineno-0-23" href="#__codelineno-0-23"></a><span class="k">if</span> <span class="vm">__name__</span> <span class="o">==</span> <span class="s2">&quot;__main__&quot;</span><span class="p">:</span>
+<a id="__codelineno-0-24" name="__codelineno-0-24" href="#__codelineno-0-24"></a>    <span class="n">asyncio</span><span class="o">.</span><span class="n">run</span><span class="p">(</span><span class="n">main</span><span class="p">())</span>
 </code></pre></div>
 <h3 id="session-lifecycle">Session Lifecycle</h3>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="c1"># 1. Session Creation</span>
@@ -2429,23 +2430,22 @@
 <p>Optimize performance with <code>aiohttp</code> connection pooling:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="kn">import</span><span class="w"> </span><span class="nn">aiohttp</span>
 <a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a><span class="kn">from</span><span class="w"> </span><span class="nn">ultima_scraper_api</span><span class="w"> </span><span class="kn">import</span> <span class="n">OnlyFansAPI</span><span class="p">,</span> <span class="n">UltimaScraperAPIConfig</span>
-<a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a><span class="kn">from</span><span class="w"> </span><span class="nn">ultima_scraper_api.config</span><span class="w"> </span><span class="kn">import</span> <span class="n">Network</span>
-<a id="__codelineno-5-4" name="__codelineno-5-4" href="#__codelineno-5-4"></a>
-<a id="__codelineno-5-5" name="__codelineno-5-5" href="#__codelineno-5-5"></a><span class="c1"># Create custom connector with optimized settings</span>
-<a id="__codelineno-5-6" name="__codelineno-5-6" href="#__codelineno-5-6"></a><span class="n">connector</span> <span class="o">=</span> <span class="n">aiohttp</span><span class="o">.</span><span class="n">TCPConnector</span><span class="p">(</span>
-<a id="__codelineno-5-7" name="__codelineno-5-7" href="#__codelineno-5-7"></a>    <span class="n">limit</span><span class="o">=</span><span class="mi">100</span><span class="p">,</span>                     <span class="c1"># Total connection limit across all hosts</span>
-<a id="__codelineno-5-8" name="__codelineno-5-8" href="#__codelineno-5-8"></a>    <span class="n">limit_per_host</span><span class="o">=</span><span class="mi">30</span><span class="p">,</span>             <span class="c1"># Per-host connection limit</span>
-<a id="__codelineno-5-9" name="__codelineno-5-9" href="#__codelineno-5-9"></a>    <span class="n">ttl_dns_cache</span><span class="o">=</span><span class="mi">300</span><span class="p">,</span>             <span class="c1"># DNS cache TTL (5 minutes)</span>
-<a id="__codelineno-5-10" name="__codelineno-5-10" href="#__codelineno-5-10"></a>    <span class="n">enable_cleanup_closed</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>    <span class="c1"># Clean up closed connections</span>
-<a id="__codelineno-5-11" name="__codelineno-5-11" href="#__codelineno-5-11"></a>    <span class="n">force_close</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>             <span class="c1"># Reuse connections</span>
-<a id="__codelineno-5-12" name="__codelineno-5-12" href="#__codelineno-5-12"></a>    <span class="n">keepalive_timeout</span><span class="o">=</span><span class="mi">30</span><span class="p">,</span>          <span class="c1"># Keep-alive timeout (seconds)</span>
-<a id="__codelineno-5-13" name="__codelineno-5-13" href="#__codelineno-5-13"></a><span class="p">)</span>
-<a id="__codelineno-5-14" name="__codelineno-5-14" href="#__codelineno-5-14"></a>
-<a id="__codelineno-5-15" name="__codelineno-5-15" href="#__codelineno-5-15"></a><span class="c1"># Configure network settings</span>
-<a id="__codelineno-5-16" name="__codelineno-5-16" href="#__codelineno-5-16"></a><span class="n">config</span> <span class="o">=</span> <span class="n">UltimaScraperAPIConfig</span><span class="p">()</span>
-<a id="__codelineno-5-17" name="__codelineno-5-17" href="#__codelineno-5-17"></a><span class="n">config</span><span class="o">.</span><span class="n">settings</span><span class="o">.</span><span class="n">network</span><span class="o">.</span><span class="n">max_connections</span> <span class="o">=</span> <span class="mi">100</span>  <span class="c1"># Max concurrent connections</span>
-<a id="__codelineno-5-18" name="__codelineno-5-18" href="#__codelineno-5-18"></a>
-<a id="__codelineno-5-19" name="__codelineno-5-19" href="#__codelineno-5-19"></a><span class="n">api</span> <span class="o">=</span> <span class="n">OnlyFansAPI</span><span class="p">(</span><span class="n">config</span><span class="p">)</span>
+<a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a>
+<a id="__codelineno-5-4" name="__codelineno-5-4" href="#__codelineno-5-4"></a><span class="c1"># Create custom connector with optimized settings</span>
+<a id="__codelineno-5-5" name="__codelineno-5-5" href="#__codelineno-5-5"></a><span class="n">connector</span> <span class="o">=</span> <span class="n">aiohttp</span><span class="o">.</span><span class="n">TCPConnector</span><span class="p">(</span>
+<a id="__codelineno-5-6" name="__codelineno-5-6" href="#__codelineno-5-6"></a>    <span class="n">limit</span><span class="o">=</span><span class="mi">100</span><span class="p">,</span>                     <span class="c1"># Total connection limit across all hosts</span>
+<a id="__codelineno-5-7" name="__codelineno-5-7" href="#__codelineno-5-7"></a>    <span class="n">limit_per_host</span><span class="o">=</span><span class="mi">30</span><span class="p">,</span>             <span class="c1"># Per-host connection limit</span>
+<a id="__codelineno-5-8" name="__codelineno-5-8" href="#__codelineno-5-8"></a>    <span class="n">ttl_dns_cache</span><span class="o">=</span><span class="mi">300</span><span class="p">,</span>             <span class="c1"># DNS cache TTL (5 minutes)</span>
+<a id="__codelineno-5-9" name="__codelineno-5-9" href="#__codelineno-5-9"></a>    <span class="n">enable_cleanup_closed</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>    <span class="c1"># Clean up closed connections</span>
+<a id="__codelineno-5-10" name="__codelineno-5-10" href="#__codelineno-5-10"></a>    <span class="n">force_close</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>             <span class="c1"># Reuse connections</span>
+<a id="__codelineno-5-11" name="__codelineno-5-11" href="#__codelineno-5-11"></a>    <span class="n">keepalive_timeout</span><span class="o">=</span><span class="mi">30</span><span class="p">,</span>          <span class="c1"># Keep-alive timeout (seconds)</span>
+<a id="__codelineno-5-12" name="__codelineno-5-12" href="#__codelineno-5-12"></a><span class="p">)</span>
+<a id="__codelineno-5-13" name="__codelineno-5-13" href="#__codelineno-5-13"></a>
+<a id="__codelineno-5-14" name="__codelineno-5-14" href="#__codelineno-5-14"></a><span class="c1"># Configure network settings</span>
+<a id="__codelineno-5-15" name="__codelineno-5-15" href="#__codelineno-5-15"></a><span class="n">config</span> <span class="o">=</span> <span class="n">UltimaScraperAPIConfig</span><span class="p">()</span>
+<a id="__codelineno-5-16" name="__codelineno-5-16" href="#__codelineno-5-16"></a><span class="n">config</span><span class="o">.</span><span class="n">settings</span><span class="o">.</span><span class="n">network</span><span class="o">.</span><span class="n">max_connections</span> <span class="o">=</span> <span class="mi">100</span>  <span class="c1"># Max concurrent connections</span>
+<a id="__codelineno-5-17" name="__codelineno-5-17" href="#__codelineno-5-17"></a>
+<a id="__codelineno-5-18" name="__codelineno-5-18" href="#__codelineno-5-18"></a><span class="n">api</span> <span class="o">=</span> <span class="n">OnlyFansAPI</span><span class="p">(</span><span class="n">config</span><span class="p">)</span>
 </code></pre></div>
 <h3 id="connection-pool-monitoring">Connection Pool Monitoring</h3>
 <p>Monitor connection pool health:</p>
@@ -3081,28 +3081,29 @@
 <a id="__codelineno-24-134" name="__codelineno-24-134" href="#__codelineno-24-134"></a>    <span class="k">try</span><span class="p">:</span>
 <a id="__codelineno-24-135" name="__codelineno-24-135" href="#__codelineno-24-135"></a>        <span class="c1"># Login</span>
 <a id="__codelineno-24-136" name="__codelineno-24-136" href="#__codelineno-24-136"></a>        <span class="n">auth_json</span> <span class="o">=</span> <span class="p">{</span>
-<a id="__codelineno-24-137" name="__codelineno-24-137" href="#__codelineno-24-137"></a>            <span class="s2">&quot;cookie&quot;</span><span class="p">:</span> <span class="s2">&quot;your_cookie&quot;</span><span class="p">,</span>
-<a id="__codelineno-24-138" name="__codelineno-24-138" href="#__codelineno-24-138"></a>            <span class="s2">&quot;user_agent&quot;</span><span class="p">:</span> <span class="s2">&quot;your_user_agent&quot;</span><span class="p">,</span>
-<a id="__codelineno-24-139" name="__codelineno-24-139" href="#__codelineno-24-139"></a>            <span class="s2">&quot;x-bc&quot;</span><span class="p">:</span> <span class="s2">&quot;your_x-bc&quot;</span>
-<a id="__codelineno-24-140" name="__codelineno-24-140" href="#__codelineno-24-140"></a>        <span class="p">}</span>
-<a id="__codelineno-24-141" name="__codelineno-24-141" href="#__codelineno-24-141"></a>
-<a id="__codelineno-24-142" name="__codelineno-24-142" href="#__codelineno-24-142"></a>        <span class="n">authed</span> <span class="o">=</span> <span class="k">await</span> <span class="n">manager</span><span class="o">.</span><span class="n">login</span><span class="p">(</span><span class="n">auth_json</span><span class="p">,</span> <span class="n">user_id</span><span class="o">=</span><span class="s2">&quot;user123&quot;</span><span class="p">)</span>
-<a id="__codelineno-24-143" name="__codelineno-24-143" href="#__codelineno-24-143"></a>
-<a id="__codelineno-24-144" name="__codelineno-24-144" href="#__codelineno-24-144"></a>        <span class="k">if</span> <span class="n">authed</span><span class="p">:</span>
-<a id="__codelineno-24-145" name="__codelineno-24-145" href="#__codelineno-24-145"></a>            <span class="c1"># Use session</span>
-<a id="__codelineno-24-146" name="__codelineno-24-146" href="#__codelineno-24-146"></a>            <span class="n">me</span> <span class="o">=</span> <span class="k">await</span> <span class="n">authed</span><span class="o">.</span><span class="n">get_authed_user</span><span class="p">()</span>
-<a id="__codelineno-24-147" name="__codelineno-24-147" href="#__codelineno-24-147"></a>            <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Logged in as: </span><span class="si">{</span><span class="n">me</span><span class="o">.</span><span class="n">username</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
-<a id="__codelineno-24-148" name="__codelineno-24-148" href="#__codelineno-24-148"></a>
-<a id="__codelineno-24-149" name="__codelineno-24-149" href="#__codelineno-24-149"></a>            <span class="c1"># Refresh session</span>
-<a id="__codelineno-24-150" name="__codelineno-24-150" href="#__codelineno-24-150"></a>            <span class="k">await</span> <span class="n">manager</span><span class="o">.</span><span class="n">refresh_session</span><span class="p">(</span><span class="s2">&quot;user123&quot;</span><span class="p">)</span>
-<a id="__codelineno-24-151" name="__codelineno-24-151" href="#__codelineno-24-151"></a>
-<a id="__codelineno-24-152" name="__codelineno-24-152" href="#__codelineno-24-152"></a>    <span class="k">finally</span><span class="p">:</span>
-<a id="__codelineno-24-153" name="__codelineno-24-153" href="#__codelineno-24-153"></a>        <span class="c1"># Cleanup</span>
-<a id="__codelineno-24-154" name="__codelineno-24-154" href="#__codelineno-24-154"></a>        <span class="k">await</span> <span class="n">manager</span><span class="o">.</span><span class="n">close</span><span class="p">()</span>
-<a id="__codelineno-24-155" name="__codelineno-24-155" href="#__codelineno-24-155"></a>
+<a id="__codelineno-24-137" name="__codelineno-24-137" href="#__codelineno-24-137"></a>            <span class="s2">&quot;id&quot;</span><span class="p">:</span> <span class="mi">123456</span><span class="p">,</span>
+<a id="__codelineno-24-138" name="__codelineno-24-138" href="#__codelineno-24-138"></a>            <span class="s2">&quot;cookie&quot;</span><span class="p">:</span> <span class="s2">&quot;your_cookie&quot;</span><span class="p">,</span>
+<a id="__codelineno-24-139" name="__codelineno-24-139" href="#__codelineno-24-139"></a>            <span class="s2">&quot;user_agent&quot;</span><span class="p">:</span> <span class="s2">&quot;your_user_agent&quot;</span><span class="p">,</span>
+<a id="__codelineno-24-140" name="__codelineno-24-140" href="#__codelineno-24-140"></a>            <span class="s2">&quot;x-bc&quot;</span><span class="p">:</span> <span class="s2">&quot;your_x-bc&quot;</span>
+<a id="__codelineno-24-141" name="__codelineno-24-141" href="#__codelineno-24-141"></a>        <span class="p">}</span>
+<a id="__codelineno-24-142" name="__codelineno-24-142" href="#__codelineno-24-142"></a>
+<a id="__codelineno-24-143" name="__codelineno-24-143" href="#__codelineno-24-143"></a>        <span class="n">authed</span> <span class="o">=</span> <span class="k">await</span> <span class="n">manager</span><span class="o">.</span><span class="n">login</span><span class="p">(</span><span class="n">auth_json</span><span class="p">,</span> <span class="n">user_id</span><span class="o">=</span><span class="s2">&quot;user123&quot;</span><span class="p">)</span>
+<a id="__codelineno-24-144" name="__codelineno-24-144" href="#__codelineno-24-144"></a>
+<a id="__codelineno-24-145" name="__codelineno-24-145" href="#__codelineno-24-145"></a>        <span class="k">if</span> <span class="n">authed</span><span class="p">:</span>
+<a id="__codelineno-24-146" name="__codelineno-24-146" href="#__codelineno-24-146"></a>            <span class="c1"># Use session</span>
+<a id="__codelineno-24-147" name="__codelineno-24-147" href="#__codelineno-24-147"></a>            <span class="n">me</span> <span class="o">=</span> <span class="k">await</span> <span class="n">authed</span><span class="o">.</span><span class="n">get_authed_user</span><span class="p">()</span>
+<a id="__codelineno-24-148" name="__codelineno-24-148" href="#__codelineno-24-148"></a>            <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Logged in as: </span><span class="si">{</span><span class="n">me</span><span class="o">.</span><span class="n">username</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+<a id="__codelineno-24-149" name="__codelineno-24-149" href="#__codelineno-24-149"></a>
+<a id="__codelineno-24-150" name="__codelineno-24-150" href="#__codelineno-24-150"></a>            <span class="c1"># Refresh session</span>
+<a id="__codelineno-24-151" name="__codelineno-24-151" href="#__codelineno-24-151"></a>            <span class="k">await</span> <span class="n">manager</span><span class="o">.</span><span class="n">refresh_session</span><span class="p">(</span><span class="s2">&quot;user123&quot;</span><span class="p">)</span>
+<a id="__codelineno-24-152" name="__codelineno-24-152" href="#__codelineno-24-152"></a>
+<a id="__codelineno-24-153" name="__codelineno-24-153" href="#__codelineno-24-153"></a>    <span class="k">finally</span><span class="p">:</span>
+<a id="__codelineno-24-154" name="__codelineno-24-154" href="#__codelineno-24-154"></a>        <span class="c1"># Cleanup</span>
+<a id="__codelineno-24-155" name="__codelineno-24-155" href="#__codelineno-24-155"></a>        <span class="k">await</span> <span class="n">manager</span><span class="o">.</span><span class="n">close</span><span class="p">()</span>
 <a id="__codelineno-24-156" name="__codelineno-24-156" href="#__codelineno-24-156"></a>
-<a id="__codelineno-24-157" name="__codelineno-24-157" href="#__codelineno-24-157"></a><span class="k">if</span> <span class="vm">__name__</span> <span class="o">==</span> <span class="s2">&quot;__main__&quot;</span><span class="p">:</span>
-<a id="__codelineno-24-158" name="__codelineno-24-158" href="#__codelineno-24-158"></a>    <span class="n">asyncio</span><span class="o">.</span><span class="n">run</span><span class="p">(</span><span class="n">main</span><span class="p">())</span>
+<a id="__codelineno-24-157" name="__codelineno-24-157" href="#__codelineno-24-157"></a>
+<a id="__codelineno-24-158" name="__codelineno-24-158" href="#__codelineno-24-158"></a><span class="k">if</span> <span class="vm">__name__</span> <span class="o">==</span> <span class="s2">&quot;__main__&quot;</span><span class="p">:</span>
+<a id="__codelineno-24-159" name="__codelineno-24-159" href="#__codelineno-24-159"></a>    <span class="n">asyncio</span><span class="o">.</span><span class="n">run</span><span class="p">(</span><span class="n">main</span><span class="p">())</span>
 </code></pre></div>
 <hr />
 <h2 id="best-practices">Best Practices</h2>
@@ -3256,15 +3257,16 @@
 <p><strong>Verify credentials:</strong>
    <div class="highlight"><pre><span></span><code><a id="__codelineno-37-1" name="__codelineno-37-1" href="#__codelineno-37-1"></a><span class="c1"># Check if credentials are still valid</span>
 <a id="__codelineno-37-2" name="__codelineno-37-2" href="#__codelineno-37-2"></a><span class="n">auth_json</span> <span class="o">=</span> <span class="p">{</span>
-<a id="__codelineno-37-3" name="__codelineno-37-3" href="#__codelineno-37-3"></a>    <span class="s2">&quot;cookie&quot;</span><span class="p">:</span> <span class="s2">&quot;your_cookie&quot;</span><span class="p">,</span>  <span class="c1"># Check not expired</span>
-<a id="__codelineno-37-4" name="__codelineno-37-4" href="#__codelineno-37-4"></a>    <span class="s2">&quot;user_agent&quot;</span><span class="p">:</span> <span class="s2">&quot;your_user_agent&quot;</span><span class="p">,</span>
-<a id="__codelineno-37-5" name="__codelineno-37-5" href="#__codelineno-37-5"></a>    <span class="s2">&quot;x-bc&quot;</span><span class="p">:</span> <span class="s2">&quot;your_x-bc&quot;</span>  <span class="c1"># OnlyFans specific</span>
-<a id="__codelineno-37-6" name="__codelineno-37-6" href="#__codelineno-37-6"></a><span class="p">}</span>
-<a id="__codelineno-37-7" name="__codelineno-37-7" href="#__codelineno-37-7"></a>
-<a id="__codelineno-37-8" name="__codelineno-37-8" href="#__codelineno-37-8"></a><span class="c1"># Try authentication</span>
-<a id="__codelineno-37-9" name="__codelineno-37-9" href="#__codelineno-37-9"></a><span class="k">async</span> <span class="k">with</span> <span class="n">api</span><span class="o">.</span><span class="n">login_context</span><span class="p">(</span><span class="n">auth_json</span><span class="p">)</span> <span class="k">as</span> <span class="n">authed</span><span class="p">:</span>
-<a id="__codelineno-37-10" name="__codelineno-37-10" href="#__codelineno-37-10"></a>    <span class="k">if</span> <span class="ow">not</span> <span class="n">authed</span><span class="p">:</span>
-<a id="__codelineno-37-11" name="__codelineno-37-11" href="#__codelineno-37-11"></a>        <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Invalid credentials&quot;</span><span class="p">)</span>
+<a id="__codelineno-37-3" name="__codelineno-37-3" href="#__codelineno-37-3"></a>    <span class="s2">&quot;id&quot;</span><span class="p">:</span> <span class="mi">123456</span><span class="p">,</span>
+<a id="__codelineno-37-4" name="__codelineno-37-4" href="#__codelineno-37-4"></a>    <span class="s2">&quot;cookie&quot;</span><span class="p">:</span> <span class="s2">&quot;your_cookie&quot;</span><span class="p">,</span>  <span class="c1"># Check not expired</span>
+<a id="__codelineno-37-5" name="__codelineno-37-5" href="#__codelineno-37-5"></a>    <span class="s2">&quot;user_agent&quot;</span><span class="p">:</span> <span class="s2">&quot;your_user_agent&quot;</span><span class="p">,</span>
+<a id="__codelineno-37-6" name="__codelineno-37-6" href="#__codelineno-37-6"></a>    <span class="s2">&quot;x-bc&quot;</span><span class="p">:</span> <span class="s2">&quot;your_x-bc&quot;</span>  <span class="c1"># OnlyFans specific</span>
+<a id="__codelineno-37-7" name="__codelineno-37-7" href="#__codelineno-37-7"></a><span class="p">}</span>
+<a id="__codelineno-37-8" name="__codelineno-37-8" href="#__codelineno-37-8"></a>
+<a id="__codelineno-37-9" name="__codelineno-37-9" href="#__codelineno-37-9"></a><span class="c1"># Try authentication</span>
+<a id="__codelineno-37-10" name="__codelineno-37-10" href="#__codelineno-37-10"></a><span class="k">async</span> <span class="k">with</span> <span class="n">api</span><span class="o">.</span><span class="n">login_context</span><span class="p">(</span><span class="n">auth_json</span><span class="p">)</span> <span class="k">as</span> <span class="n">authed</span><span class="p">:</span>
+<a id="__codelineno-37-11" name="__codelineno-37-11" href="#__codelineno-37-11"></a>    <span class="k">if</span> <span class="ow">not</span> <span class="n">authed</span><span class="p">:</span>
+<a id="__codelineno-37-12" name="__codelineno-37-12" href="#__codelineno-37-12"></a>        <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Invalid credentials&quot;</span><span class="p">)</span>
 </code></pre></div></p>
 </li>
 <li>

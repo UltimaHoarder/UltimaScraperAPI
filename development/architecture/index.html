@@ -2874,14 +2874,12 @@
 <a id="__codelineno-6-11" name="__codelineno-6-11" href="#__codelineno-6-11"></a>
 <a id="__codelineno-6-12" name="__codelineno-6-12" href="#__codelineno-6-12"></a><span class="n">session</span> <span class="o">=</span> <span class="n">aiohttp</span><span class="o">.</span><span class="n">ClientSession</span><span class="p">(</span><span class="n">connector</span><span class="o">=</span><span class="n">connector</span><span class="p">)</span>
 </code></pre></div></p>
-<p><strong>2. Timeout Management</strong>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">ultima_scraper_api.config</span><span class="w"> </span><span class="kn">import</span> <span class="n">Network</span>
+<p><strong>2. Network Concurrency Management</strong>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">ultima_scraper_api</span><span class="w"> </span><span class="kn">import</span> <span class="n">UltimaScraperAPIConfig</span>
 <a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a>
-<a id="__codelineno-7-3" name="__codelineno-7-3" href="#__codelineno-7-3"></a><span class="n">network_config</span> <span class="o">=</span> <span class="n">Network</span><span class="p">(</span>
-<a id="__codelineno-7-4" name="__codelineno-7-4" href="#__codelineno-7-4"></a>    <span class="n">timeout</span><span class="o">=</span><span class="mi">30</span><span class="p">,</span>              <span class="c1"># Default timeout</span>
-<a id="__codelineno-7-5" name="__codelineno-7-5" href="#__codelineno-7-5"></a>    <span class="n">max_read_timeout</span><span class="o">=</span><span class="mi">120</span><span class="p">,</span>    <span class="c1"># Max read timeout</span>
-<a id="__codelineno-7-6" name="__codelineno-7-6" href="#__codelineno-7-6"></a>    <span class="n">max_connect_timeout</span><span class="o">=</span><span class="mi">10</span>   <span class="c1"># Max connect timeout</span>
-<a id="__codelineno-7-7" name="__codelineno-7-7" href="#__codelineno-7-7"></a><span class="p">)</span>
+<a id="__codelineno-7-3" name="__codelineno-7-3" href="#__codelineno-7-3"></a><span class="n">config</span> <span class="o">=</span> <span class="n">UltimaScraperAPIConfig</span><span class="p">()</span>
+<a id="__codelineno-7-4" name="__codelineno-7-4" href="#__codelineno-7-4"></a><span class="n">config</span><span class="o">.</span><span class="n">settings</span><span class="o">.</span><span class="n">network</span><span class="o">.</span><span class="n">max_connections</span> <span class="o">=</span> <span class="mi">100</span>
+<a id="__codelineno-7-5" name="__codelineno-7-5" href="#__codelineno-7-5"></a><span class="n">config</span><span class="o">.</span><span class="n">settings</span><span class="o">.</span><span class="n">network</span><span class="o">.</span><span class="n">proxy_fallback</span> <span class="o">=</span> <span class="kc">True</span>
 </code></pre></div></p>
 <p><strong>3. Proxy Support</strong>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">ultima_scraper_api.config</span><span class="w"> </span><span class="kn">import</span> <span class="n">Proxy</span>
@@ -3443,53 +3441,54 @@
 <h3 id="content-download-flow">Content Download Flow</h3>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-30-1" name="__codelineno-30-1" href="#__codelineno-30-1"></a>┌──────────────────────────────────────────────────────────────┐
 <a id="__codelineno-30-2" name="__codelineno-30-2" href="#__codelineno-30-2"></a>│          User Requests Content Download                       │
-<a id="__codelineno-30-3" name="__codelineno-30-3" href="#__codelineno-30-3"></a>│  await media.download(save_path=&quot;./downloads&quot;)               │
-<a id="__codelineno-30-4" name="__codelineno-30-4" href="#__codelineno-30-4"></a>└──────────────────────────────────────────────────────────────┘
-<a id="__codelineno-30-5" name="__codelineno-30-5" href="#__codelineno-30-5"></a>                           ↓
-<a id="__codelineno-30-6" name="__codelineno-30-6" href="#__codelineno-30-6"></a>┌──────────────────────────────────────────────────────────────┐
-<a id="__codelineno-30-7" name="__codelineno-30-7" href="#__codelineno-30-7"></a>│              Check if DRM Protected                          │
-<a id="__codelineno-30-8" name="__codelineno-30-8" href="#__codelineno-30-8"></a>│  if media.is_drm_protected:                                  │
-<a id="__codelineno-30-9" name="__codelineno-30-9" href="#__codelineno-30-9"></a>│      # Special handling for DRM                              │
-<a id="__codelineno-30-10" name="__codelineno-30-10" href="#__codelineno-30-10"></a>│  else:                                                       │
-<a id="__codelineno-30-11" name="__codelineno-30-11" href="#__codelineno-30-11"></a>│      # Direct download                                       │
-<a id="__codelineno-30-12" name="__codelineno-30-12" href="#__codelineno-30-12"></a>└──────────────────────────────────────────────────────────────┘
-<a id="__codelineno-30-13" name="__codelineno-30-13" href="#__codelineno-30-13"></a>                           ↓
-<a id="__codelineno-30-14" name="__codelineno-30-14" href="#__codelineno-30-14"></a>┌──────────────────────────────────────────────────────────────┐
-<a id="__codelineno-30-15" name="__codelineno-30-15" href="#__codelineno-30-15"></a>│            Get Download URL (may refresh if expired)         │
-<a id="__codelineno-30-16" name="__codelineno-30-16" href="#__codelineno-30-16"></a>│  url = media.source[&quot;url&quot;]                                   │
-<a id="__codelineno-30-17" name="__codelineno-30-17" href="#__codelineno-30-17"></a>│  if url_expired:                                             │
-<a id="__codelineno-30-18" name="__codelineno-30-18" href="#__codelineno-30-18"></a>│      url = await refresh_media_url(media.id)                │
-<a id="__codelineno-30-19" name="__codelineno-30-19" href="#__codelineno-30-19"></a>└──────────────────────────────────────────────────────────────┘
-<a id="__codelineno-30-20" name="__codelineno-30-20" href="#__codelineno-30-20"></a>                           ↓
-<a id="__codelineno-30-21" name="__codelineno-30-21" href="#__codelineno-30-21"></a>┌──────────────────────────────────────────────────────────────┐
-<a id="__codelineno-30-22" name="__codelineno-30-22" href="#__codelineno-30-22"></a>│                 Stream Download with Progress                │
-<a id="__codelineno-30-23" name="__codelineno-30-23" href="#__codelineno-30-23"></a>│  async with session.get(url) as response:                    │
-<a id="__codelineno-30-24" name="__codelineno-30-24" href="#__codelineno-30-24"></a>│      with open(save_path, &#39;wb&#39;) as f:                        │
-<a id="__codelineno-30-25" name="__codelineno-30-25" href="#__codelineno-30-25"></a>│          async for chunk in response.content.iter_chunked(): │
-<a id="__codelineno-30-26" name="__codelineno-30-26" href="#__codelineno-30-26"></a>│              f.write(chunk)                                  │
-<a id="__codelineno-30-27" name="__codelineno-30-27" href="#__codelineno-30-27"></a>│              progress_bar.update(len(chunk))                 │
-<a id="__codelineno-30-28" name="__codelineno-30-28" href="#__codelineno-30-28"></a>└──────────────────────────────────────────────────────────────┘
-<a id="__codelineno-30-29" name="__codelineno-30-29" href="#__codelineno-30-29"></a>                           ↓
-<a id="__codelineno-30-30" name="__codelineno-30-30" href="#__codelineno-30-30"></a>┌──────────────────────────────────────────────────────────────┐
-<a id="__codelineno-30-31" name="__codelineno-30-31" href="#__codelineno-30-31"></a>│              DRM Decryption (if needed)                      │
-<a id="__codelineno-30-32" name="__codelineno-30-32" href="#__codelineno-30-32"></a>│  if is_drm_protected:                                        │
-<a id="__codelineno-30-33" name="__codelineno-30-33" href="#__codelineno-30-33"></a>│      decrypted = await drm_handler.decrypt(                  │
-<a id="__codelineno-30-34" name="__codelineno-30-34" href="#__codelineno-30-34"></a>│          encrypted_file=save_path,                           │
-<a id="__codelineno-30-35" name="__codelineno-30-35" href="#__codelineno-30-35"></a>│          license_url=media.drm_license_url                   │
-<a id="__codelineno-30-36" name="__codelineno-30-36" href="#__codelineno-30-36"></a>│      )                                                       │
-<a id="__codelineno-30-37" name="__codelineno-30-37" href="#__codelineno-30-37"></a>└──────────────────────────────────────────────────────────────┘
-<a id="__codelineno-30-38" name="__codelineno-30-38" href="#__codelineno-30-38"></a>                           ↓
-<a id="__codelineno-30-39" name="__codelineno-30-39" href="#__codelineno-30-39"></a>┌──────────────────────────────────────────────────────────────┐
-<a id="__codelineno-30-40" name="__codelineno-30-40" href="#__codelineno-30-40"></a>│                   Verify Download                            │
-<a id="__codelineno-30-41" name="__codelineno-30-41" href="#__codelineno-30-41"></a>│  - Check file size                                           │
-<a id="__codelineno-30-42" name="__codelineno-30-42" href="#__codelineno-30-42"></a>│  - Verify checksum (if available)                            │
-<a id="__codelineno-30-43" name="__codelineno-30-43" href="#__codelineno-30-43"></a>│  - Update metadata                                           │
-<a id="__codelineno-30-44" name="__codelineno-30-44" href="#__codelineno-30-44"></a>└──────────────────────────────────────────────────────────────┘
-<a id="__codelineno-30-45" name="__codelineno-30-45" href="#__codelineno-30-45"></a>                           ↓
-<a id="__codelineno-30-46" name="__codelineno-30-46" href="#__codelineno-30-46"></a>┌──────────────────────────────────────────────────────────────┐
-<a id="__codelineno-30-47" name="__codelineno-30-47" href="#__codelineno-30-47"></a>│                Return Downloaded File Path                    │
-<a id="__codelineno-30-48" name="__codelineno-30-48" href="#__codelineno-30-48"></a>│  return save_path                                            │
-<a id="__codelineno-30-49" name="__codelineno-30-49" href="#__codelineno-30-49"></a>└──────────────────────────────────────────────────────────────┘
+<a id="__codelineno-30-3" name="__codelineno-30-3" href="#__codelineno-30-3"></a>│  media_url = content.url_picker(media)                       │
+<a id="__codelineno-30-4" name="__codelineno-30-4" href="#__codelineno-30-4"></a>│  await authed.auth_session.request(media_url.geturl())        │
+<a id="__codelineno-30-5" name="__codelineno-30-5" href="#__codelineno-30-5"></a>└──────────────────────────────────────────────────────────────┘
+<a id="__codelineno-30-6" name="__codelineno-30-6" href="#__codelineno-30-6"></a>                           ↓
+<a id="__codelineno-30-7" name="__codelineno-30-7" href="#__codelineno-30-7"></a>┌──────────────────────────────────────────────────────────────┐
+<a id="__codelineno-30-8" name="__codelineno-30-8" href="#__codelineno-30-8"></a>│              Check if DRM Protected                          │
+<a id="__codelineno-30-9" name="__codelineno-30-9" href="#__codelineno-30-9"></a>│  if media.is_drm_protected:                                  │
+<a id="__codelineno-30-10" name="__codelineno-30-10" href="#__codelineno-30-10"></a>│      # Special handling for DRM                              │
+<a id="__codelineno-30-11" name="__codelineno-30-11" href="#__codelineno-30-11"></a>│  else:                                                       │
+<a id="__codelineno-30-12" name="__codelineno-30-12" href="#__codelineno-30-12"></a>│      # Direct download                                       │
+<a id="__codelineno-30-13" name="__codelineno-30-13" href="#__codelineno-30-13"></a>└──────────────────────────────────────────────────────────────┘
+<a id="__codelineno-30-14" name="__codelineno-30-14" href="#__codelineno-30-14"></a>                           ↓
+<a id="__codelineno-30-15" name="__codelineno-30-15" href="#__codelineno-30-15"></a>┌──────────────────────────────────────────────────────────────┐
+<a id="__codelineno-30-16" name="__codelineno-30-16" href="#__codelineno-30-16"></a>│            Get Download URL (may refresh if expired)         │
+<a id="__codelineno-30-17" name="__codelineno-30-17" href="#__codelineno-30-17"></a>│  url = media.source[&quot;url&quot;]                                   │
+<a id="__codelineno-30-18" name="__codelineno-30-18" href="#__codelineno-30-18"></a>│  if url_expired:                                             │
+<a id="__codelineno-30-19" name="__codelineno-30-19" href="#__codelineno-30-19"></a>│      url = await refresh_media_url(media.id)                │
+<a id="__codelineno-30-20" name="__codelineno-30-20" href="#__codelineno-30-20"></a>└──────────────────────────────────────────────────────────────┘
+<a id="__codelineno-30-21" name="__codelineno-30-21" href="#__codelineno-30-21"></a>                           ↓
+<a id="__codelineno-30-22" name="__codelineno-30-22" href="#__codelineno-30-22"></a>┌──────────────────────────────────────────────────────────────┐
+<a id="__codelineno-30-23" name="__codelineno-30-23" href="#__codelineno-30-23"></a>│                 Stream Download with Progress                │
+<a id="__codelineno-30-24" name="__codelineno-30-24" href="#__codelineno-30-24"></a>│  async with session.get(url) as response:                    │
+<a id="__codelineno-30-25" name="__codelineno-30-25" href="#__codelineno-30-25"></a>│      with open(save_path, &#39;wb&#39;) as f:                        │
+<a id="__codelineno-30-26" name="__codelineno-30-26" href="#__codelineno-30-26"></a>│          async for chunk in response.content.iter_chunked(): │
+<a id="__codelineno-30-27" name="__codelineno-30-27" href="#__codelineno-30-27"></a>│              f.write(chunk)                                  │
+<a id="__codelineno-30-28" name="__codelineno-30-28" href="#__codelineno-30-28"></a>│              progress_bar.update(len(chunk))                 │
+<a id="__codelineno-30-29" name="__codelineno-30-29" href="#__codelineno-30-29"></a>└──────────────────────────────────────────────────────────────┘
+<a id="__codelineno-30-30" name="__codelineno-30-30" href="#__codelineno-30-30"></a>                           ↓
+<a id="__codelineno-30-31" name="__codelineno-30-31" href="#__codelineno-30-31"></a>┌──────────────────────────────────────────────────────────────┐
+<a id="__codelineno-30-32" name="__codelineno-30-32" href="#__codelineno-30-32"></a>│              DRM Decryption (if needed)                      │
+<a id="__codelineno-30-33" name="__codelineno-30-33" href="#__codelineno-30-33"></a>│  if is_drm_protected:                                        │
+<a id="__codelineno-30-34" name="__codelineno-30-34" href="#__codelineno-30-34"></a>│      decrypted = await drm_handler.decrypt(                  │
+<a id="__codelineno-30-35" name="__codelineno-30-35" href="#__codelineno-30-35"></a>│          encrypted_file=save_path,                           │
+<a id="__codelineno-30-36" name="__codelineno-30-36" href="#__codelineno-30-36"></a>│          license_url=media.drm_license_url                   │
+<a id="__codelineno-30-37" name="__codelineno-30-37" href="#__codelineno-30-37"></a>│      )                                                       │
+<a id="__codelineno-30-38" name="__codelineno-30-38" href="#__codelineno-30-38"></a>└──────────────────────────────────────────────────────────────┘
+<a id="__codelineno-30-39" name="__codelineno-30-39" href="#__codelineno-30-39"></a>                           ↓
+<a id="__codelineno-30-40" name="__codelineno-30-40" href="#__codelineno-30-40"></a>┌──────────────────────────────────────────────────────────────┐
+<a id="__codelineno-30-41" name="__codelineno-30-41" href="#__codelineno-30-41"></a>│                   Verify Download                            │
+<a id="__codelineno-30-42" name="__codelineno-30-42" href="#__codelineno-30-42"></a>│  - Check file size                                           │
+<a id="__codelineno-30-43" name="__codelineno-30-43" href="#__codelineno-30-43"></a>│  - Verify checksum (if available)                            │
+<a id="__codelineno-30-44" name="__codelineno-30-44" href="#__codelineno-30-44"></a>│  - Update metadata                                           │
+<a id="__codelineno-30-45" name="__codelineno-30-45" href="#__codelineno-30-45"></a>└──────────────────────────────────────────────────────────────┘
+<a id="__codelineno-30-46" name="__codelineno-30-46" href="#__codelineno-30-46"></a>                           ↓
+<a id="__codelineno-30-47" name="__codelineno-30-47" href="#__codelineno-30-47"></a>┌──────────────────────────────────────────────────────────────┐
+<a id="__codelineno-30-48" name="__codelineno-30-48" href="#__codelineno-30-48"></a>│                Return Downloaded File Path                    │
+<a id="__codelineno-30-49" name="__codelineno-30-49" href="#__codelineno-30-49"></a>│  return save_path                                            │
+<a id="__codelineno-30-50" name="__codelineno-30-50" href="#__codelineno-30-50"></a>└──────────────────────────────────────────────────────────────┘
 </code></pre></div>
 <h3 id="websocket-event-flow">WebSocket Event Flow</h3>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-31-1" name="__codelineno-31-1" href="#__codelineno-31-1"></a>┌──────────────────────────────────────────────────────────────┐
