@@ -1176,7 +1176,7 @@ async def test_auth_to_user_fetch_integration():
         # Test full flow
         api = OnlyFansAPI()
         async with api.login_context(test_auth) as authed:
-            me = await authed.get_me()
+            me = await authed.get_authed_user()
             assert me.username == "testuser"
 
 @pytest.mark.integration
@@ -1223,7 +1223,7 @@ async def test_real_api_authentication():
     
     api = OnlyFansAPI()
     async with api.login_context(auth) as authed:
-        me = await authed.get_me()
+        me = await authed.get_authed_user()
         assert me is not None
         assert me.id > 0
 

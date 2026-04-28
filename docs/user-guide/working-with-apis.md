@@ -45,6 +45,7 @@ async def main():
     onlyfans_api = api.api_instances.OnlyFans
     
     auth_json = {
+        "id": 123456,
         "cookie": "...",
         "user_agent": "...",
         "x-bc": "..."
@@ -55,7 +56,7 @@ async def main():
     
     if authed and authed.is_authed():
         # All API calls must be awaited
-        me = await authed.get_me()
+        me = await authed.get_authed_user()
         print(f"Logged in as: {me.username}")
 
 # Entry point - runs the async main function
@@ -86,7 +87,7 @@ authed = await onlyfans_api.login(auth_json=auth_json)
 if authed and authed.is_authed():
     # Context is active - session is open
     # All operations happen here
-    me = await authed.get_me()
+    me = await authed.get_authed_user()
     print(f"Logged in as: {me.username}")
 ```
 
@@ -135,11 +136,11 @@ async def multi_platform():
     
     # Both sessions active
     if of_authed and of_authed.is_authed():
-        of_user = await of_authed.get_me()
+        of_user = await of_authed.get_authed_user()
         print(f"OnlyFans: {of_user.username}")
     
     if fansly_authed and fansly_authed.is_authed():
-        fansly_user = await fansly_authed.get_me()
+        fansly_user = await fansly_authed.get_authed_user()
         print(f"Fansly: {fansly_user.username}")
 ```
 
@@ -169,7 +170,7 @@ async def get_my_info():
     
     if authed and authed.is_authed():
         # Get your own user information
-        me = await authed.get_me()
+        me = await authed.get_authed_user()
         
         print(f"Username: {me.username}")
         print(f"Display Name: {me.name}")
@@ -204,7 +205,7 @@ async def get_other_user():
             print(f"Found: {user.name} (@{user.username})")
             print(f"ID: {user.id}")
             print(f"Posts: {user.posts_count if hasattr(user, 'posts_count') else 'N/A'}")
-            print(f"Subscribers: {user.subscriber_count if hasattr(user, 'subscriber_count') else 'N/A'}")
+                print(f"Subscribers: {user.subscribers_count if hasattr(user, 'subscribers_count') else 'N/A'}")
         else:
             print("User not found")
 
@@ -242,7 +243,7 @@ async def fetch_posts():
                 print(f"  Date: {post.created_at}")
                 print(f"  Text: {post.text[:100] if post.text else '(no text)'}...")
                 print(f"  Media: {len(post.media) if post.media else 0} items")
-                print(f"  Likes: {post.likes_count if hasattr(post, 'likes_count') else 'N/A'}")
+                print(f"  Favorites: {post.favoritesCount if hasattr(post, 'favoritesCount') else 'N/A'}")
                 print(f"  Comments: {post.comments_count if hasattr(post, 'comments_count') else 'N/A'}")
                 print()
 
@@ -308,7 +309,7 @@ async def fetch_messages():
             print(f"Retrieved {len(messages)} messages\n")
             
             for msg in messages:
-                sender = "Me" if msg.is_from_me else user.username
+                sender = "Me" if msg.get_author().id == authed.id else user.username
                 print(f"[{msg.created_at}] {sender}: {msg.text}")
                 
                 if msg.media:
@@ -415,9 +416,18 @@ async def download_with_progress():
                     
                     for media in post.media:
                         try:
-                            content = await media.download()
+                            media_url = post.url_picker(media)
+                            if not media_url:
+                                continue
+                            response = await authed.auth_session.request(
+                                media_url.geturl(),
+                                premade_settings=""
+                            )
+                            if not response:
+                                continue
+                            content = await response.read()
                             
-                            filename = f"post_{post.id}_{media.id}.{media.extension}"
+                            filename = f"post_{post.id}_{media.id}.{media.type}"
                             filepath = download_dir / filename
                             
                             with open(filepath, 'wb') as f:
@@ -459,7 +469,7 @@ async def fetch_stories():
                 if story.media:
                     print(f"Media items: {len(story.media)}")
                     for media in story.media:
-                        print(f"  - {media.media_type}: {media.url}")
+                        print(f"  - {media.type}: {post.url_picker(media)}")
 
 asyncio.run(fetch_stories())
 ```
@@ -528,8 +538,8 @@ OnlyFans API is fully functional with comprehensive features:
     # Get active subscriptions
     subscriptions = await authed.get_subscriptions()
     
-    # Get subscription info for specific user
-    sub_info = await user.get_subscription()
+    # Get current subscription models from the authenticated account
+    subscriptions = await authed.get_subscriptions()
     ```
 
 === "Media Download"
@@ -538,7 +548,16 @@ OnlyFans API is fully functional with comprehensive features:
     for post in posts:
         if post.media:
             for media in post.media:
-                content = await media.download()
+                media_url = post.url_picker(media)
+                if not media_url:
+                    continue
+                response = await authed.auth_session.request(
+                    media_url.geturl(),
+                    premade_settings=""
+                )
+                if not response:
+                    continue
+                content = await response.read()
                 # Save content...
     ```
 
@@ -615,28 +634,12 @@ import asyncio
 from ultima_scraper_api import OnlyFansAPI, UltimaScraperAPIConfig
 
 async def fetch_all_posts_paginated(user, batch_size=50):
-    """Fetch all posts using pagination."""
-    all_posts = []
-    offset = 0
-    
-    while True:
-        # Fetch batch
-        posts = await user.get_posts(limit=batch_size, offset=offset)
-        
-        if not posts:
-            # No more posts
-            break
-        
-        all_posts.extend(posts)
-        print(f"Fetched {len(posts)} posts (total: {len(all_posts)})")
-        
-        # Move to next batch
-        offset += batch_size
-        
-        # Be nice to the API - add delay
+    """Fetch posts using built-in pagination and progress callbacks."""
+    async def on_progress(done_pages, total_pages, items_so_far):
+        print(f"Fetched page {done_pages}/{total_pages} ({items_so_far} total)")
         await asyncio.sleep(1)
-    
-    return all_posts
+
+    return await user.get_posts(limit=batch_size, on_progress=on_progress)
 
 async def main():
     config = UltimaScraperAPIConfig()
@@ -1089,7 +1092,7 @@ user.is_verified     # bool: Verification status
 user.posts_count     # int: Number of posts
 user.photos_count    # int: Number of photos
 user.videos_count    # int: Number of videos
-user.subscriber_count # int: Number of subscribers
+user.subscribers_count # int: Number of subscribers
 ```
 
 #### Post Model
@@ -1102,7 +1105,7 @@ post.price           # float: Price (0 for free posts)
 post.is_paid         # bool: Whether post is paid
 post.created_at      # datetime: Creation timestamp
 post.media           # List[Media]: Media items
-post.likes_count     # int: Number of likes
+post.favoritesCount  # int: Number of favorites
 post.comments_count  # int: Number of comments
 post.is_archived     # bool: Whether post is archived
 ```
@@ -1112,10 +1115,10 @@ post.is_archived     # bool: Whether post is archived
 ```python
 # Accessing media attributes
 media.id             # int: Unique media ID
-media.media_type     # str: Type (photo, video, audio)
-media.url            # str: Media URL
+media.type           # str: Canonical type (image, video, audio, gif)
+media.files          # MediaFiles | None: Full/thumb/preview/DRM URLs
 media.preview_url    # str: Preview/thumbnail URL
-media.extension      # str: File extension
+media.files          # MediaFiles | None: Full/thumb/preview/DRM metadata
 media.duration       # int: Duration in seconds (video/audio)
 media.width          # int: Width in pixels
 media.height         # int: Height in pixels
@@ -1129,7 +1132,7 @@ media.size           # int: File size in bytes
 message.id           # int: Unique message ID
 message.text         # str: Message text
 message.price        # float: Price (for paid messages)
-message.is_from_me   # bool: Whether you sent it
+message.get_author() # UserModel: Message sender
 message.created_at   # datetime: Creation timestamp
 message.media        # List[Media]: Attached media
 message.from_user    # User: Sender
@@ -1212,18 +1215,14 @@ for username in usernames:
 ### 6. Handle Pagination Properly ✅
 
 ```python
-# ✓ Good - fetches all data
-all_posts = []
-offset = 0
-while True:
-    posts = await user.get_posts(limit=50, offset=offset)
-    if not posts:
-        break
-    all_posts.extend(posts)
-    offset += 50
+# ✓ Good - uses built-in pagination and progress callbacks
+async def on_progress(done_pages, total_pages, items_so_far):
+    print(f"Fetched {items_so_far} posts")
 
-# ✗ Bad - only gets first page
-posts = await user.get_posts(limit=50)  # Missing rest!
+all_posts = await user.get_posts(on_progress=on_progress)
+
+# ✗ Bad - asking for a tiny limit when you actually need all posts
+posts = await user.get_posts(limit=50)
 ```
 
 ### 7. Validate Authentication ✅
@@ -1384,29 +1383,16 @@ class ContentDownloader:
             return None
     
     async def _fetch_all_posts(self, user):
-        """Fetch all posts with pagination."""
-        all_posts = []
-        offset = 0
-        batch_size = 50
-        
-        while True:
-            try:
-                await self.rate_limiter.acquire()
-                posts = await user.get_posts(limit=batch_size, offset=offset)
-                
-                if not posts:
-                    break
-                
-                all_posts.extend(posts)
-                logger.info(f"Fetched {len(posts)} posts (total: {len(all_posts)})")
-                
-                offset += batch_size
-                
-            except Exception as e:
-                logger.error(f"Error fetching posts: {e}")
-                break
-        
-        return all_posts
+        """Fetch all posts with built-in pagination."""
+        async def on_progress(done_pages, total_pages, items_so_far):
+            await self.rate_limiter.acquire()
+            logger.info(f"Fetched page {done_pages}/{total_pages} ({items_so_far} posts)")
+
+        try:
+            return await user.get_posts(on_progress=on_progress)
+        except Exception as e:
+            logger.error(f"Error fetching posts: {e}")
+            return []
     
     async def _download_media(self, posts: List, output_dir: Path):
         """Download media with error handling."""
@@ -1423,9 +1409,18 @@ class ContentDownloader:
                 try:
                     await self.rate_limiter.acquire()
                     
-                    content = await media.download()
+                    media_url = post.url_picker(media)
+                    if not media_url:
+                        continue
+                    response = await authed.auth_session.request(
+                        media_url.geturl(),
+                        premade_settings=""
+                    )
+                    if not response:
+                        continue
+                    content = await response.read()
                     
-                    filename = f"post_{post.id}_{media.id}.{media.extension}"
+                    filename = f"post_{post.id}_{media.id}.{media.type}"
                     filepath = output_dir / filename
                     
                     with open(filepath, 'wb') as f:
@@ -1445,6 +1440,7 @@ async def main():
     api = OnlyFansAPI(config)
     
     auth_json = {
+        "id": 123456,
         "cookie": "...",
         "user_agent": "...",
         "x-bc": "..."

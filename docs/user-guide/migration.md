@@ -27,7 +27,7 @@ UltimaScraperAPI follows [Semantic Versioning](https://semver.org/):
 
 ### Current Version
 
-**Latest Stable:** 2.2.46 (October 18, 2025)
+**Latest Beta:** 3.0.0b4 (April 14, 2026)
 
 ### Supported Versions
 
@@ -297,8 +297,8 @@ git checkout -b migration-2.2.x
 #### Step 1: Update Dependencies
 
 ```bash
-# Update to latest 2.2.x
-uv pip install --upgrade "ultima-scraper-api>=2.2.46"
+# Update to latest 3.0 beta
+uv pip install --upgrade "ultima-scraper-api>=3.0.0b4"
 
 # Update Pydantic to v2
 uv pip install --upgrade "pydantic>=2.0"
@@ -604,7 +604,7 @@ from ultima_scraper_api import UltimaScraperAPI
 async def test_authentication():
     """Test authentication still works"""
     api = UltimaScraperAPI()
-    onlyfans = api.get_site_api("onlyfans")
+    onlyfans = api.api_instances.OnlyFans
     
     async with onlyfans.login_context(auth_json) as authed:
         assert authed is not None
@@ -614,7 +614,7 @@ async def test_authentication():
 async def test_user_fetching():
     """Test user fetching with new models"""
     api = UltimaScraperAPI()
-    onlyfans = api.get_site_api("onlyfans")
+    onlyfans = api.api_instances.OnlyFans
     
     async with onlyfans.login_context(auth_json) as authed:
         user = await authed.get_user("username")
@@ -626,7 +626,7 @@ async def test_user_fetching():
 async def test_content_fetching():
     """Test content fetching still works"""
     api = UltimaScraperAPI()
-    onlyfans = api.get_site_api("onlyfans")
+    onlyfans = api.api_instances.OnlyFans
     
     async with onlyfans.login_context(auth_json) as authed:
         user = await authed.get_user("username")
@@ -637,7 +637,7 @@ async def test_content_fetching():
 async def test_error_handling():
     """Test error handling unchanged"""
     api = UltimaScraperAPI()
-    onlyfans = api.get_site_api("onlyfans")
+    onlyfans = api.api_instances.OnlyFans
     
     async with onlyfans.login_context(invalid_auth) as authed:
         assert authed is None  # Should fail gracefully
@@ -681,7 +681,7 @@ pytest tests/ --memprof
 - **[Changelog](../about/changelog.md)** - Detailed version history
 - **[Troubleshooting Guide](troubleshooting.md)** - Common issues
 - **[API Reference](../api-reference/onlyfans.md)** - Current API documentation
-- **[GitHub Issues](https://github.com/DIGITALCRIMINAL/UltimaScraperAPI/issues)** - Report problems
+- **[GitHub Issues](https://github.com/UltimaHoarder/UltimaScraperAPI/issues)** - Report problems
 
 ### Community Support
 
@@ -829,7 +829,8 @@ import logging
 logger = logging.getLogger(__name__)
 
 # Log migration progress
-logger.info("Using UltimaScraperAPI v%s", api.__version__)
+from importlib.metadata import version
+logger.info("Using UltimaScraperAPI v%s", version("ultima-scraper-api"))
 
 # Track errors
 try:
@@ -845,7 +846,9 @@ except ValidationError as e:
 
 | Version | Release Date | Major Features | Breaking Changes |
 |---------|--------------|----------------|------------------|
-| **2.2.46** | 2024-10-18 | Documentation overhaul | None |
+| **3.0.0b4** | 2026-04-14 | Chat search, session/DRM/media refactors | `send_message` payload signature |
+| **3.0.0b3** | 2026-03-17 | API routes, progress callbacks, typed events, URL diagnostics | OnlyFans `get_posts`/`get_messages` pagination parameters |
+| **2.2.46** | 2025-10-18 | Documentation overhaul | None |
 | **2.2.43** | 2024-08-20 | WebSocket support | WebSocket API changes |
 | **2.2.40** | 2024-04-25 | httpx 0.28+ | HTTP client changes |
 | **2.2.36** | 2024-04-10 | Model naming | `create_user` → `UserModel` |
@@ -853,7 +856,7 @@ except ValidationError as e:
 
 ---
 
-**Last Updated:** October 18, 2025  
-**Guide Version:** 2.2.46
+**Last Updated:** April 28, 2026  
+**Guide Version:** 3.0.0b4
 
-For the most up-to-date information, always check the [Changelog](../about/changelog.md) and [GitHub Releases](https://github.com/DIGITALCRIMINAL/UltimaScraperAPI/releases).
+For the most up-to-date information, always check the [Changelog](../about/changelog.md) and [GitHub Releases](https://github.com/UltimaHoarder/UltimaScraperAPI/releases).

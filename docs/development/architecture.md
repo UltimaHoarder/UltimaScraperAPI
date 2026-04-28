@@ -355,15 +355,13 @@ connector = aiohttp.TCPConnector(
 session = aiohttp.ClientSession(connector=connector)
 ```
 
-**2. Timeout Management**
+**2. Network Concurrency Management**
 ```python
-from ultima_scraper_api.config import Network
+from ultima_scraper_api import UltimaScraperAPIConfig
 
-network_config = Network(
-    timeout=30,              # Default timeout
-    max_read_timeout=120,    # Max read timeout
-    max_connect_timeout=10   # Max connect timeout
-)
+config = UltimaScraperAPIConfig()
+config.settings.network.max_connections = 100
+config.settings.network.proxy_fallback = True
 ```
 
 **3. Proxy Support**
@@ -995,7 +993,8 @@ class RateLimiter:
 ```
 ┌──────────────────────────────────────────────────────────────┐
 │          User Requests Content Download                       │
-│  await media.download(save_path="./downloads")               │
+│  media_url = content.url_picker(media)                       │
+│  await authed.auth_session.request(media_url.geturl())        │
 └──────────────────────────────────────────────────────────────┘
                            ↓
 ┌──────────────────────────────────────────────────────────────┐

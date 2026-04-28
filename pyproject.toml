@@ -75,3 +75,9 @@ packages = ["ultima_scraper_api"]
 
 [tool.uv.sources]
 pywidevine = { git = "https://github.com/UltimaHoarder/pywidevine.git" }
+
+[dependency-groups]
+dev = [
+    "mkdocs>=1.6.1",
+    "mkdocs-material>=9.6.22",
+]

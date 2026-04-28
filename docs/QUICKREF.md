@@ -17,6 +17,7 @@ config = UltimaScraperAPIConfig()
 api = OnlyFansAPI(config)
 
 auth_json = {
+    "id": 123456,
     "cookie": "your_cookie",
     "user_agent": "your_user_agent",
     "x-bc": "your_x-bc"
@@ -42,7 +43,7 @@ if authed and authed.is_authed():
 
 ### Get Current User
 ```python
-me = await authed.get_me()
+me = await authed.get_authed_user()
 ```
 
 ### Get User by Username
@@ -52,7 +53,7 @@ user = await authed.get_user("username")
 
 ### Get User Posts
 ```python
-posts = await user.get_posts(limit=50, offset=0)
+posts = await user.get_posts(limit=50)
 ```
 
 ### Get User Stories
@@ -63,6 +64,11 @@ stories = await user.get_stories()
 ### Get User Messages
 ```python
 messages = await user.get_messages(limit=100)
+```
+
+### Search Chats
+```python
+chats = await authed.search_chats("query", limit=50)
 ```
 
 ## Post Operations
@@ -98,6 +104,15 @@ for post in posts:
                         f.write(content)
 ```
 
+### Diagnose CDN URL
+```python
+from ultima_scraper_api.helpers import diagnose_url
+
+media_url = post.url_picker(media)
+if media_url:
+    print(diagnose_url(media_url.geturl()).get_diagnosis())
+```
+
 ## Subscriptions
 
 ### Get Subscriptions
@@ -111,14 +126,12 @@ for sub in subscriptions:
 ## Error Handling
 
 ```python
-from ultima_scraper_api.exceptions import AuthenticationError, APIError
-
 try:
     async with api.login_context(auth_json) as authed:
+        if not authed or not authed.is_authed():
+            raise RuntimeError("Authentication failed")
         user = await authed.get_user("username")
-except AuthenticationError:
-    print("Authentication failed")
-except APIError as e:
+except Exception as e:
     print(f"API error: {e}")
 ```
 
@@ -126,12 +139,10 @@ except APIError as e:
 
 ### With Proxy
 ```python
-config = UltimaScraperAPIConfig(
-    proxy={
-        "http": "http://proxy:8080",
-        "https": "https://proxy:8080"
-    }
-)
+from ultima_scraper_api.config import Proxy
+
+config = UltimaScraperAPIConfig()
+config.settings.network.proxies.append(Proxy(url="http://proxy:8080"))
 ```
 
 ### From Environment
@@ -139,6 +150,7 @@ config = UltimaScraperAPIConfig(
 import os
 
 auth_json = {
+    "id": int(os.getenv("ONLYFANS_AUTH_ID", "0")),
     "cookie": os.getenv("COOKIE"),
     "user_agent": os.getenv("USER_AGENT"),
     "x-bc": os.getenv("XBC")
@@ -156,6 +168,7 @@ async def main():
     api = OnlyFansAPI(config)
     
     auth_json = {
+        "id": 123456,
         "cookie": "your_cookie",
         "user_agent": "your_user_agent",
         "x-bc": "your_x-bc"
@@ -207,19 +220,10 @@ if __name__ == "__main__":
 ### Pagination
 ```python
 async def fetch_all_posts(user):
-    all_posts = []
-    offset = 0
-    limit = 100
-    
-    while True:
-        posts = await user.get_posts(limit=limit, offset=offset)
-        if not posts:
-            break
-        all_posts.extend(posts)
-        offset += limit
-        await asyncio.sleep(1)  # Rate limiting
-    
-    return all_posts
+    async def on_progress(done_pages, total_pages, items_so_far):
+        print(f"Fetched page {done_pages}/{total_pages}: {items_so_far} posts")
+
+    return await user.get_posts(on_progress=on_progress)
 ```
 
 ### Batch Processing
@@ -244,6 +248,12 @@ async def rate_limited_fetch(items, delay=1.0):
 ```
 
 ## MkDocs Commands
+
+Install the repo's documentation dependencies first:
+
+```bash
+uv sync --group dev
+```
 
 ### Serve Documentation
 ```bash

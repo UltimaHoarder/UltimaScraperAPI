@@ -64,7 +64,7 @@ Context manager for authentication sessions. Automatically handles login and cle
 
 **Parameters:**
 
-- `auth_json` (dict | None): Authentication credentials containing `cookie`, `user_agent`, and `x-bc`
+- `auth_json` (dict | None): Authentication credentials containing `id`, `cookie`, `user_agent`, and `x-bc`
 - `guest` (bool): Whether to authenticate as guest (limited access)
 
 **Returns:** `OnlyFansAuthModel` if authentication succeeds, `None` otherwise
@@ -73,6 +73,7 @@ Context manager for authentication sessions. Automatically handles login and cle
 
 ```python
 auth_json = {
+    "id": 123456,
     "cookie": "auth_id=123456; sess=abc...",
     "user_agent": "Mozilla/5.0...",
     "x-bc": "token_here"
@@ -80,7 +81,7 @@ auth_json = {
 
 async with api.login_context(auth_json) as authed:
     if authed and authed.is_authed():
-        me = await authed.get_me()
+    me = await authed.get_authed_user()
         print(f"Logged in as: {me.username}")
 ```
 
@@ -159,7 +160,7 @@ Authenticate with OnlyFans and return authenticated session.
 ```python
 async with authenticator:
     auth_model = await authenticator.login()
-    me = await auth_model.get_me()
+    me = await auth_model.get_authed_user()
 ```
 
 ##### create_auth
@@ -318,24 +319,6 @@ Convert a user dictionary to `UserModel` instance.
 
 ##### Authenticated User Info
 
-###### get_me
-
-```python
-async get_me() -> UserModel
-```
-
-Get the authenticated user's profile (alias for `get_authed_user`).
-
-**Returns:** Authenticated `UserModel`
-
-**Example:**
-
-```python
-me = await auth_model.get_me()
-print(f"Logged in as: {me.username}")
-print(f"Balance: ${me.balance}")
-```
-
 ###### get_authed_user
 
 ```python
@@ -345,6 +328,14 @@ async get_authed_user() -> UserModel
 Get the authenticated user's profile.
 
 **Returns:** Authenticated `UserModel`
+
+**Example:**
+
+```python
+me = await auth_model.get_authed_user()
+print(f"Logged in as: {me.username}")
+print(f"Balance: ${me.balance}")
+```
 
 ###### get_id
 
@@ -373,46 +364,46 @@ Get the authenticated user's username.
 ```python
 async get_subscriptions(
     identifiers: list[int | str] = [],
-    refresh: bool = True,
-    limit: int = 100,
-    offset: int = 0,
-    subscription_type: str = "active"
-) -> list[UserModel]
+    limit: int | None = None,
+    sub_type: SubscriptionType = SubscriptionTypeEnum.ALL,
+    filter_by: str = "",
+    job_id: str | None = None,
+) -> list[SubscriptionModel]
 ```
 
-Get subscribed users.
+Get subscriptions for the authenticated account.
 
 **Parameters:**
 
 - `identifiers` (list): Filter by specific user IDs or usernames
-- `refresh` (bool): Force refresh from API
-- `limit` (int): Maximum number of results
-- `offset` (int): Pagination offset
-- `subscription_type` (str): Type of subscriptions ("all", "active", "expired")
+- `limit` (int | None): Maximum number of results (defaults to all available)
+- `sub_type` (SubscriptionType): Subscription type to retrieve
+- `filter_by` (str): Optional API filter value
+- `job_id` (str | None): Optional job ID surfaced in progress events
 
-**Returns:** List of subscribed `UserModel` instances
+**Returns:** List of `SubscriptionModel` instances
 
 **Example:**
 
 ```python
 # Get all active subscriptions
 subs = await auth_model.get_subscriptions()
-for user in subs:
-    print(f"Subscribed to: {user.username}")
+for sub in subs:
+    print(f"Subscribed to: {sub.user.username}")
 
-# Get expired subscriptions
-expired = await auth_model.get_subscriptions(subscription_type="expired")
+# Filter by subscription type/filter when needed
+filtered = await auth_model.get_subscriptions(filter_by="expired")
 ```
 
 ###### get_subscription_count
 
 ```python
-async get_subscription_count() -> int
+async get_subscription_count() -> SubscriptionCountModel
 ```
 
-Get total number of active subscriptions.
+Get subscription counts grouped by type/status.
 
-**Returns:** Subscription count
+**Returns:** `SubscriptionCountModel`
 
 ##### Lists and Organization
 
@@ -996,34 +987,35 @@ Represents a post on OnlyFans with text, media, and metadata.
 
 ```python
 post.id: int                          # Post ID
-post.text: str | None                 # Post text content
-post.price: float                     # Post price (0 for free)
-post.is_paid: bool                    # Whether post requires payment
-post.is_archived: bool                # Whether post is archived
-post.created_at: str                  # Creation timestamp (ISO format)
-post.expires_at: str | None           # Expiration timestamp
+post.responseType: str                # API response type (usually "post")
+post.text: str                        # Post text content
+post.rawText: str                     # Raw text content
+post.price: float | None              # Post price (None/0 for free)
+post.isArchived: bool                 # Whether post is archived
+post.created_at: datetime             # Creation timestamp
+post.expiredAt: Any | None            # Expiration timestamp
 post.media: list[MediaModel]          # Attached media files
 post.media_count: int                 # Number of media files
-post.preview_ids: list[int]           # Preview media IDs
+post.previews: list[int]              # Preview media IDs
 post.author: UserModel                # Post author
-post.can_view: bool                   # Whether user can view
-post.is_opened: bool                  # Whether user has opened
-post.is_pinned: bool                  # Whether post is pinned
-post.favorites_count: int             # Number of favorites
-post.comments_count: int              # Number of comments
+post.canViewMedia: bool               # Whether user can view media
+post.isOpened: bool                   # Whether user has opened
+post.isPinned: bool                   # Whether post is pinned
+post.favoritesCount: int              # Number of favorites
+post.commentsCount: int               # Number of comments
+post.canPurchase: bool                # Whether the post can be purchased
+post.promotionContent: list[PromotionContentModel]  # Promotion/tracking metadata
 ```
 
 #### Methods
 
 ```python
 post.get_author() -> UserModel        # Get post author
-post.get_text() -> str                # Get post text (empty string if None)
 post.is_bought() -> bool              # True if the post has been purchased
                                       # (or is free) based on media visibility/price
 ```
 
-`PostModel` also exposes a `promotion: PromotionContentModel | None` attribute
-that wraps any associated promotion metadata (price, discount, expiration).
+`PostModel` also exposes `promotionContent`, a list of `PromotionContentModel` values for promotion/tracking metadata.
 
 **Example:**
 
@@ -1031,10 +1023,10 @@ that wraps any associated promotion metadata (price, discount, expiration).
 posts = await user.get_posts(limit=10)
 for post in posts:
     print(f"Post {post.id}: {post.text}")
-    if post.is_paid:
+    if post.price:
         print(f"  Price: ${post.price}")
     for media in post.media:
-        print(f"  Media: {media.filename} ({media.type})")
+        print(f"  Media: {media.id} ({media.type})")
 ```
 
 ---
@@ -1050,16 +1042,16 @@ Represents a direct message.
 ```python
 message.id: int                       # Message ID
 message.text: str | None              # Message text
-message.price: float                  # Message price (for paid content)
-message.is_paid: bool                 # Whether message requires payment
-message.from_user: UserModel          # Sender
-message.receiver_user: UserModel      # Receiver
-message.created_at: str               # Creation timestamp
+message.price: int | None             # Message price (for paid content)
+message.get_author() -> UserModel     # Sender
+message.get_receiver() -> UserModel   # Receiver
+message.created_at: datetime          # Creation timestamp
 message.media: list[MediaModel]       # Attached media
-message.is_opened: bool               # Whether opened by receiver
-message.is_free: bool                 # Whether message is free
-message.can_purchase: bool            # Whether can be purchased
-message.tip_amount: float             # Tip amount (if message is a tip)
+message.isOpened: bool | None         # Whether opened by receiver
+message.isFree: bool | None           # Whether message is free
+message.canPurchase: bool | None      # Whether can be purchased
+message.isTip: bool | None            # Whether message is a tip
+message.isLiked: bool | None          # Whether message is liked
 ```
 
 **Example:**
@@ -1067,7 +1059,7 @@ message.tip_amount: float             # Tip amount (if message is a tip)
 ```python
 messages = await user.get_messages(limit=20)
 for msg in messages:
-    print(f"{msg.from_user.username}: {msg.text}")
+    print(f"{msg.get_author().username}: {msg.text}")
     if msg.media:
         print(f"  {len(msg.media)} media attached")
 ```
@@ -1094,8 +1086,8 @@ Represents a story (temporary content).
 ```python
 story.id: int                         # Story ID
 story.user_id: int                    # Story author ID
-story.created_at: str                 # Creation timestamp
-story.expires_at: str                 # Expiration timestamp
+story.created_at: datetime            # Creation timestamp
+story.expires_at: datetime | None     # Expiration timestamp
 story.is_ready: bool                  # Whether story is ready to view
 story.is_watched: bool                # Whether user has watched
 story.media: list[MediaModel]         # Story media
@@ -1126,30 +1118,30 @@ Represents a media file (image, video, audio).
 ```python
 media.id: int                         # Media ID
 media.type: str                       # Media type ("photo", "video", "audio", "gif")
-media.filename: str                   # File name
-media.url: str | None                 # Media URL
-media.preview_url: str | None         # Preview/thumbnail URL
-media.size: int                       # File size in bytes
+media.files: MediaFiles | None        # Full/thumb/preview/DRM file metadata
 media.duration: int | None            # Duration in seconds (video/audio)
-media.width: int | None               # Width in pixels (image/video)
-media.height: int | None              # Height in pixels (image/video)
-media.can_view: bool                  # Whether user can view
-media.has_error: bool                 # Whether media has error
-media.video_sources: dict[str, str]   # Video quality options
-media.locked: bool                    # Whether media is locked
+media.canView: bool                   # Whether user can view
+media.hasError: bool                  # Whether media has error
+media.videoSources: dict[str, str]    # Video quality options
 ```
 
 #### Methods
 
-##### download
+##### has_drm
 
 ```python
-async download() -> bytes
+has_drm() -> bool
 ```
 
-Download media file content.
+Return whether the media has DRM metadata. Media downloads are performed by resolving a URL with `url_picker` / `content.url_picker()` and then using the authenticated session.
 
-**Returns:** Media file content as bytes
+##### to_dict
+
+```python
+to_dict() -> dict[str, Any]
+```
+
+Return the raw API dictionary for compatibility with older scripts.
 
 **Example:**
 
@@ -1356,6 +1348,7 @@ async def main():
     
     # Authentication credentials
     auth_json = {
+        "id": 123456,
         "cookie": "auth_id=123456; sess=abc123...",
         "user_agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)...",
         "x-bc": "your-x-bc-token-here"
@@ -1365,7 +1358,7 @@ async def main():
     async with api.login_context(auth_json) as authed:
         if authed and authed.is_authed():
             # Get authenticated user info
-            me = await authed.get_me()
+            me = await authed.get_authed_user()
             print(f"Logged in as: {me.username}")
             print(f"Balance: ${me.balance}")
             
@@ -1467,7 +1460,7 @@ async with api.login_context(auth_json) as authed:
     messages = await user.get_messages(limit=20)
     print(f"\nMessages: {len(messages)}")
     for msg in messages:
-        sender = msg.from_user.username
+        sender = msg.get_author().username
         text = msg.text[:30] if msg.text else "[Media only]"
         print(f"  {sender}: {text}")
 ```
@@ -1527,30 +1520,17 @@ if authed and authed.is_authed():
                 print(f"  ✗ {media.id}.{media.type} - Error: {e}")
 ```
 
-### Batch Processing with Pagination
+### Batch Processing with Progress Callbacks
 
-Process all content with automatic pagination:
+Process all content with built-in pagination and optional progress callbacks:
 
 ```python
 async def fetch_all_posts(user):
-    """Fetch all posts from a user with pagination"""
-    all_posts = []
-    offset = 0
-    limit = 100
-    
-    while True:
-        posts = await user.get_posts(limit=limit, offset=offset)
-        if not posts:
-            break
-        
-        all_posts.extend(posts)
-        offset += limit
-        print(f"Fetched {len(all_posts)} posts so far...")
-        
-        # Rate limiting
-        await asyncio.sleep(0.5)
-    
-    return all_posts
+    """Fetch all posts from a user with automatic pagination."""
+    async def progress(done_pages, total_pages, items_so_far):
+        print(f"Fetched page {done_pages}/{total_pages}: {items_so_far} posts")
+
+    return await user.get_posts(on_progress=progress)
 
 async with api.login_context(auth_json) as authed:
     user = await authed.get_user("username")
@@ -1770,22 +1750,10 @@ from asyncio import sleep
 
 async def fetch_with_rate_limit(user, limit=100):
     """Fetch content with rate limiting"""
-    offset = 0
-    batch_size = 50
-    all_posts = []
-    
-    while offset < limit:
-        posts = await user.get_posts(limit=batch_size, offset=offset)
-        if not posts:
-            break
-        
-        all_posts.extend(posts)
-        offset += batch_size
-        
-        # Rate limit: wait between requests
+    async def progress(done_pages, total_pages, items_so_far):
         await sleep(1.0)
-    
-    return all_posts
+
+    return await user.get_posts(limit=limit, on_progress=progress)
 ```
 
 ### Network Errors

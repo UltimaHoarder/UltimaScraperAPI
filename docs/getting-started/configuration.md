@@ -425,6 +425,7 @@ import os
 
 # ✓ Good: Credentials from environment
 auth_json = {
+    "id": int(os.getenv("ONLYFANS_AUTH_ID", "0")),
     "cookie": os.getenv("ONLYFANS_COOKIE"),
     "user_agent": os.getenv("ONLYFANS_USER_AGENT"),
     "x-bc": os.getenv("ONLYFANS_XBC"),
@@ -432,6 +433,7 @@ auth_json = {
 
 # ✗ Bad: Hardcoded credentials
 auth_json = {
+    "id": 123456,
     "cookie": "auth_id=123456...",  # Don't commit this!
     "user_agent": "Mozilla/5.0...",
     "x-bc": "token123",

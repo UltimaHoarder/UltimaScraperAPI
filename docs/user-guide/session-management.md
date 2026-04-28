@@ -40,6 +40,7 @@ async def main():
     api = OnlyFansAPI(config)
     
     auth_json = {
+        "id": 123456,
         "cookie": "your_cookie",
         "user_agent": "your_user_agent",
         "x-bc": "your_x-bc"
@@ -63,7 +64,7 @@ if __name__ == "__main__":
 # 1. Session Creation
 async with api.login_context(auth_json) as authed:
     # 2. Session is active - make API calls
-    me = await authed.get_me()
+    me = await authed.get_authed_user()
     posts = await me.get_posts()
     
     # 3. Session validation
@@ -165,7 +166,6 @@ Optimize performance with `aiohttp` connection pooling:
 ```python
 import aiohttp
 from ultima_scraper_api import OnlyFansAPI, UltimaScraperAPIConfig
-from ultima_scraper_api.config import Network
 
 # Create custom connector with optimized settings
 connector = aiohttp.TCPConnector(
@@ -178,12 +178,8 @@ connector = aiohttp.TCPConnector(
 )
 
 # Configure network settings
-config = UltimaScraperAPIConfig(
-    network=Network(
-        timeout=60,                # Request timeout
-        max_connections=100,       # Max concurrent connections
-    )
-)
+config = UltimaScraperAPIConfig()
+config.settings.network.max_connections = 100  # Max concurrent connections
 
 api = OnlyFansAPI(config)
 ```
@@ -382,16 +378,13 @@ Configure Redis in your `UltimaScraperAPIConfig`:
 from ultima_scraper_api import UltimaScraperAPIConfig
 from ultima_scraper_api.config import Redis
 
-config = UltimaScraperAPIConfig(
-    redis=Redis(
-        host="localhost",
-        port=6379,
-        db=0,
-        password="your_redis_password",  # Optional
-        socket_timeout=5,
-        socket_connect_timeout=5,
-        max_connections=50
-    )
+config = UltimaScraperAPIConfig()
+config.settings.redis = Redis(
+    host="localhost",
+    port=6379,
+    db=0,
+    password="your_redis_password",  # Optional
+    enabled=True,
 )
 
 api = OnlyFansAPI(config)
@@ -415,13 +408,13 @@ from ultima_scraper_api import UltimaScraperAPIConfig
 from ultima_scraper_api.config import Redis
 
 # Load from environment
-config = UltimaScraperAPIConfig(
-    redis=Redis(
-        host=os.getenv("REDIS_HOST", "localhost"),
-        port=int(os.getenv("REDIS_PORT", 6379)),
-        db=int(os.getenv("REDIS_DB", 0)),
-        password=os.getenv("REDIS_PASSWORD")
-    )
+config = UltimaScraperAPIConfig()
+config.settings.redis = Redis(
+    host=os.getenv("REDIS_HOST", "localhost"),
+    port=int(os.getenv("REDIS_PORT", 6379)),
+    db=int(os.getenv("REDIS_DB", 0)),
+    password=os.getenv("REDIS_PASSWORD"),
+    enabled=True,
 )
 ```
 
@@ -640,7 +633,7 @@ async def manage_multiple_sessions(accounts):
         async def process_account(api, auth):
             async with api.login_context(auth) as authed:
                 if authed and authed.is_authed():
-                    user = await authed.get_me()
+                    user = await authed.get_authed_user()
                     return user
             return None
         
@@ -762,7 +755,6 @@ from typing import Any, Dict, Optional
 import redis.asyncio as redis
 from cryptography.fernet import Fernet
 from ultima_scraper_api import OnlyFansAPI, UltimaScraperAPIConfig
-from ultima_scraper_api.config import Network, Redis as RedisConfig
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -875,17 +867,11 @@ async def main():
     encryption_key = Fernet.generate_key()
     
     # Configure
-    config = UltimaScraperAPIConfig(
-        network=Network(
-            timeout=60,
-            max_connections=100
-        ),
-        redis=RedisConfig(
-            host="localhost",
-            port=6379,
-            db=0
-        )
-    )
+    config = UltimaScraperAPIConfig()
+    config.settings.network.max_connections = 100
+    config.settings.redis.host = "localhost"
+    config.settings.redis.port = 6379
+    config.settings.redis.db = 0
     
     # Create session manager
     manager = ProductionSessionManager(
@@ -897,6 +883,7 @@ async def main():
     try:
         # Login
         auth_json = {
+            "id": 123456,
             "cookie": "your_cookie",
             "user_agent": "your_user_agent",
             "x-bc": "your_x-bc"
@@ -906,7 +893,7 @@ async def main():
         
         if authed:
             # Use session
-            me = await authed.get_me()
+            me = await authed.get_authed_user()
             print(f"Logged in as: {me.username}")
             
             # Refresh session
@@ -961,13 +948,9 @@ async def persistent_session(api, auth_json, user_id):
 ### 3. Configure Appropriate Timeouts
 
 ```python
-# Set timeouts to prevent hanging
-config = UltimaScraperAPIConfig(
-    network=Network(
-        timeout=60,          # Total timeout
-        connect_timeout=10,  # Connection timeout
-    )
-)
+# Tune connection pool size to fit your workload.
+config = UltimaScraperAPIConfig()
+config.settings.network.max_connections = 100
 ```
 
 ### 4. Monitor Session Health
@@ -1112,6 +1095,7 @@ logger.error(f"Session error for {user_id}: {error}")
    ```python
    # Check if credentials are still valid
    auth_json = {
+       "id": 123456,
        "cookie": "your_cookie",  # Check not expired
        "user_agent": "your_user_agent",
        "x-bc": "your_x-bc"  # OnlyFans specific
@@ -1123,13 +1107,10 @@ logger.error(f"Session error for {user_id}: {error}")
            print("Invalid credentials")
    ```
 
-3. **Increase timeout:**
+3. **Reduce concurrency and retry:**
    ```python
-   config = UltimaScraperAPIConfig(
-       network=Network(
-           timeout=120,  # Increase to 2 minutes
-       )
-   )
+   config = UltimaScraperAPIConfig()
+   config.settings.network.max_connections = 25
    ```
 
 4. **Check proxy configuration:**
@@ -1162,7 +1143,7 @@ logger.error(f"Session error for {user_id}: {error}")
        while True:
            try:
                # Make lightweight request
-               await authed.get_me()
+               await authed.get_authed_user()
                logger.info("✓ Session refreshed")
                await asyncio.sleep(interval)  # 5 minutes
            except Exception as e:
@@ -1184,7 +1165,7 @@ logger.error(f"Session error for {user_id}: {error}")
    ```python
    async def check_session_health(authed):
        try:
-           me = await authed.get_me()
+           me = await authed.get_authed_user()
            return True
        except Exception:
            return False
@@ -1277,14 +1258,11 @@ logger.error(f"Session error for {user_id}: {error}")
 
 2. **Verify configuration:**
    ```python
-   config = UltimaScraperAPIConfig(
-       redis=RedisConfig(
-           host="localhost",  # Correct host?
-           port=6379,         # Correct port?
-           db=0,
-           password="your_password"  # If required
-       )
-   )
+   config = UltimaScraperAPIConfig()
+   config.settings.redis.host = "localhost"  # Correct host?
+   config.settings.redis.port = 6379         # Correct port?
+   config.settings.redis.db = 0
+   config.settings.redis.password = "your_password"  # If required
    ```
 
 3. **Test connection separately:**

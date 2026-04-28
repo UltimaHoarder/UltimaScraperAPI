@@ -48,8 +48,11 @@ UltimaScraperAPI is a modular Python scraping framework designed to interact wit
 - 🌍 **Advanced Networking**: Session management, connection pooling, proxy support (HTTP/HTTPS/SOCKS)
 - 🔄 **WebSocket Support**: Real-time updates and live notifications
 - 💾 **Redis Integration**: Optional caching, session persistence, and rate limiting
+- 📡 **Typed Event Models**: Shared Redis pub/sub schemas for scrape and download progress
+- 📈 **Progress Callbacks**: Per-page progress hooks for large post, story, and message scrapes
 - 📊 **Type Safety**: Comprehensive type hints and validation with Pydantic v2
 - 🔒 **DRM Support**: Widevine CDM integration for encrypted content
+- 🧭 **URL Diagnostics**: Decode signed CDN URLs to detect expiry and IP locks
 - 🎯 **Rate Limiting**: Built-in rate limiting and exponential backoff
 - 🛡️ **Error Handling**: Comprehensive error handling with retry mechanisms
 - 📝 **Comprehensive Logging**: Detailed logging for debugging and monitoring
@@ -138,6 +141,7 @@ async def main():
     # Obtain these from your browser's Network tab (F12)
     # See: https://ultimahoarder.github.io/UltimaScraperAPI/user-guide/authentication/
     auth_json = {
+        "id": 123456,
         "cookie": "your_cookie_value",
         "user_agent": "your_user_agent",
         "x-bc": "your_x-bc_token"
@@ -148,7 +152,7 @@ async def main():
     
     if authed and authed.is_authed():
         # Get authenticated user info
-        me = await authed.get_me()
+        me = await authed.get_authed_user()
         print(f"Logged in as: {me.username}")
         
         # Get user profile
@@ -216,6 +220,7 @@ async def download_drm_content():
     
     onlyfans_api = api.api_instances.OnlyFans
     auth_json = {
+        "id": 123456,
         "cookie": "your_cookie_value",
         "user_agent": "your_user_agent",
         "x-bc": "your_x-bc_token"
@@ -368,6 +373,7 @@ config = UltimaScraperAPIConfig()
 
 ```bash
 # Set up your credentials
+export ONLYFANS_AUTH_ID="123456"
 export ONLYFANS_COOKIE="your_cookie_value"
 export ONLYFANS_USER_AGENT="Mozilla/5.0 ..."
 export ONLYFANS_XBC="your_x-bc_token"
@@ -379,6 +385,7 @@ Then load them in your code:
 import os
 
 auth_json = {
+    "id": int(os.getenv("ONLYFANS_AUTH_ID", "0")),
     "cookie": os.getenv("ONLYFANS_COOKIE"),
     "user_agent": os.getenv("ONLYFANS_USER_AGENT"),
     "x-bc": os.getenv("ONLYFANS_XBC")
@@ -391,17 +398,13 @@ Configure HTTP, HTTPS, or SOCKS proxies:
 
 ```python
 from ultima_scraper_api import UltimaScraperAPIConfig
-from ultima_scraper_api.config import Network, Proxy
+from ultima_scraper_api.config import Proxy
 
-config = UltimaScraperAPIConfig(
-    network=Network(
-        proxy=Proxy(
-            http="http://proxy.example.com:8080",
-            https="https://proxy.example.com:8080",
-            # Or SOCKS proxy
-            # http="socks5://proxy.example.com:1080"
-        )
-    )
+config = UltimaScraperAPIConfig()
+config.settings.network.proxies.append(
+    Proxy(url="http://proxy.example.com:8080")
+    # Or SOCKS proxy:
+    # Proxy(url="socks5://proxy.example.com:1080")
 )
 ```
 
@@ -412,13 +415,12 @@ Enable Redis for caching and session management:
 ```python
 from ultima_scraper_api.config import Redis
 
-config = UltimaScraperAPIConfig(
-    redis=Redis(
-        host="localhost",
-        port=6379,
-        db=0,
-        password="your_password"  # Optional
-    )
+config = UltimaScraperAPIConfig()
+config.settings.redis = Redis(
+    host="localhost",
+    port=6379,
+    db=0,
+    password="your_password"  # Optional
 )
 ```
 
@@ -472,11 +474,20 @@ async with api.login_context(auth_json) as authed:
     for story in stories:
         if story.media:
             for media in story.media:
-                # Download media content
-                content = await media.download()
+                # Resolve and download media content
+                media_url = story.url_picker(media)
+                if not media_url:
+                    continue
+                response = await authed.auth_session.request(
+                    media_url.geturl(),
+                    premade_settings=""
+                )
+                if not response:
+                    continue
+                content = await response.read()
                 
                 # Save to file
-                filename = f"stories/{media.filename}"
+                filename = f"stories/{media.id}.{media.type}"
                 async with aiofiles.open(filename, "wb") as f:
                     await f.write(content)
                     
@@ -524,8 +535,10 @@ async with api.login_context(auth_json) as authed:
 ```python
 from ultima_scraper_api.helpers import diagnose_url
 
-diag = diagnose_url(media.url)
-print(diag.get_diagnosis())  # e.g. "URL valid for ~5.2 hours" or "URL expired ..."
+media_url = post.url_picker(media)
+diag = diagnose_url(media_url.geturl()) if media_url else None
+if diag:
+    print(diag.get_diagnosis())  # e.g. "URL valid for ~5.2 hours" or "URL expired ..."
 ```
 
 ### Concurrent Operations
@@ -649,7 +662,7 @@ UltimaScraperAPI/
 │   ├── helpers/             # Helper functions
 │   ├── managers/            # Session/scrape managers
 │   └── models/              # Data models
-├── documentation/           # MkDocs documentation
+├── docs/                    # MkDocs documentation source
 ├── tests/                   # Test files
 ├── typings/                 # Type stubs
 └── pyproject.toml          # Project configuration

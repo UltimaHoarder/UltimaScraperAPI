@@ -100,7 +100,7 @@ asyncio.run(reproduce_bug())
 **Environment**
 - OS: [e.g., Ubuntu 22.04, Windows 11, macOS 14]
 - Python Version: [e.g., 3.11.5]
-- Package Version: [e.g., 2.2.46]
+- Package Version: [e.g., 3.0.0b4]
 - Installation Method: [pip, uv, source]
 
 **Error Message/Traceback**
@@ -212,7 +212,7 @@ pip install pre-commit
 pre-commit install
 
 # 7. Verify installation
-python -c "import ultima_scraper_api; print(ultima_scraper_api.__version__)"
+python -c "from importlib.metadata import version; print(version('ultima-scraper-api'))"
 ```
 
 ### Detailed Setup
@@ -1297,7 +1297,7 @@ class TestNewPlatformAPI:
 #### 7. Add Documentation
 
 ```markdown
-# documentation/docs/api-reference/newplatform.md
+# docs/api-reference/newplatform.md
 
 # NewPlatform API Reference
 
@@ -1414,7 +1414,7 @@ Update documentation when you:
 ### Documentation Structure
 
 ```
-documentation/docs/
+docs/
 ├── index.md                    # Home page
 ├── getting-started/
 │   ├── installation.md
@@ -1496,18 +1496,18 @@ async def example():
 
 ```bash
 # Install documentation dependencies
-pip install mkdocs-material
+uv sync --group dev
 
 # Serve documentation locally
-mkdocs serve
+uv run mkdocs serve
 
 # Open in browser: http://localhost:2110
 
 # Build static site
-mkdocs build
+uv run mkdocs build
 
 # Deploy to GitHub Pages (maintainers only)
-mkdocs gh-deploy
+uv run mkdocs gh-deploy
 ```
 
 ---
@@ -1787,7 +1787,7 @@ Releases are managed by project maintainers following **Semantic Versioning** (S
 ```
 MAJOR.MINOR.PATCH
 
-Example: 2.2.46
+Example: 3.0.0b4
          │ │ │
          │ │ └─ Patch: Bug fixes, no breaking changes
          │ └─── Minor: New features, backward compatible
@@ -2020,4 +2020,4 @@ Your contributions, whether code, documentation, bug reports, or ideas, are inva
 ---
 
 **Last Updated:** October 18, 2025  
-**Version:** 2.2.46
+**Version:** 3.0.0b4

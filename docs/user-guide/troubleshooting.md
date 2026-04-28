@@ -878,21 +878,10 @@ async def fetch_user_safe(api, username):
 3. **Handle pagination properly:**
 ```python
 async def get_all_posts(user):
-    all_posts = []
-    offset = 0
-    limit = 100
-    
-    while True:
-        posts = await user.get_posts(offset=offset, limit=limit)
-        if not posts:  # No more posts
-            break
-        all_posts.extend(posts)
-        offset += limit
-        
-        # Safety check
-        if offset > 10000:  # Reasonable limit
-            print("⚠️ Reached maximum offset")
-            break
+    async def on_progress(done_pages, total_pages, items_so_far):
+        print(f"Fetched page {done_pages}/{total_pages}: {items_so_far} posts")
+
+    return await user.get_posts(on_progress=on_progress)
     
     return all_posts
 ```
@@ -1294,36 +1283,18 @@ System becomes unresponsive
 1. **Process data in chunks:**
 ```python
 async def process_posts_chunked(user, chunk_size=100):
-    offset = 0
-    while True:
-        posts = await user.get_posts(offset=offset, limit=chunk_size)
-        if not posts:
-            break
-        
-        # Process chunk
-        for post in posts:
-            await process_post(post)
-        
-        # Clear processed data
-        posts.clear()
-        offset += chunk_size
+    posts = await user.get_posts(limit=chunk_size)
+    for post in posts:
+        await process_post(post)
+    posts.clear()
 ```
 
 2. **Use generators:**
 ```python
 async def post_generator(user):
-    offset = 0
-    limit = 100
-    
-    while True:
-        posts = await user.get_posts(offset=offset, limit=limit)
-        if not posts:
-            break
-        
-        for post in posts:
-            yield post
-        
-        offset += limit
+    posts = await user.get_posts()
+    for post in posts:
+        yield post
 
 # Usage
 async for post in post_generator(user):
@@ -1567,4 +1538,4 @@ logging.basicConfig(level=logging.DEBUG)
 ---
 
 **Last Updated:** 2025-01-24  
-**Version:** 2.2.46
+**Version:** 3.0.0b4

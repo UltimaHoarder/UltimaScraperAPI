@@ -468,9 +468,9 @@ await streamliner.close_pools()
 from ultima_scraper_api import UltimaScraperAPI, UltimaScraperAPIConfig
 
 # Initialize
-api = UltimaScraperAPI()
-onlyfans = api.get_site_api("onlyfans")
 config = UltimaScraperAPIConfig()
+api = UltimaScraperAPI(config)
+onlyfans = api.api_instances.OnlyFans
 
 # Create streamliner
 streamliner = StreamlinedAPI(api=onlyfans, config=config)
@@ -683,9 +683,10 @@ response = await session.get("https://api.example.com/endpoint")
 from ultima_scraper_api import UltimaScraperAPI
 
 api = UltimaScraperAPI()
-onlyfans = api.get_site_api("onlyfans")
+onlyfans = api.api_instances.OnlyFans
 
 auth_json = {
+    "id": 123456,
     "cookie": "your_cookie",
     "user_agent": "your_user_agent"
 }
@@ -1033,7 +1034,7 @@ user.add_aliases(["old_username", "nickname"])
 from ultima_scraper_api import UltimaScraperAPI
 
 api = UltimaScraperAPI()
-onlyfans = api.get_site_api("onlyfans")
+onlyfans = api.api_instances.OnlyFans
 
 async with onlyfans.login_context(auth_json) as authed:
     user = await authed.get_user("example_user")
@@ -1133,7 +1134,7 @@ print(f"Final offset: {final_offset}")
 from ultima_scraper_api import UltimaScraperAPI
 
 api = UltimaScraperAPI()
-onlyfans = api.get_site_api("onlyfans")
+onlyfans = api.api_instances.OnlyFans
 
 async with onlyfans.login_context(auth_json) as authed:
     # Check subscription cache
@@ -1163,7 +1164,7 @@ from ultima_scraper_api import UltimaScraperAPI
 from ultima_scraper_api.apis.user_streamliner import Job
 
 api = UltimaScraperAPI()
-onlyfans = api.get_site_api("onlyfans")
+onlyfans = api.api_instances.OnlyFans
 
 async with onlyfans.login_context(auth_json) as authed:
     user = await authed.get_user("username")
@@ -1236,7 +1237,7 @@ api = UltimaScraperAPI()
 config = UltimaScraperAPIConfig()
 
 # OnlyFans streamliner
-onlyfans = api.get_site_api("onlyfans")
+onlyfans = api.api_instances.OnlyFans
 of_streamliner = StreamlinedAPI(api=onlyfans, config=config)
 
 async with onlyfans.login_context(of_auth) as of_authed:
@@ -1245,10 +1246,10 @@ async with onlyfans.login_context(of_auth) as of_authed:
     if of_streamliner.has_active_auths():
         print("OnlyFans: Active")
         site_settings = of_streamliner.get_site_settings()
-        print(f"Browser: {site_settings.browser}")
+        print(f"Video quality: {site_settings.media_quality.video}")
 
 # Fansly streamliner
-fansly = api.get_site_api("fansly")
+    fansly = api.api_instances.Fansly
 fn_streamliner = StreamlinedAPI(api=fansly, config=config)
 
 async with fansly.login_context(fn_auth) as fn_authed:
@@ -1294,8 +1295,10 @@ Parse a CDN URL and return a `UrlDiagnostics` dataclass containing the decoded C
 ```python
 from ultima_scraper_api.helpers import diagnose_url
 
-diag = diagnose_url(media.url)
-print(diag.get_diagnosis())  # "URL valid for ~5.2 hours" / "URL expired 2 hour(s) ago at ..." / etc.
+media_url = post.url_picker(media)
+diag = diagnose_url(media_url.geturl()) if media_url else None
+if diag:
+    print(diag.get_diagnosis())  # "URL valid for ~5.2 hours" / "URL expired 2 hour(s) ago at ..." / etc.
 print(diag.to_dict())
 ```
 

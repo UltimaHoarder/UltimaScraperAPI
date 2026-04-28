@@ -31,6 +31,7 @@ async def main():
     
     # Step 3: Prepare authentication credentials
     auth_json = {
+        "id": 123456,
         "cookie": "auth_id=123456; sess=abcdef...",
         "user_agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)...",
         "x-bc": "your_x-bc_token_here"
@@ -49,7 +50,7 @@ async def main():
             user = await authed.get_user("username")
             if user:
                 print(f"Found user: {user.username}")
-                print(f"Subscribers: {user.subscriber_count if hasattr(user, 'subscriber_count') else 'N/A'}")
+                print(f"Subscribers: {user.subscribers_count if hasattr(user, 'subscribers_count') else 'N/A'}")
                 
                 # Fetch their posts
                 posts = await user.get_posts(limit=10)
@@ -135,6 +136,7 @@ config = UltimaScraperAPIConfig()
 api = OnlyFansAPI(config)
 
 auth_json = {
+    "id": 123456,
     "cookie": "your_cookie",
     "user_agent": "your_user_agent",
     "x-bc": "your_x_bc_token"
@@ -157,6 +159,7 @@ api = FanslyAPI(config)
 
 # Fansly authentication format may differ
 auth_json = {
+    "id": 123456,
     "cookie": "your_cookie",
     "user_agent": "your_user_agent",
     # Fansly-specific auth fields
@@ -326,6 +329,7 @@ async def safe_api_call():
     api = OnlyFansAPI(config)
     
     auth_json = {
+        "id": 123456,
         "cookie": "your_cookie",
         "user_agent": "your_user_agent",
         "x-bc": "your_x_bc"
@@ -387,6 +391,7 @@ async def download_user_content(username: str):
     api = OnlyFansAPI(config)
     
     auth_json = {
+        "id": 123456,
         "cookie": "your_cookie_here",
         "user_agent": "your_user_agent_here",
         "x-bc": "your_x_bc_here"
@@ -427,7 +432,7 @@ async def download_user_content(username: str):
                 
                 for media_idx, media in enumerate(post.media, 1):
                     try:
-                        filename = f"post_{post.id}_media_{media_idx}.{media.extension}"
+                        filename = f"post_{post.id}_media_{media_idx}.{media.type}"
                         filepath = download_dir / filename
                         
                         # Skip if already downloaded
@@ -435,9 +440,18 @@ async def download_user_content(username: str):
                             print(f"  ⊙ Skipping {filename} (already exists)")
                             continue
                         
-                        # Download
+                        # Resolve and download
                         print(f"  ↓ Downloading {filename}...")
-                        content = await media.download()
+                        media_url = post.url_picker(media)
+                        if not media_url:
+                            continue
+                        response = await authed.auth_session.request(
+                            media_url.geturl(),
+                            premade_settings=""
+                        )
+                        if not response:
+                            continue
+                        content = await response.read()
                         
                         # Save
                         with open(filepath, 'wb') as f:

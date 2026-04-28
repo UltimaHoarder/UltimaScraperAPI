@@ -107,13 +107,13 @@ async def main():
     """Experimental LoyalFans API usage."""
     # Initialize API
     api = UltimaScraperAPI()
-    loyalfans = api.get_site_api("loyalfans")
+    loyalfans = api.api_instances.LoyalFans
     
     # Authentication credentials
     auth_json = {
+        "id": your_user_id,  # Your LoyalFans user ID
         "cookie": "your_auth_cookie_here",
-        "user_agent": "Mozilla/5.0 ...",
-        "id": your_user_id  # Your LoyalFans user ID
+        "user_agent": "Mozilla/5.0 ..."
     }
     
     # Login (experimental)
@@ -177,9 +177,9 @@ async with loyalfans.login_context(auth_json) as authed:
 
 ```python
 auth_json = {
+    "id": 12345,  # Your user ID
     "cookie": "your_session_cookie",
-    "user_agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) ...",
-    "id": 12345  # Your user ID
+    "user_agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) ..."
 }
 
 async with loyalfans.login_context(auth_json) as authed:
@@ -224,7 +224,7 @@ from ultima_scraper_api import UltimaScraperAPI, UltimaScraperAPIConfig
 
 # Method 1: Through UltimaScraperAPI (recommended)
 api = UltimaScraperAPI()
-loyalfans = api.get_site_api("loyalfans")
+loyalfans = api.api_instances.LoyalFans
 
 # Method 2: Direct initialization
 from ultima_scraper_api.apis.loyalfans import LoyalFansAPI
@@ -317,8 +317,8 @@ user = await authed.get_user(12345)
 
 User profile representation (minimal implementation).
 
-!!! danger "Incomplete Implementation"
-    The UserModel class exists but has minimal functionality. Most methods are not yet implemented.
+!!! warning "Partial Implementation"
+    The LoyalFans API is still work in progress, but profile, timeline-post, and private-message helpers now exist.
 
 ### Expected Attributes (Planned)
 
@@ -333,25 +333,23 @@ user.posts_count             # int: Total posts (planned)
 user.subscribers_count       # int: Subscriber count (planned)
 ```
 
-### Planned Methods
+### Methods
 
-#### get_posts (Not Implemented)
-
-```python
-# Planned signature:
-posts = await user.get_posts(limit=50, offset=0)
-```
-
-**Status**: ❌ Not yet implemented
-
-#### get_messages (Not Implemented)
+#### get_posts
 
 ```python
-# Planned signature:
-messages = await user.get_messages(limit=100)
+posts = await user.get_posts(limit=20, offset=0)
 ```
 
-**Status**: ❌ Not yet implemented
+Fetch timeline posts for this user. Returns the raw timeline dictionaries from LoyalFans.
+
+#### get_messages
+
+```python
+messages = await user.get_messages(limit=50, offset=0)
+```
+
+Fetch private messages between the authenticated account and this user. Returns raw message dictionaries.
 
 #### get_stories (Not Implemented)
 
@@ -394,12 +392,12 @@ The following features are planned for future releases:
 
 ### Development Roadmap
 
-| Quarter | Goals |
-|---------|-------|
-| **Q4 2024** | Authentication, basic profiles, posts |
-| **Q1 2025** | Messages, media downloads, subscriptions |
-| **Q2 2025** | Stories, search, advanced features |
-| **Q3 2025** | WebSocket, live streams, full parity |
+| Phase | Goals |
+|-------|-------|
+| **Current beta** | Authentication, basic profiles, timeline posts, private messages |
+| **Next** | Media downloads, subscriptions, richer typed models |
+| **Future** | Stories, search, comments, likes, collections |
+| **Long term** | WebSocket, live streams, payments, account settings |
 
 !!! info "Timeline Subject to Change"
     Development timeline depends on platform API stability and contributor availability.
@@ -422,7 +420,7 @@ We welcome contributions to LoyalFans API development!
 
 ```bash
 # Clone repository
-git clone https://github.com/DIGITALCRIMINAL/UltimaScraperAPI.git
+git clone https://github.com/UltimaHoarder/UltimaScraperAPI.git
 cd UltimaScraperAPI
 
 # Install in development mode
@@ -542,7 +540,7 @@ If you encounter issues:
 
 1. Check if feature is implemented (see [Implementation Status](#implementation-status))
 2. Review [Troubleshooting Guide](../user-guide/troubleshooting.md)
-3. Search [existing issues](https://github.com/DIGITALCRIMINAL/UltimaScraperAPI/issues)
+3. Search [existing issues](https://github.com/UltimaHoarder/UltimaScraperAPI/issues)
 4. Create new issue with:
    - LoyalFans API version
    - Code example
@@ -568,7 +566,7 @@ If you encounter issues:
 - **[Contributing](../development/contributing.md)** - Contribution guidelines
 - **[Architecture](../development/architecture.md)** - System design
 - **[Testing](../development/testing.md)** - Testing guide
-- **[GitHub Repository](https://github.com/DIGITALCRIMINAL/UltimaScraperAPI)** - Source code
+- **[GitHub Repository](https://github.com/UltimaHoarder/UltimaScraperAPI)** - Source code
 
 ---
 
@@ -619,18 +617,9 @@ messages = await user.get_messages(limit=100)
 - `url` (str): Media URL
 - `thumbnail_url` (str): Thumbnail URL
 
-### Methods
+### Downloading
 
-#### download
-
-Download the media file.
-
-```python
-content = await media.download()
-```
-
-**Returns:**
-- `bytes`: Media content
+Media download helpers are not exposed as a model method yet. Resolve the media URL from the returned data and download it with the authenticated session.
 
 ## Message Class
 
@@ -666,6 +655,7 @@ async def fetch_loyalfans_user(username):
     api = LoyalFansAPI(config)
     
     auth_json = {
+        "id": 123456,
         "cookie": "your_cookie",
         "user_agent": "your_user_agent",
     }

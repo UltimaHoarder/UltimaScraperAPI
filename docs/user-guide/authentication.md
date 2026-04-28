@@ -53,6 +53,14 @@ Before authenticating, you need:
     !!! tip "Cookie Format"
         The cookie string contains multiple key-value pairs separated by semicolons. Copy everything.
 
+=== "ID"
+    Include your account ID as `id` in `auth_json`. For OnlyFans this is usually the `auth_id` value from the cookie.
+    
+    Example:
+    ```python
+    "id": 123456
+    ```
+
 === "User-Agent"
     Find the `User-Agent` header in the Request Headers.
     
@@ -131,6 +139,7 @@ async def authenticate_onlyfans():
     
     # Authentication credentials
     auth_json = {
+        "id": 123456,
         "cookie": "auth_id=123456; sess=abcdef...; auth_hash=xyz...",
         "user_agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36...",
         "x-bc": "a1b2c3d4e5f6g7h8i9j0..."
@@ -173,6 +182,7 @@ async def secure_authenticate():
     
     # Load credentials from environment
     auth_json = {
+        "id": int(os.getenv("ONLYFANS_AUTH_ID", "0")),
         "cookie": os.getenv("ONLYFANS_COOKIE"),
         "user_agent": os.getenv("ONLYFANS_USER_AGENT"),
         "x-bc": os.getenv("ONLYFANS_XBC")
@@ -181,7 +191,7 @@ async def secure_authenticate():
     # Validate credentials are present
     if not all(auth_json.values()):
         print("✗ Missing authentication credentials in environment!")
-        print("Required: ONLYFANS_COOKIE, ONLYFANS_USER_AGENT, ONLYFANS_XBC")
+        print("Required: ONLYFANS_AUTH_ID, ONLYFANS_COOKIE, ONLYFANS_USER_AGENT, ONLYFANS_XBC")
         return None
     
     async with api.login_context(auth_json) as authed:
@@ -258,6 +268,7 @@ async def onlyfans_auth_example():
     
     # OnlyFans authentication
     auth_json = {
+        "id": 123456,
         "cookie": "auth_id=123456; sess=abcdef1234567890; auth_hash=xyz789; ...",
         "user_agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
         "x-bc": "a1b2c3d4e5f6g7h8i9j0k1l2m3n4o5p6"
@@ -310,6 +321,7 @@ async def fansly_auth_example():
     
     # Fansly authentication (structure may change)
     auth_json = {
+        "id": 123456,
         "cookie": "session_id=...; other_cookies=...",
         "user_agent": "Mozilla/5.0...",
         # Additional fields as needed
@@ -350,6 +362,7 @@ async def loyalfans_auth_example():
     
     # LoyalFans authentication (structure may change)
     auth_json = {
+        "id": 123456,
         "cookie": "PHPSESSID=...; other_cookies=...",
         "user_agent": "Mozilla/5.0...",
     }
@@ -425,6 +438,7 @@ async def verify_auth():
     api = OnlyFansAPI(config)
     
     auth_json = {
+        "id": 123456,
         "cookie": "...",
         "user_agent": "...",
         "x-bc": "..."
@@ -492,6 +506,7 @@ async def robust_auth():
     api = OnlyFansAPI(config)
     
     auth_json = {
+        "id": 123456,
         "cookie": "...",
         "user_agent": "...",
         "x-bc": "..."
@@ -595,6 +610,7 @@ Hardcoding credentials is a major security risk.
 ```python
 # DON'T DO THIS!
 auth_json = {
+    "id": 12345,
     "cookie": "auth_id=12345; sess=abcdef123456",  # Exposed in source code!
     "user_agent": "Mozilla/5.0 ...",
     "x-bc": "my_secret_token"  # Will be committed to git!
@@ -606,6 +622,7 @@ auth_json = {
 import os
 
 auth_json = {
+    "id": int(os.getenv("ONLYFANS_AUTH_ID", "0")),
     "cookie": os.getenv("ONLYFANS_COOKIE"),
     "user_agent": os.getenv("ONLYFANS_USER_AGENT"),
     "x-bc": os.getenv("ONLYFANS_XBC"),
@@ -622,6 +639,7 @@ if not all(auth_json.values()):
 
 ```bash
 # .env - NEVER commit this file!
+ONLYFANS_AUTH_ID="123456"
 ONLYFANS_COOKIE="auth_id=123456; sess=abcdef1234567890; auth_hash=xyz789"
 ONLYFANS_USER_AGENT="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
 ONLYFANS_XBC="a1b2c3d4e5f6g7h8i9j0k1l2m3n4o5p6"
@@ -647,6 +665,7 @@ async def secure_auth():
     
     # Load from environment
     auth_json = {
+        "id": int(os.getenv("ONLYFANS_AUTH_ID", "0")),
         "cookie": os.getenv("ONLYFANS_COOKIE"),
         "user_agent": os.getenv("ONLYFANS_USER_AGENT"),
         "x-bc": os.getenv("ONLYFANS_XBC"),
@@ -724,6 +743,7 @@ manager = CredentialManager()
 
 # Save credentials (one time)
 auth_json = {
+    "id": 123456,
     "cookie": "...",
     "user_agent": "...",
     "x-bc": "..."
@@ -862,6 +882,7 @@ if rotation.should_rotate():
     
     **Solution:**
     1. Verify all required fields are present:
+         - `id` (your account ID; for OnlyFans, usually the `auth_id` cookie value)
        - `cookie` (complete string)
        - `user_agent` (from your browser)
        - `x-bc` (for OnlyFans)
@@ -870,7 +891,7 @@ if rotation.should_rotate():
     
     ```python
     # Validate credentials
-    required_fields = ["cookie", "user_agent", "x-bc"]
+    required_fields = ["id", "cookie", "user_agent", "x-bc"]
     missing = [f for f in required_fields if not auth_json.get(f)]
     if missing:
         print(f"Missing fields: {missing}")
@@ -1067,6 +1088,7 @@ async def test_credentials(auth_json: dict):
 
 # Usage
 auth_json = {
+    "id": 123456,
     "cookie": "your_cookie",
     "user_agent": "your_user_agent",
     "x-bc": "your_x_bc"

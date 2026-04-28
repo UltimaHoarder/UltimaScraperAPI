@@ -25,7 +25,7 @@ pip install ultima-scraper-api
 To install a specific version:
 
 ```bash
-pip install ultima-scraper-api==2.2.46
+pip install ultima-scraper-api==3.0.0b4
 ```
 
 ### Using uv (Recommended)
@@ -71,9 +71,9 @@ If you want to install from source or contribute to development:
    ```
    
    Or with uv:
-   ```bash
-   uv pip install -e ".[dev]"
-   ```
+    ```bash
+    uv pip install -e ".[dev]"
+    ```
 
 !!! warning "Development Installation"
     Installing from source gives you the latest development version, which may be unstable. For production use, install from PyPI.
@@ -122,6 +122,12 @@ Development dependencies (testing, documentation, etc.) can be installed with:
 pip install ultima-scraper-api[dev]
 ```
 
+For a local clone managed with uv, prefer:
+
+```bash
+uv pip install -e ".[dev]"
+```
+
 This includes:
 - **pytest** & **pytest-asyncio** - Testing framework
 - **pytest-cov** - Coverage reporting
@@ -135,16 +141,16 @@ After installation, verify that UltimaScraperAPI is correctly installed:
 
 === "Python REPL"
     ```python
-    import ultima_scraper_api
-    print(f"Version: {ultima_scraper_api.__version__}")
+    from importlib.metadata import version
+    print(f"Version: {version('ultima-scraper-api')}")
     ```
 
 === "Command Line"
     ```bash
-    python -c "import ultima_scraper_api; print(ultima_scraper_api.__version__)"
+    python -c "from importlib.metadata import version; print(version('ultima-scraper-api'))"
     ```
 
-Expected output: `2.2.46` (or your installed version)
+Expected output: `3.0.0b4` (or your installed version)
 
 ## Troubleshooting
 

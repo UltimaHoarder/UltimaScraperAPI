@@ -68,10 +68,11 @@ from ultima_scraper_api import UltimaScraperAPI
 async def main():
     # Initialize API
     api = UltimaScraperAPI()
-    fansly = api.get_site_api("fansly")
+    fansly = api.api_instances.Fansly
     
     # Authentication credentials
     auth_json = {
+        "id": 123456,
         "cookie": "your_auth_cookie_here",
         "user_agent": "Mozilla/5.0 ...",
         "x-bc": "your_token_here"
@@ -135,6 +136,7 @@ async with fansly.login_context(auth_json) as authed:
 
 ```python
 auth_json = {
+    "id": 123456,
     "cookie": "auth_id=xxxx; sess=yyyy",
     "user_agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) ...",
     "x-bc": "your_bearer_token"
@@ -186,7 +188,7 @@ from ultima_scraper_api import UltimaScraperAPI, UltimaScraperAPIConfig
 
 # Method 1: Through UltimaScraperAPI
 api = UltimaScraperAPI()
-fansly = api.get_site_api("fansly")
+fansly = api.api_instances.Fansly
 
 # Method 2: Direct initialization
 from ultima_scraper_api.apis.fansly import FanslyAPI
@@ -273,7 +275,7 @@ Get information about the currently authenticated user.
 
 ```python
 async with api.login_context(auth_json) as authed:
-    me = await authed.get_me()
+    me = await authed.get_authed_user()
     print(f"Username: {me.username}")
 ```
 
@@ -354,18 +356,9 @@ messages = await user.get_messages(limit=100)
 - `url` (str): Attachment URL
 - `preview_url` (str): Preview URL
 
-### Methods
+### Downloading
 
-#### download
-
-Download the attachment.
-
-```python
-content = await attachment.download()
-```
-
-**Returns:**
-- `bytes`: Attachment content
+Attachment download helpers are not exposed as a model method yet. Resolve the attachment URL from the model data and download it with the authenticated session.
 
 ## Message Class
 
@@ -437,9 +430,10 @@ from ultima_scraper_api import UltimaScraperAPI
 async def profile_summary(username: str):
     """Generate profile summary for a creator."""
     api = UltimaScraperAPI()
-    fansly = api.get_site_api("fansly")
+    fansly = api.api_instances.Fansly
     
     auth_json = {
+        "id": 123456,
         "cookie": "your_cookie",
         "user_agent": "your_user_agent",
         "x-bc": "your_token"
@@ -488,9 +482,10 @@ from ultima_scraper_api import UltimaScraperAPI
 async def download_user_content(username: str, max_posts: int = 50):
     """Download posts from a user."""
     api = UltimaScraperAPI()
-    fansly = api.get_site_api("fansly")
+    fansly = api.api_instances.Fansly
     
     auth_json = {
+        "id": 123456,
         "cookie": "your_cookie",
         "user_agent": "your_user_agent",
         "x-bc": "your_token"
@@ -560,9 +555,10 @@ from ultima_scraper_api import UltimaScraperAPI
 async def manage_subscriptions():
     """List and manage subscriptions."""
     api = UltimaScraperAPI()
-    fansly = api.get_site_api("fansly")
+    fansly = api.api_instances.Fansly
     
     auth_json = {
+        "id": 123456,
         "cookie": "your_cookie",
         "user_agent": "your_user_agent",
         "x-bc": "your_token"
@@ -613,9 +609,10 @@ from ultima_scraper_api import UltimaScraperAPI
 async def view_stories():
     """View active stories from subscriptions."""
     api = UltimaScraperAPI()
-    fansly = api.get_site_api("fansly")
+    fansly = api.api_instances.Fansly
     
     auth_json = {
+        "id": 123456,
         "cookie": "your_cookie",
         "user_agent": "your_user_agent",
         "x-bc": "your_token"
@@ -678,6 +675,7 @@ If you're familiar with the OnlyFans API, here are key differences:
 ```python
 # OnlyFans
 auth_json = {
+    "id": 123456,
     "cookie": "auth_id=xxx; sess=yyy",
     "user_agent": "Mozilla/5.0 ...",
     "x-bc": "token"
@@ -685,6 +683,7 @@ auth_json = {
 
 # Fansly - Similar but check platform docs
 auth_json = {
+    "id": 123456,
     "cookie": "auth_id=xxx; sess=yyy",
     "user_agent": "Mozilla/5.0 ...",
     "x-bc": "token"  # Fansly-specific token

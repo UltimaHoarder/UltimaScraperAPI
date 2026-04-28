@@ -2401,6 +2401,12 @@ dev = [
     { name = "python-semantic-release" },
 ]
 
+[package.dev-dependencies]
+dev = [
+    { name = "mkdocs" },
+    { name = "mkdocs-material" },
+]
+
 [package.metadata]
 requires-dist = [
     { name = "aiofiles", specifier = ">=22.1.0" },
@@ -2434,6 +2440,12 @@ requires-dist = [
     { name = "xmltodict", specifier = ">=0.13.0" },
 ]
 provides-extras = ["dev"]
+
+[package.metadata.requires-dev]
+dev = [
+    { name = "mkdocs", specifier = ">=1.6.1" },
+    { name = "mkdocs-material", specifier = ">=9.6.22" },
+]
 
 [[package]]
 name = "unidecode"

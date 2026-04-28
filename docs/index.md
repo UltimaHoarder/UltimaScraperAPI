@@ -57,6 +57,7 @@ config = UltimaScraperAPIConfig()
 api = OnlyFansAPI(config)
 
 auth_json = {
+    "id": 123456,
     "cookie": "your_cookie_here",
     "user_agent": "your_user_agent_here",
     "x-bc": "your_x-bc_here"

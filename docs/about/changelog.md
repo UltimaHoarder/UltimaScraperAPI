@@ -398,7 +398,7 @@ model_config = ConfigDict(from_attributes=True)
 
 ## Deprecation Notices
 
-### Deprecated in 2.2.x (Will be removed in 3.0.0)
+### Deprecated in 2.2.x (Removed or replaced during 3.0.0 beta work)
 - `get_subscription()` method - Use `auth.subscriptions` property
 - Legacy cache configuration - Use Redis configuration
 - Synchronous API methods - Use async equivalents
@@ -413,7 +413,7 @@ model_config = ConfigDict(from_attributes=True)
 
 ## Security Advisories
 
-### 2.2.46
+### 3.0.0b4
 - No known security vulnerabilities
 - All dependencies up-to-date with security patches
 
@@ -463,5 +463,5 @@ We welcome contributions! See our [Contributing Guide](../development/contributi
 
 ---
 
-**Last Updated:** October 18, 2025  
-**Current Version:** 2.2.46
+**Last Updated:** April 28, 2026  
+**Current Version:** 3.0.0b4

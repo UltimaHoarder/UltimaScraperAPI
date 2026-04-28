@@ -39,22 +39,16 @@ UltimaScraperAPI provides full proxy support through `python-socks` and `aiohttp
 
 ```python
 from ultima_scraper_api import OnlyFansAPI, UltimaScraperAPIConfig
-from ultima_scraper_api.config import Network, Proxy
+from ultima_scraper_api.config import Proxy
 
 # Configure HTTP proxy
-config = UltimaScraperAPIConfig(
-    network=Network(
-        proxy=Proxy(
-            http="http://proxy.example.com:8080",
-            https="http://proxy.example.com:8080"
-        )
-    )
-)
+config = UltimaScraperAPIConfig()
+config.settings.network.proxies.append(Proxy(url="http://proxy.example.com:8080"))
 
 api = OnlyFansAPI(config)
 
 # Use API with proxy
-auth_json = {"cookie": "...", "user_agent": "...", "x-bc": "..."}
+auth_json = {"id": 123456, "cookie": "...", "user_agent": "...", "x-bc": "..."}
 async with api.login_context(auth_json) as authed:
     user = await authed.get_user("username")
     print(f"Connected via proxy: {user.username}")
@@ -64,30 +58,22 @@ async with api.login_context(auth_json) as authed:
 
 ```python
 # SOCKS5 proxy configuration (best for privacy)
-config = UltimaScraperAPIConfig(
-    network=Network(
-        proxy=Proxy(
-            http="socks5://proxy.example.com:1080",
-            https="socks5://proxy.example.com:1080"
-        )
-    )
-)
+config = UltimaScraperAPIConfig()
+config.settings.network.proxies.append(Proxy(url="socks5://proxy.example.com:1080"))
 
 api = OnlyFansAPI(config)
 ```
 
-### Alternative Dictionary Format
+### Multiple Proxies
 
-You can also use the simpler dictionary format:
+Use `config.settings.network.proxies` to register one or more proxies:
 
 ```python
-# Using dictionary for proxy configuration
-proxy_dict = {
-    "http": "http://proxy.example.com:8080",
-    "https": "http://proxy.example.com:8080",
-}
-
-config = UltimaScraperAPIConfig(proxy=proxy_dict)
+config = UltimaScraperAPIConfig()
+config.settings.network.proxies.extend([
+    Proxy(url="http://proxy1.example.com:8080", max_connections=25),
+    Proxy(url="socks5://proxy2.example.com:1080", max_connections=25),
+])
 api = OnlyFansAPI(config)
 ```
 
@@ -99,13 +85,9 @@ api = OnlyFansAPI(config)
 # Proxy with username and password
 proxy_url = "http://username:password@proxy.example.com:8080"
 
-config = UltimaScraperAPIConfig(
-    network=Network(
-        proxy=Proxy(
-            http=proxy_url,
-            https=proxy_url
-        )
-    )
+config = UltimaScraperAPIConfig()
+config.settings.network.proxies.append(
+    Proxy(url=proxy_url)
 )
 
 api = OnlyFansAPI(config)
@@ -117,13 +99,9 @@ api = OnlyFansAPI(config)
 # SOCKS5 with authentication (most secure)
 proxy_url = "socks5://username:password@proxy.example.com:1080"
 
-config = UltimaScraperAPIConfig(
-    network=Network(
-        proxy=Proxy(
-            http=proxy_url,
-            https=proxy_url
-        )
-    )
+config = UltimaScraperAPIConfig()
+config.settings.network.proxies.append(
+    Proxy(url=proxy_url)
 )
 
 api = OnlyFansAPI(config)
@@ -141,11 +119,8 @@ password = quote("p@ssw0rd!#$%")
 
 proxy_url = f"socks5://{username}:{password}@proxy.example.com:1080"
 
-config = UltimaScraperAPIConfig(
-    network=Network(
-        proxy=Proxy(http=proxy_url, https=proxy_url)
-    )
-)
+config = UltimaScraperAPIConfig()
+config.settings.network.proxies.append(Proxy(url=proxy_url))
 ```
 
 ### Environment Variables (Secure)
@@ -171,11 +146,8 @@ proxy_pass = os.getenv("PROXY_PASSWORD")
 
 proxy_url = f"socks5://{proxy_user}:{proxy_pass}@{proxy_host}:{proxy_port}"
 
-config = UltimaScraperAPIConfig(
-    network=Network(
-        proxy=Proxy(http=proxy_url, https=proxy_url)
-    )
-)
+config = UltimaScraperAPIConfig()
+config.settings.network.proxies.append(Proxy(url=proxy_url))
 ```
 
 ## Advanced Proxy Configuration
@@ -238,7 +210,8 @@ rotator = ProxyRotator(proxies)
 
 # Get proxy for each request
 proxy_url = rotator.get_next_proxy()
-config = UltimaScraperAPIConfig(proxy={"http": proxy_url, "https": proxy_url})
+config = UltimaScraperAPIConfig()
+config.settings.network.proxies.append(Proxy(url=proxy_url))
 ```
 
 ### Smart Proxy Rotation
@@ -287,7 +260,8 @@ async def fetch_with_proxy_rotation(authed, username):
         
         try:
             # Configure with selected proxy
-            config = UltimaScraperAPIConfig(proxy={"http": proxy, "https": proxy})
+            config = UltimaScraperAPIConfig()
+            config.settings.network.proxies.append(Proxy(url=proxy))
             
             # Make request
             user = await authed.get_user(username)
@@ -398,7 +372,8 @@ proxy_config = {
 }
 
 if proxy_config["http"] and proxy_config["https"]:
-    config = UltimaScraperAPIConfig(proxy=proxy_config)
+    config = UltimaScraperAPIConfig()
+    config.settings.network.proxies.append(Proxy(url=proxy_config["http"]))
 else:
     config = UltimaScraperAPIConfig()  # No proxy
 ```
@@ -438,7 +413,8 @@ proxy_config = {
     "https": "socks5://proxy.example.com:1080",
 }
 
-config = UltimaScraperAPIConfig(proxy=proxy_config)
+config = UltimaScraperAPIConfig()
+config.settings.network.proxies.append(Proxy(url=proxy_config["http"]))
 api = OnlyFansAPI(config)
 
 async with api.login_context(auth_json) as authed:
@@ -453,21 +429,19 @@ async with api.login_context(auth_json) as authed:
 ```python
 import asyncio
 from ultima_scraper_api import OnlyFansAPI, UltimaScraperAPIConfig
-from ultima_scraper_api.config import Network, Proxy
+from ultima_scraper_api.config import Proxy
 
 async def main():
     # Configure proxy
     proxy_url = "socks5://user:pass@proxy.example.com:1080"
     
-    config = UltimaScraperAPIConfig(
-        network=Network(
-            proxy=Proxy(http=proxy_url, https=proxy_url)
-        )
-    )
+    config = UltimaScraperAPIConfig()
+    config.settings.network.proxies.append(Proxy(url=proxy_url))
     
     api = OnlyFansAPI(config)
     
     auth_json = {
+        "id": 123456,
         "cookie": "your_cookie",
         "user_agent": "your_user_agent",
         "x-bc": "your_x-bc"
@@ -477,7 +451,7 @@ async def main():
         async with api.login_context(auth_json) as authed:
             if authed and authed.is_authed():
                 # Verify proxy is working
-                me = await authed.get_me()
+                me = await authed.get_authed_user()
                 print(f"✓ Connected via proxy as: {me.username}")
                 
                 # Fetch data through proxy
@@ -502,11 +476,8 @@ if __name__ == "__main__":
 # Use same proxy for all platforms
 proxy_url = "socks5://proxy.example.com:1080"
 
-config = UltimaScraperAPIConfig(
-    network=Network(
-        proxy=Proxy(http=proxy_url, https=proxy_url)
-    )
-)
+config = UltimaScraperAPIConfig()
+config.settings.network.proxies.append(Proxy(url=proxy_url))
 
 # OnlyFans
 from ultima_scraper_api import OnlyFansAPI
@@ -548,11 +519,8 @@ proxy_url = load_proxy_config()
 
 if proxy_url:
     print(f"Using proxy: {proxy_url}")
-    config = UltimaScraperAPIConfig(
-        network=Network(
-            proxy=Proxy(http=proxy_url, https=proxy_url)
-        )
-    )
+    config = UltimaScraperAPIConfig()
+    config.settings.network.proxies.append(Proxy(url=proxy_url))
 else:
     print("No proxy configured - using direct connection")
     config = UltimaScraperAPIConfig()
@@ -612,11 +580,8 @@ api = OnlyFansAPI(config)
    ```python
    # Fallback to direct connection if proxy fails
    try:
-       config = UltimaScraperAPIConfig(
-           network=Network(
-               proxy=Proxy(http=proxy_url, https=proxy_url)
-           )
-       )
+       config = UltimaScraperAPIConfig()
+       config.settings.network.proxies.append(Proxy(url=proxy_url))
    except Exception:
        print("Proxy failed, using direct connection")
        config = UltimaScraperAPIConfig()
@@ -650,11 +615,8 @@ api = OnlyFansAPI(config)
    async def benchmark_proxy(proxy_url):
        start = time.time()
        # Make test request
-       config = UltimaScraperAPIConfig(
-           network=Network(
-               proxy=Proxy(http=proxy_url, https=proxy_url)
-           )
-       )
+       config = UltimaScraperAPIConfig()
+       config.settings.network.proxies.append(Proxy(url=proxy_url))
        # ... make request ...
        elapsed = time.time() - start
        print(f"{proxy_url}: {elapsed:.2f}s")
@@ -663,13 +625,11 @@ api = OnlyFansAPI(config)
 
 3. **Implement timeout settings:**
    ```python
-   # Add timeout to prevent hanging
-   config = UltimaScraperAPIConfig(
-       network=Network(
-           proxy=Proxy(http=proxy_url, https=proxy_url),
-           timeout=30  # 30 second timeout
-       )
-   )
+  # Configure per-proxy connection limits to prevent overload
+  config = UltimaScraperAPIConfig()
+  config.settings.network.proxies.append(
+      Proxy(url=proxy_url, max_connections=25)
+  )
    ```
 
 ### Authentication Errors
@@ -720,14 +680,9 @@ api = OnlyFansAPI(config)
 **Solutions:**
 
 ```python
-# For testing only - disable SSL verification
-# WARNING: Only use in development!
-config = UltimaScraperAPIConfig(
-    network=Network(
-        proxy=Proxy(http=proxy_url, https=proxy_url),
-        verify_ssl=False  # Disable SSL verification
-    )
-)
+# Configure the proxy URL and use a proxy that supports TLS tunneling.
+config = UltimaScraperAPIConfig()
+config.settings.network.proxies.append(Proxy(url=proxy_url))
 
 # Better: Use proper certificates
 # Install required CA certificates on your system
@@ -794,11 +749,8 @@ def get_random_proxy():
 
 # Use different proxy for each session
 proxy_url = get_random_proxy()
-config = UltimaScraperAPIConfig(
-    network=Network(
-        proxy=Proxy(http=proxy_url, https=proxy_url)
-    )
-)
+config = UltimaScraperAPIConfig()
+config.settings.network.proxies.append(Proxy(url=proxy_url))
 ```
 
 ### 3. Test Proxies Before Use
@@ -823,11 +775,8 @@ async def validate_proxy(proxy_url):
 
 # Validate before using
 if await validate_proxy(proxy_url):
-    config = UltimaScraperAPIConfig(
-        network=Network(
-            proxy=Proxy(http=proxy_url, https=proxy_url)
-        )
-    )
+    config = UltimaScraperAPIConfig()
+    config.settings.network.proxies.append(Proxy(url=proxy_url))
 ```
 
 ### 4. Monitor Proxy Health
@@ -898,11 +847,8 @@ async def fetch_with_fallback(authed, username):
     for proxy_url in proxies:
         try:
             if proxy_url:
-                config = UltimaScraperAPIConfig(
-                    network=Network(
-                        proxy=Proxy(http=proxy_url, https=proxy_url)
-                    )
-                )
+                config = UltimaScraperAPIConfig()
+                config.settings.network.proxies.append(Proxy(url=proxy_url))
                 print(f"Trying proxy: {proxy_url}")
             else:
                 config = UltimaScraperAPIConfig()
@@ -932,11 +878,8 @@ logger = logging.getLogger(__name__)
 proxy_url = "socks5://proxy.com:1080"
 logger.info(f"Configuring proxy: {proxy_url}")
 
-config = UltimaScraperAPIConfig(
-    network=Network(
-        proxy=Proxy(http=proxy_url, https=proxy_url)
-    )
-)
+config = UltimaScraperAPIConfig()
+config.settings.network.proxies.append(Proxy(url=proxy_url))
 
 # Log requests
 logger.info("Making request through proxy")
@@ -955,11 +898,8 @@ residential_proxy = "socks5://residential-proxy.com:1080"
 
 # Choose based on your needs
 proxy_url = residential_proxy  # For production
-config = UltimaScraperAPIConfig(
-    network=Network(
-        proxy=Proxy(http=proxy_url, https=proxy_url)
-    )
-)
+config = UltimaScraperAPIConfig()
+config.settings.network.proxies.append(Proxy(url=proxy_url))
 ```
 
 ---
