@@ -746,9 +746,9 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#alternative-dictionary-format" class="md-nav__link">
+  <a href="#multiple-proxies" class="md-nav__link">
     <span class="md-ellipsis">
-      Alternative Dictionary Format
+      Multiple Proxies
     </span>
   </a>
   
@@ -1688,9 +1688,9 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#alternative-dictionary-format" class="md-nav__link">
+  <a href="#multiple-proxies" class="md-nav__link">
     <span class="md-ellipsis">
-      Alternative Dictionary Format
+      Multiple Proxies
     </span>
   </a>
   
@@ -2211,80 +2211,58 @@
 <h2 id="quick-start">Quick Start</h2>
 <h3 id="basic-http-proxy">Basic HTTP Proxy</h3>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">ultima_scraper_api</span><span class="w"> </span><span class="kn">import</span> <span class="n">OnlyFansAPI</span><span class="p">,</span> <span class="n">UltimaScraperAPIConfig</span>
-<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="kn">from</span><span class="w"> </span><span class="nn">ultima_scraper_api.config</span><span class="w"> </span><span class="kn">import</span> <span class="n">Network</span><span class="p">,</span> <span class="n">Proxy</span>
+<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="kn">from</span><span class="w"> </span><span class="nn">ultima_scraper_api.config</span><span class="w"> </span><span class="kn">import</span> <span class="n">Proxy</span>
 <a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>
 <a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="c1"># Configure HTTP proxy</span>
-<a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a><span class="n">config</span> <span class="o">=</span> <span class="n">UltimaScraperAPIConfig</span><span class="p">(</span>
-<a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a>    <span class="n">network</span><span class="o">=</span><span class="n">Network</span><span class="p">(</span>
-<a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a>        <span class="n">proxy</span><span class="o">=</span><span class="n">Proxy</span><span class="p">(</span>
-<a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a>            <span class="n">http</span><span class="o">=</span><span class="s2">&quot;http://proxy.example.com:8080&quot;</span><span class="p">,</span>
-<a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a>            <span class="n">https</span><span class="o">=</span><span class="s2">&quot;http://proxy.example.com:8080&quot;</span>
-<a id="__codelineno-0-10" name="__codelineno-0-10" href="#__codelineno-0-10"></a>        <span class="p">)</span>
-<a id="__codelineno-0-11" name="__codelineno-0-11" href="#__codelineno-0-11"></a>    <span class="p">)</span>
-<a id="__codelineno-0-12" name="__codelineno-0-12" href="#__codelineno-0-12"></a><span class="p">)</span>
-<a id="__codelineno-0-13" name="__codelineno-0-13" href="#__codelineno-0-13"></a>
-<a id="__codelineno-0-14" name="__codelineno-0-14" href="#__codelineno-0-14"></a><span class="n">api</span> <span class="o">=</span> <span class="n">OnlyFansAPI</span><span class="p">(</span><span class="n">config</span><span class="p">)</span>
-<a id="__codelineno-0-15" name="__codelineno-0-15" href="#__codelineno-0-15"></a>
-<a id="__codelineno-0-16" name="__codelineno-0-16" href="#__codelineno-0-16"></a><span class="c1"># Use API with proxy</span>
-<a id="__codelineno-0-17" name="__codelineno-0-17" href="#__codelineno-0-17"></a><span class="n">auth_json</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&quot;cookie&quot;</span><span class="p">:</span> <span class="s2">&quot;...&quot;</span><span class="p">,</span> <span class="s2">&quot;user_agent&quot;</span><span class="p">:</span> <span class="s2">&quot;...&quot;</span><span class="p">,</span> <span class="s2">&quot;x-bc&quot;</span><span class="p">:</span> <span class="s2">&quot;...&quot;</span><span class="p">}</span>
-<a id="__codelineno-0-18" name="__codelineno-0-18" href="#__codelineno-0-18"></a><span class="k">async</span> <span class="k">with</span> <span class="n">api</span><span class="o">.</span><span class="n">login_context</span><span class="p">(</span><span class="n">auth_json</span><span class="p">)</span> <span class="k">as</span> <span class="n">authed</span><span class="p">:</span>
-<a id="__codelineno-0-19" name="__codelineno-0-19" href="#__codelineno-0-19"></a>    <span class="n">user</span> <span class="o">=</span> <span class="k">await</span> <span class="n">authed</span><span class="o">.</span><span class="n">get_user</span><span class="p">(</span><span class="s2">&quot;username&quot;</span><span class="p">)</span>
-<a id="__codelineno-0-20" name="__codelineno-0-20" href="#__codelineno-0-20"></a>    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Connected via proxy: </span><span class="si">{</span><span class="n">user</span><span class="o">.</span><span class="n">username</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+<a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a><span class="n">config</span> <span class="o">=</span> <span class="n">UltimaScraperAPIConfig</span><span class="p">()</span>
+<a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a><span class="n">config</span><span class="o">.</span><span class="n">settings</span><span class="o">.</span><span class="n">network</span><span class="o">.</span><span class="n">proxies</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">Proxy</span><span class="p">(</span><span class="n">url</span><span class="o">=</span><span class="s2">&quot;http://proxy.example.com:8080&quot;</span><span class="p">))</span>
+<a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a>
+<a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a><span class="n">api</span> <span class="o">=</span> <span class="n">OnlyFansAPI</span><span class="p">(</span><span class="n">config</span><span class="p">)</span>
+<a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a>
+<a id="__codelineno-0-10" name="__codelineno-0-10" href="#__codelineno-0-10"></a><span class="c1"># Use API with proxy</span>
+<a id="__codelineno-0-11" name="__codelineno-0-11" href="#__codelineno-0-11"></a><span class="n">auth_json</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&quot;id&quot;</span><span class="p">:</span> <span class="mi">123456</span><span class="p">,</span> <span class="s2">&quot;cookie&quot;</span><span class="p">:</span> <span class="s2">&quot;...&quot;</span><span class="p">,</span> <span class="s2">&quot;user_agent&quot;</span><span class="p">:</span> <span class="s2">&quot;...&quot;</span><span class="p">,</span> <span class="s2">&quot;x-bc&quot;</span><span class="p">:</span> <span class="s2">&quot;...&quot;</span><span class="p">}</span>
+<a id="__codelineno-0-12" name="__codelineno-0-12" href="#__codelineno-0-12"></a><span class="k">async</span> <span class="k">with</span> <span class="n">api</span><span class="o">.</span><span class="n">login_context</span><span class="p">(</span><span class="n">auth_json</span><span class="p">)</span> <span class="k">as</span> <span class="n">authed</span><span class="p">:</span>
+<a id="__codelineno-0-13" name="__codelineno-0-13" href="#__codelineno-0-13"></a>    <span class="n">user</span> <span class="o">=</span> <span class="k">await</span> <span class="n">authed</span><span class="o">.</span><span class="n">get_user</span><span class="p">(</span><span class="s2">&quot;username&quot;</span><span class="p">)</span>
+<a id="__codelineno-0-14" name="__codelineno-0-14" href="#__codelineno-0-14"></a>    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Connected via proxy: </span><span class="si">{</span><span class="n">user</span><span class="o">.</span><span class="n">username</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
 </code></pre></div>
 <h3 id="socks5-proxy-recommended">SOCKS5 Proxy (Recommended)</h3>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="c1"># SOCKS5 proxy configuration (best for privacy)</span>
-<a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a><span class="n">config</span> <span class="o">=</span> <span class="n">UltimaScraperAPIConfig</span><span class="p">(</span>
-<a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a>    <span class="n">network</span><span class="o">=</span><span class="n">Network</span><span class="p">(</span>
-<a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a>        <span class="n">proxy</span><span class="o">=</span><span class="n">Proxy</span><span class="p">(</span>
-<a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a>            <span class="n">http</span><span class="o">=</span><span class="s2">&quot;socks5://proxy.example.com:1080&quot;</span><span class="p">,</span>
-<a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a>            <span class="n">https</span><span class="o">=</span><span class="s2">&quot;socks5://proxy.example.com:1080&quot;</span>
-<a id="__codelineno-1-7" name="__codelineno-1-7" href="#__codelineno-1-7"></a>        <span class="p">)</span>
-<a id="__codelineno-1-8" name="__codelineno-1-8" href="#__codelineno-1-8"></a>    <span class="p">)</span>
-<a id="__codelineno-1-9" name="__codelineno-1-9" href="#__codelineno-1-9"></a><span class="p">)</span>
-<a id="__codelineno-1-10" name="__codelineno-1-10" href="#__codelineno-1-10"></a>
-<a id="__codelineno-1-11" name="__codelineno-1-11" href="#__codelineno-1-11"></a><span class="n">api</span> <span class="o">=</span> <span class="n">OnlyFansAPI</span><span class="p">(</span><span class="n">config</span><span class="p">)</span>
+<a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a><span class="n">config</span> <span class="o">=</span> <span class="n">UltimaScraperAPIConfig</span><span class="p">()</span>
+<a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a><span class="n">config</span><span class="o">.</span><span class="n">settings</span><span class="o">.</span><span class="n">network</span><span class="o">.</span><span class="n">proxies</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">Proxy</span><span class="p">(</span><span class="n">url</span><span class="o">=</span><span class="s2">&quot;socks5://proxy.example.com:1080&quot;</span><span class="p">))</span>
+<a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a>
+<a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a><span class="n">api</span> <span class="o">=</span> <span class="n">OnlyFansAPI</span><span class="p">(</span><span class="n">config</span><span class="p">)</span>
 </code></pre></div>
-<h3 id="alternative-dictionary-format">Alternative Dictionary Format</h3>
-<p>You can also use the simpler dictionary format:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="c1"># Using dictionary for proxy configuration</span>
-<a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a><span class="n">proxy_dict</span> <span class="o">=</span> <span class="p">{</span>
-<a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a>    <span class="s2">&quot;http&quot;</span><span class="p">:</span> <span class="s2">&quot;http://proxy.example.com:8080&quot;</span><span class="p">,</span>
-<a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a>    <span class="s2">&quot;https&quot;</span><span class="p">:</span> <span class="s2">&quot;http://proxy.example.com:8080&quot;</span><span class="p">,</span>
-<a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a><span class="p">}</span>
-<a id="__codelineno-2-6" name="__codelineno-2-6" href="#__codelineno-2-6"></a>
-<a id="__codelineno-2-7" name="__codelineno-2-7" href="#__codelineno-2-7"></a><span class="n">config</span> <span class="o">=</span> <span class="n">UltimaScraperAPIConfig</span><span class="p">(</span><span class="n">proxy</span><span class="o">=</span><span class="n">proxy_dict</span><span class="p">)</span>
-<a id="__codelineno-2-8" name="__codelineno-2-8" href="#__codelineno-2-8"></a><span class="n">api</span> <span class="o">=</span> <span class="n">OnlyFansAPI</span><span class="p">(</span><span class="n">config</span><span class="p">)</span>
+<h3 id="multiple-proxies">Multiple Proxies</h3>
+<p>Use <code>config.settings.network.proxies</code> to register one or more proxies:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="n">config</span> <span class="o">=</span> <span class="n">UltimaScraperAPIConfig</span><span class="p">()</span>
+<a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a><span class="n">config</span><span class="o">.</span><span class="n">settings</span><span class="o">.</span><span class="n">network</span><span class="o">.</span><span class="n">proxies</span><span class="o">.</span><span class="n">extend</span><span class="p">([</span>
+<a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a>    <span class="n">Proxy</span><span class="p">(</span><span class="n">url</span><span class="o">=</span><span class="s2">&quot;http://proxy1.example.com:8080&quot;</span><span class="p">,</span> <span class="n">max_connections</span><span class="o">=</span><span class="mi">25</span><span class="p">),</span>
+<a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a>    <span class="n">Proxy</span><span class="p">(</span><span class="n">url</span><span class="o">=</span><span class="s2">&quot;socks5://proxy2.example.com:1080&quot;</span><span class="p">,</span> <span class="n">max_connections</span><span class="o">=</span><span class="mi">25</span><span class="p">),</span>
+<a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a><span class="p">])</span>
+<a id="__codelineno-2-6" name="__codelineno-2-6" href="#__codelineno-2-6"></a><span class="n">api</span> <span class="o">=</span> <span class="n">OnlyFansAPI</span><span class="p">(</span><span class="n">config</span><span class="p">)</span>
 </code></pre></div>
 <h2 id="proxy-authentication">Proxy Authentication</h2>
 <h3 id="httphttps-with-authentication">HTTP/HTTPS with Authentication</h3>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="c1"># Proxy with username and password</span>
 <a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a><span class="n">proxy_url</span> <span class="o">=</span> <span class="s2">&quot;http://username:password@proxy.example.com:8080&quot;</span>
 <a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a>
-<a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a><span class="n">config</span> <span class="o">=</span> <span class="n">UltimaScraperAPIConfig</span><span class="p">(</span>
-<a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a>    <span class="n">network</span><span class="o">=</span><span class="n">Network</span><span class="p">(</span>
-<a id="__codelineno-3-6" name="__codelineno-3-6" href="#__codelineno-3-6"></a>        <span class="n">proxy</span><span class="o">=</span><span class="n">Proxy</span><span class="p">(</span>
-<a id="__codelineno-3-7" name="__codelineno-3-7" href="#__codelineno-3-7"></a>            <span class="n">http</span><span class="o">=</span><span class="n">proxy_url</span><span class="p">,</span>
-<a id="__codelineno-3-8" name="__codelineno-3-8" href="#__codelineno-3-8"></a>            <span class="n">https</span><span class="o">=</span><span class="n">proxy_url</span>
-<a id="__codelineno-3-9" name="__codelineno-3-9" href="#__codelineno-3-9"></a>        <span class="p">)</span>
-<a id="__codelineno-3-10" name="__codelineno-3-10" href="#__codelineno-3-10"></a>    <span class="p">)</span>
-<a id="__codelineno-3-11" name="__codelineno-3-11" href="#__codelineno-3-11"></a><span class="p">)</span>
-<a id="__codelineno-3-12" name="__codelineno-3-12" href="#__codelineno-3-12"></a>
-<a id="__codelineno-3-13" name="__codelineno-3-13" href="#__codelineno-3-13"></a><span class="n">api</span> <span class="o">=</span> <span class="n">OnlyFansAPI</span><span class="p">(</span><span class="n">config</span><span class="p">)</span>
+<a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a><span class="n">config</span> <span class="o">=</span> <span class="n">UltimaScraperAPIConfig</span><span class="p">()</span>
+<a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a><span class="n">config</span><span class="o">.</span><span class="n">settings</span><span class="o">.</span><span class="n">network</span><span class="o">.</span><span class="n">proxies</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
+<a id="__codelineno-3-6" name="__codelineno-3-6" href="#__codelineno-3-6"></a>    <span class="n">Proxy</span><span class="p">(</span><span class="n">url</span><span class="o">=</span><span class="n">proxy_url</span><span class="p">)</span>
+<a id="__codelineno-3-7" name="__codelineno-3-7" href="#__codelineno-3-7"></a><span class="p">)</span>
+<a id="__codelineno-3-8" name="__codelineno-3-8" href="#__codelineno-3-8"></a>
+<a id="__codelineno-3-9" name="__codelineno-3-9" href="#__codelineno-3-9"></a><span class="n">api</span> <span class="o">=</span> <span class="n">OnlyFansAPI</span><span class="p">(</span><span class="n">config</span><span class="p">)</span>
 </code></pre></div>
 <h3 id="socks5-with-authentication">SOCKS5 with Authentication</h3>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="c1"># SOCKS5 with authentication (most secure)</span>
 <a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a><span class="n">proxy_url</span> <span class="o">=</span> <span class="s2">&quot;socks5://username:password@proxy.example.com:1080&quot;</span>
 <a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a>
-<a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a><span class="n">config</span> <span class="o">=</span> <span class="n">UltimaScraperAPIConfig</span><span class="p">(</span>
-<a id="__codelineno-4-5" name="__codelineno-4-5" href="#__codelineno-4-5"></a>    <span class="n">network</span><span class="o">=</span><span class="n">Network</span><span class="p">(</span>
-<a id="__codelineno-4-6" name="__codelineno-4-6" href="#__codelineno-4-6"></a>        <span class="n">proxy</span><span class="o">=</span><span class="n">Proxy</span><span class="p">(</span>
-<a id="__codelineno-4-7" name="__codelineno-4-7" href="#__codelineno-4-7"></a>            <span class="n">http</span><span class="o">=</span><span class="n">proxy_url</span><span class="p">,</span>
-<a id="__codelineno-4-8" name="__codelineno-4-8" href="#__codelineno-4-8"></a>            <span class="n">https</span><span class="o">=</span><span class="n">proxy_url</span>
-<a id="__codelineno-4-9" name="__codelineno-4-9" href="#__codelineno-4-9"></a>        <span class="p">)</span>
-<a id="__codelineno-4-10" name="__codelineno-4-10" href="#__codelineno-4-10"></a>    <span class="p">)</span>
-<a id="__codelineno-4-11" name="__codelineno-4-11" href="#__codelineno-4-11"></a><span class="p">)</span>
-<a id="__codelineno-4-12" name="__codelineno-4-12" href="#__codelineno-4-12"></a>
-<a id="__codelineno-4-13" name="__codelineno-4-13" href="#__codelineno-4-13"></a><span class="n">api</span> <span class="o">=</span> <span class="n">OnlyFansAPI</span><span class="p">(</span><span class="n">config</span><span class="p">)</span>
+<a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a><span class="n">config</span> <span class="o">=</span> <span class="n">UltimaScraperAPIConfig</span><span class="p">()</span>
+<a id="__codelineno-4-5" name="__codelineno-4-5" href="#__codelineno-4-5"></a><span class="n">config</span><span class="o">.</span><span class="n">settings</span><span class="o">.</span><span class="n">network</span><span class="o">.</span><span class="n">proxies</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
+<a id="__codelineno-4-6" name="__codelineno-4-6" href="#__codelineno-4-6"></a>    <span class="n">Proxy</span><span class="p">(</span><span class="n">url</span><span class="o">=</span><span class="n">proxy_url</span><span class="p">)</span>
+<a id="__codelineno-4-7" name="__codelineno-4-7" href="#__codelineno-4-7"></a><span class="p">)</span>
+<a id="__codelineno-4-8" name="__codelineno-4-8" href="#__codelineno-4-8"></a>
+<a id="__codelineno-4-9" name="__codelineno-4-9" href="#__codelineno-4-9"></a><span class="n">api</span> <span class="o">=</span> <span class="n">OnlyFansAPI</span><span class="p">(</span><span class="n">config</span><span class="p">)</span>
 </code></pre></div>
 <h3 id="special-characters-in-credentials">Special Characters in Credentials</h3>
 <p>If your username or password contains special characters, URL-encode them:</p>
@@ -2295,11 +2273,8 @@
 <a id="__codelineno-5-5" name="__codelineno-5-5" href="#__codelineno-5-5"></a>
 <a id="__codelineno-5-6" name="__codelineno-5-6" href="#__codelineno-5-6"></a><span class="n">proxy_url</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;socks5://</span><span class="si">{</span><span class="n">username</span><span class="si">}</span><span class="s2">:</span><span class="si">{</span><span class="n">password</span><span class="si">}</span><span class="s2">@proxy.example.com:1080&quot;</span>
 <a id="__codelineno-5-7" name="__codelineno-5-7" href="#__codelineno-5-7"></a>
-<a id="__codelineno-5-8" name="__codelineno-5-8" href="#__codelineno-5-8"></a><span class="n">config</span> <span class="o">=</span> <span class="n">UltimaScraperAPIConfig</span><span class="p">(</span>
-<a id="__codelineno-5-9" name="__codelineno-5-9" href="#__codelineno-5-9"></a>    <span class="n">network</span><span class="o">=</span><span class="n">Network</span><span class="p">(</span>
-<a id="__codelineno-5-10" name="__codelineno-5-10" href="#__codelineno-5-10"></a>        <span class="n">proxy</span><span class="o">=</span><span class="n">Proxy</span><span class="p">(</span><span class="n">http</span><span class="o">=</span><span class="n">proxy_url</span><span class="p">,</span> <span class="n">https</span><span class="o">=</span><span class="n">proxy_url</span><span class="p">)</span>
-<a id="__codelineno-5-11" name="__codelineno-5-11" href="#__codelineno-5-11"></a>    <span class="p">)</span>
-<a id="__codelineno-5-12" name="__codelineno-5-12" href="#__codelineno-5-12"></a><span class="p">)</span>
+<a id="__codelineno-5-8" name="__codelineno-5-8" href="#__codelineno-5-8"></a><span class="n">config</span> <span class="o">=</span> <span class="n">UltimaScraperAPIConfig</span><span class="p">()</span>
+<a id="__codelineno-5-9" name="__codelineno-5-9" href="#__codelineno-5-9"></a><span class="n">config</span><span class="o">.</span><span class="n">settings</span><span class="o">.</span><span class="n">network</span><span class="o">.</span><span class="n">proxies</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">Proxy</span><span class="p">(</span><span class="n">url</span><span class="o">=</span><span class="n">proxy_url</span><span class="p">))</span>
 </code></pre></div>
 <h3 id="environment-variables-secure">Environment Variables (Secure)</h3>
 <p>Store credentials securely in environment variables:</p>
@@ -2319,11 +2294,8 @@
 <a id="__codelineno-7-8" name="__codelineno-7-8" href="#__codelineno-7-8"></a>
 <a id="__codelineno-7-9" name="__codelineno-7-9" href="#__codelineno-7-9"></a><span class="n">proxy_url</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;socks5://</span><span class="si">{</span><span class="n">proxy_user</span><span class="si">}</span><span class="s2">:</span><span class="si">{</span><span class="n">proxy_pass</span><span class="si">}</span><span class="s2">@</span><span class="si">{</span><span class="n">proxy_host</span><span class="si">}</span><span class="s2">:</span><span class="si">{</span><span class="n">proxy_port</span><span class="si">}</span><span class="s2">&quot;</span>
 <a id="__codelineno-7-10" name="__codelineno-7-10" href="#__codelineno-7-10"></a>
-<a id="__codelineno-7-11" name="__codelineno-7-11" href="#__codelineno-7-11"></a><span class="n">config</span> <span class="o">=</span> <span class="n">UltimaScraperAPIConfig</span><span class="p">(</span>
-<a id="__codelineno-7-12" name="__codelineno-7-12" href="#__codelineno-7-12"></a>    <span class="n">network</span><span class="o">=</span><span class="n">Network</span><span class="p">(</span>
-<a id="__codelineno-7-13" name="__codelineno-7-13" href="#__codelineno-7-13"></a>        <span class="n">proxy</span><span class="o">=</span><span class="n">Proxy</span><span class="p">(</span><span class="n">http</span><span class="o">=</span><span class="n">proxy_url</span><span class="p">,</span> <span class="n">https</span><span class="o">=</span><span class="n">proxy_url</span><span class="p">)</span>
-<a id="__codelineno-7-14" name="__codelineno-7-14" href="#__codelineno-7-14"></a>    <span class="p">)</span>
-<a id="__codelineno-7-15" name="__codelineno-7-15" href="#__codelineno-7-15"></a><span class="p">)</span>
+<a id="__codelineno-7-11" name="__codelineno-7-11" href="#__codelineno-7-11"></a><span class="n">config</span> <span class="o">=</span> <span class="n">UltimaScraperAPIConfig</span><span class="p">()</span>
+<a id="__codelineno-7-12" name="__codelineno-7-12" href="#__codelineno-7-12"></a><span class="n">config</span><span class="o">.</span><span class="n">settings</span><span class="o">.</span><span class="n">network</span><span class="o">.</span><span class="n">proxies</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">Proxy</span><span class="p">(</span><span class="n">url</span><span class="o">=</span><span class="n">proxy_url</span><span class="p">))</span>
 </code></pre></div>
 <h2 id="advanced-proxy-configuration">Advanced Proxy Configuration</h2>
 <h3 id="using-aiohttp-socks">Using aiohttp-socks</h3>
@@ -2374,7 +2346,8 @@
 <a id="__codelineno-10-19" name="__codelineno-10-19" href="#__codelineno-10-19"></a>
 <a id="__codelineno-10-20" name="__codelineno-10-20" href="#__codelineno-10-20"></a><span class="c1"># Get proxy for each request</span>
 <a id="__codelineno-10-21" name="__codelineno-10-21" href="#__codelineno-10-21"></a><span class="n">proxy_url</span> <span class="o">=</span> <span class="n">rotator</span><span class="o">.</span><span class="n">get_next_proxy</span><span class="p">()</span>
-<a id="__codelineno-10-22" name="__codelineno-10-22" href="#__codelineno-10-22"></a><span class="n">config</span> <span class="o">=</span> <span class="n">UltimaScraperAPIConfig</span><span class="p">(</span><span class="n">proxy</span><span class="o">=</span><span class="p">{</span><span class="s2">&quot;http&quot;</span><span class="p">:</span> <span class="n">proxy_url</span><span class="p">,</span> <span class="s2">&quot;https&quot;</span><span class="p">:</span> <span class="n">proxy_url</span><span class="p">})</span>
+<a id="__codelineno-10-22" name="__codelineno-10-22" href="#__codelineno-10-22"></a><span class="n">config</span> <span class="o">=</span> <span class="n">UltimaScraperAPIConfig</span><span class="p">()</span>
+<a id="__codelineno-10-23" name="__codelineno-10-23" href="#__codelineno-10-23"></a><span class="n">config</span><span class="o">.</span><span class="n">settings</span><span class="o">.</span><span class="n">network</span><span class="o">.</span><span class="n">proxies</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">Proxy</span><span class="p">(</span><span class="n">url</span><span class="o">=</span><span class="n">proxy_url</span><span class="p">))</span>
 </code></pre></div>
 <h3 id="smart-proxy-rotation">Smart Proxy Rotation</h3>
 <p>Rotate proxies based on success/failure:</p>
@@ -2419,21 +2392,22 @@
 <a id="__codelineno-11-39" name="__codelineno-11-39" href="#__codelineno-11-39"></a>
 <a id="__codelineno-11-40" name="__codelineno-11-40" href="#__codelineno-11-40"></a>        <span class="k">try</span><span class="p">:</span>
 <a id="__codelineno-11-41" name="__codelineno-11-41" href="#__codelineno-11-41"></a>            <span class="c1"># Configure with selected proxy</span>
-<a id="__codelineno-11-42" name="__codelineno-11-42" href="#__codelineno-11-42"></a>            <span class="n">config</span> <span class="o">=</span> <span class="n">UltimaScraperAPIConfig</span><span class="p">(</span><span class="n">proxy</span><span class="o">=</span><span class="p">{</span><span class="s2">&quot;http&quot;</span><span class="p">:</span> <span class="n">proxy</span><span class="p">,</span> <span class="s2">&quot;https&quot;</span><span class="p">:</span> <span class="n">proxy</span><span class="p">})</span>
-<a id="__codelineno-11-43" name="__codelineno-11-43" href="#__codelineno-11-43"></a>
-<a id="__codelineno-11-44" name="__codelineno-11-44" href="#__codelineno-11-44"></a>            <span class="c1"># Make request</span>
-<a id="__codelineno-11-45" name="__codelineno-11-45" href="#__codelineno-11-45"></a>            <span class="n">user</span> <span class="o">=</span> <span class="k">await</span> <span class="n">authed</span><span class="o">.</span><span class="n">get_user</span><span class="p">(</span><span class="n">username</span><span class="p">)</span>
-<a id="__codelineno-11-46" name="__codelineno-11-46" href="#__codelineno-11-46"></a>
-<a id="__codelineno-11-47" name="__codelineno-11-47" href="#__codelineno-11-47"></a>            <span class="c1"># Record success</span>
-<a id="__codelineno-11-48" name="__codelineno-11-48" href="#__codelineno-11-48"></a>            <span class="n">rotator</span><span class="o">.</span><span class="n">record_success</span><span class="p">(</span><span class="n">proxy</span><span class="p">)</span>
-<a id="__codelineno-11-49" name="__codelineno-11-49" href="#__codelineno-11-49"></a>            <span class="k">return</span> <span class="n">user</span>
-<a id="__codelineno-11-50" name="__codelineno-11-50" href="#__codelineno-11-50"></a>
-<a id="__codelineno-11-51" name="__codelineno-11-51" href="#__codelineno-11-51"></a>        <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
-<a id="__codelineno-11-52" name="__codelineno-11-52" href="#__codelineno-11-52"></a>            <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Proxy </span><span class="si">{</span><span class="n">proxy</span><span class="si">}</span><span class="s2"> failed: </span><span class="si">{</span><span class="n">e</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
-<a id="__codelineno-11-53" name="__codelineno-11-53" href="#__codelineno-11-53"></a>            <span class="n">rotator</span><span class="o">.</span><span class="n">record_failure</span><span class="p">(</span><span class="n">proxy</span><span class="p">)</span>
-<a id="__codelineno-11-54" name="__codelineno-11-54" href="#__codelineno-11-54"></a>
-<a id="__codelineno-11-55" name="__codelineno-11-55" href="#__codelineno-11-55"></a>            <span class="k">if</span> <span class="n">attempt</span> <span class="o">==</span> <span class="n">max_retries</span> <span class="o">-</span> <span class="mi">1</span><span class="p">:</span>
-<a id="__codelineno-11-56" name="__codelineno-11-56" href="#__codelineno-11-56"></a>                <span class="k">raise</span>
+<a id="__codelineno-11-42" name="__codelineno-11-42" href="#__codelineno-11-42"></a>            <span class="n">config</span> <span class="o">=</span> <span class="n">UltimaScraperAPIConfig</span><span class="p">()</span>
+<a id="__codelineno-11-43" name="__codelineno-11-43" href="#__codelineno-11-43"></a>            <span class="n">config</span><span class="o">.</span><span class="n">settings</span><span class="o">.</span><span class="n">network</span><span class="o">.</span><span class="n">proxies</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">Proxy</span><span class="p">(</span><span class="n">url</span><span class="o">=</span><span class="n">proxy</span><span class="p">))</span>
+<a id="__codelineno-11-44" name="__codelineno-11-44" href="#__codelineno-11-44"></a>
+<a id="__codelineno-11-45" name="__codelineno-11-45" href="#__codelineno-11-45"></a>            <span class="c1"># Make request</span>
+<a id="__codelineno-11-46" name="__codelineno-11-46" href="#__codelineno-11-46"></a>            <span class="n">user</span> <span class="o">=</span> <span class="k">await</span> <span class="n">authed</span><span class="o">.</span><span class="n">get_user</span><span class="p">(</span><span class="n">username</span><span class="p">)</span>
+<a id="__codelineno-11-47" name="__codelineno-11-47" href="#__codelineno-11-47"></a>
+<a id="__codelineno-11-48" name="__codelineno-11-48" href="#__codelineno-11-48"></a>            <span class="c1"># Record success</span>
+<a id="__codelineno-11-49" name="__codelineno-11-49" href="#__codelineno-11-49"></a>            <span class="n">rotator</span><span class="o">.</span><span class="n">record_success</span><span class="p">(</span><span class="n">proxy</span><span class="p">)</span>
+<a id="__codelineno-11-50" name="__codelineno-11-50" href="#__codelineno-11-50"></a>            <span class="k">return</span> <span class="n">user</span>
+<a id="__codelineno-11-51" name="__codelineno-11-51" href="#__codelineno-11-51"></a>
+<a id="__codelineno-11-52" name="__codelineno-11-52" href="#__codelineno-11-52"></a>        <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+<a id="__codelineno-11-53" name="__codelineno-11-53" href="#__codelineno-11-53"></a>            <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Proxy </span><span class="si">{</span><span class="n">proxy</span><span class="si">}</span><span class="s2"> failed: </span><span class="si">{</span><span class="n">e</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+<a id="__codelineno-11-54" name="__codelineno-11-54" href="#__codelineno-11-54"></a>            <span class="n">rotator</span><span class="o">.</span><span class="n">record_failure</span><span class="p">(</span><span class="n">proxy</span><span class="p">)</span>
+<a id="__codelineno-11-55" name="__codelineno-11-55" href="#__codelineno-11-55"></a>
+<a id="__codelineno-11-56" name="__codelineno-11-56" href="#__codelineno-11-56"></a>            <span class="k">if</span> <span class="n">attempt</span> <span class="o">==</span> <span class="n">max_retries</span> <span class="o">-</span> <span class="mi">1</span><span class="p">:</span>
+<a id="__codelineno-11-57" name="__codelineno-11-57" href="#__codelineno-11-57"></a>                <span class="k">raise</span>
 </code></pre></div>
 <h2 id="proxy-testing">Proxy Testing</h2>
 <h3 id="test-proxy-connectivity">Test Proxy Connectivity</h3>
@@ -2519,9 +2493,10 @@
 <a id="__codelineno-14-10" name="__codelineno-14-10" href="#__codelineno-14-10"></a><span class="p">}</span>
 <a id="__codelineno-14-11" name="__codelineno-14-11" href="#__codelineno-14-11"></a>
 <a id="__codelineno-14-12" name="__codelineno-14-12" href="#__codelineno-14-12"></a><span class="k">if</span> <span class="n">proxy_config</span><span class="p">[</span><span class="s2">&quot;http&quot;</span><span class="p">]</span> <span class="ow">and</span> <span class="n">proxy_config</span><span class="p">[</span><span class="s2">&quot;https&quot;</span><span class="p">]:</span>
-<a id="__codelineno-14-13" name="__codelineno-14-13" href="#__codelineno-14-13"></a>    <span class="n">config</span> <span class="o">=</span> <span class="n">UltimaScraperAPIConfig</span><span class="p">(</span><span class="n">proxy</span><span class="o">=</span><span class="n">proxy_config</span><span class="p">)</span>
-<a id="__codelineno-14-14" name="__codelineno-14-14" href="#__codelineno-14-14"></a><span class="k">else</span><span class="p">:</span>
-<a id="__codelineno-14-15" name="__codelineno-14-15" href="#__codelineno-14-15"></a>    <span class="n">config</span> <span class="o">=</span> <span class="n">UltimaScraperAPIConfig</span><span class="p">()</span>  <span class="c1"># No proxy</span>
+<a id="__codelineno-14-13" name="__codelineno-14-13" href="#__codelineno-14-13"></a>    <span class="n">config</span> <span class="o">=</span> <span class="n">UltimaScraperAPIConfig</span><span class="p">()</span>
+<a id="__codelineno-14-14" name="__codelineno-14-14" href="#__codelineno-14-14"></a>    <span class="n">config</span><span class="o">.</span><span class="n">settings</span><span class="o">.</span><span class="n">network</span><span class="o">.</span><span class="n">proxies</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">Proxy</span><span class="p">(</span><span class="n">url</span><span class="o">=</span><span class="n">proxy_config</span><span class="p">[</span><span class="s2">&quot;http&quot;</span><span class="p">]))</span>
+<a id="__codelineno-14-15" name="__codelineno-14-15" href="#__codelineno-14-15"></a><span class="k">else</span><span class="p">:</span>
+<a id="__codelineno-14-16" name="__codelineno-14-16" href="#__codelineno-14-16"></a>    <span class="n">config</span> <span class="o">=</span> <span class="n">UltimaScraperAPIConfig</span><span class="p">()</span>  <span class="c1"># No proxy</span>
 </code></pre></div>
 <h3 id="load-from-configuration-file">Load from Configuration File</h3>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-15-1" name="__codelineno-15-1" href="#__codelineno-15-1"></a><span class="kn">import</span><span class="w"> </span><span class="nn">json</span>
@@ -2552,78 +2527,73 @@
 <a id="__codelineno-16-5" name="__codelineno-16-5" href="#__codelineno-16-5"></a>    <span class="s2">&quot;https&quot;</span><span class="p">:</span> <span class="s2">&quot;socks5://proxy.example.com:1080&quot;</span><span class="p">,</span>
 <a id="__codelineno-16-6" name="__codelineno-16-6" href="#__codelineno-16-6"></a><span class="p">}</span>
 <a id="__codelineno-16-7" name="__codelineno-16-7" href="#__codelineno-16-7"></a>
-<a id="__codelineno-16-8" name="__codelineno-16-8" href="#__codelineno-16-8"></a><span class="n">config</span> <span class="o">=</span> <span class="n">UltimaScraperAPIConfig</span><span class="p">(</span><span class="n">proxy</span><span class="o">=</span><span class="n">proxy_config</span><span class="p">)</span>
-<a id="__codelineno-16-9" name="__codelineno-16-9" href="#__codelineno-16-9"></a><span class="n">api</span> <span class="o">=</span> <span class="n">OnlyFansAPI</span><span class="p">(</span><span class="n">config</span><span class="p">)</span>
-<a id="__codelineno-16-10" name="__codelineno-16-10" href="#__codelineno-16-10"></a>
-<a id="__codelineno-16-11" name="__codelineno-16-11" href="#__codelineno-16-11"></a><span class="k">async</span> <span class="k">with</span> <span class="n">api</span><span class="o">.</span><span class="n">login_context</span><span class="p">(</span><span class="n">auth_json</span><span class="p">)</span> <span class="k">as</span> <span class="n">authed</span><span class="p">:</span>
-<a id="__codelineno-16-12" name="__codelineno-16-12" href="#__codelineno-16-12"></a>    <span class="c1"># All requests will use the proxy</span>
-<a id="__codelineno-16-13" name="__codelineno-16-13" href="#__codelineno-16-13"></a>    <span class="n">user</span> <span class="o">=</span> <span class="k">await</span> <span class="n">authed</span><span class="o">.</span><span class="n">get_user</span><span class="p">(</span><span class="s2">&quot;username&quot;</span><span class="p">)</span>
+<a id="__codelineno-16-8" name="__codelineno-16-8" href="#__codelineno-16-8"></a><span class="n">config</span> <span class="o">=</span> <span class="n">UltimaScraperAPIConfig</span><span class="p">()</span>
+<a id="__codelineno-16-9" name="__codelineno-16-9" href="#__codelineno-16-9"></a><span class="n">config</span><span class="o">.</span><span class="n">settings</span><span class="o">.</span><span class="n">network</span><span class="o">.</span><span class="n">proxies</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">Proxy</span><span class="p">(</span><span class="n">url</span><span class="o">=</span><span class="n">proxy_config</span><span class="p">[</span><span class="s2">&quot;http&quot;</span><span class="p">]))</span>
+<a id="__codelineno-16-10" name="__codelineno-16-10" href="#__codelineno-16-10"></a><span class="n">api</span> <span class="o">=</span> <span class="n">OnlyFansAPI</span><span class="p">(</span><span class="n">config</span><span class="p">)</span>
+<a id="__codelineno-16-11" name="__codelineno-16-11" href="#__codelineno-16-11"></a>
+<a id="__codelineno-16-12" name="__codelineno-16-12" href="#__codelineno-16-12"></a><span class="k">async</span> <span class="k">with</span> <span class="n">api</span><span class="o">.</span><span class="n">login_context</span><span class="p">(</span><span class="n">auth_json</span><span class="p">)</span> <span class="k">as</span> <span class="n">authed</span><span class="p">:</span>
+<a id="__codelineno-16-13" name="__codelineno-16-13" href="#__codelineno-16-13"></a>    <span class="c1"># All requests will use the proxy</span>
+<a id="__codelineno-16-14" name="__codelineno-16-14" href="#__codelineno-16-14"></a>    <span class="n">user</span> <span class="o">=</span> <span class="k">await</span> <span class="n">authed</span><span class="o">.</span><span class="n">get_user</span><span class="p">(</span><span class="s2">&quot;username&quot;</span><span class="p">)</span>
 </code></pre></div>
 <h2 id="real-world-examples">Real-World Examples</h2>
 <h3 id="complete-proxy-setup-with-error-handling">Complete Proxy Setup with Error Handling</h3>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-17-1" name="__codelineno-17-1" href="#__codelineno-17-1"></a><span class="kn">import</span><span class="w"> </span><span class="nn">asyncio</span>
 <a id="__codelineno-17-2" name="__codelineno-17-2" href="#__codelineno-17-2"></a><span class="kn">from</span><span class="w"> </span><span class="nn">ultima_scraper_api</span><span class="w"> </span><span class="kn">import</span> <span class="n">OnlyFansAPI</span><span class="p">,</span> <span class="n">UltimaScraperAPIConfig</span>
-<a id="__codelineno-17-3" name="__codelineno-17-3" href="#__codelineno-17-3"></a><span class="kn">from</span><span class="w"> </span><span class="nn">ultima_scraper_api.config</span><span class="w"> </span><span class="kn">import</span> <span class="n">Network</span><span class="p">,</span> <span class="n">Proxy</span>
+<a id="__codelineno-17-3" name="__codelineno-17-3" href="#__codelineno-17-3"></a><span class="kn">from</span><span class="w"> </span><span class="nn">ultima_scraper_api.config</span><span class="w"> </span><span class="kn">import</span> <span class="n">Proxy</span>
 <a id="__codelineno-17-4" name="__codelineno-17-4" href="#__codelineno-17-4"></a>
 <a id="__codelineno-17-5" name="__codelineno-17-5" href="#__codelineno-17-5"></a><span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">main</span><span class="p">():</span>
 <a id="__codelineno-17-6" name="__codelineno-17-6" href="#__codelineno-17-6"></a>    <span class="c1"># Configure proxy</span>
 <a id="__codelineno-17-7" name="__codelineno-17-7" href="#__codelineno-17-7"></a>    <span class="n">proxy_url</span> <span class="o">=</span> <span class="s2">&quot;socks5://user:pass@proxy.example.com:1080&quot;</span>
 <a id="__codelineno-17-8" name="__codelineno-17-8" href="#__codelineno-17-8"></a>
-<a id="__codelineno-17-9" name="__codelineno-17-9" href="#__codelineno-17-9"></a>    <span class="n">config</span> <span class="o">=</span> <span class="n">UltimaScraperAPIConfig</span><span class="p">(</span>
-<a id="__codelineno-17-10" name="__codelineno-17-10" href="#__codelineno-17-10"></a>        <span class="n">network</span><span class="o">=</span><span class="n">Network</span><span class="p">(</span>
-<a id="__codelineno-17-11" name="__codelineno-17-11" href="#__codelineno-17-11"></a>            <span class="n">proxy</span><span class="o">=</span><span class="n">Proxy</span><span class="p">(</span><span class="n">http</span><span class="o">=</span><span class="n">proxy_url</span><span class="p">,</span> <span class="n">https</span><span class="o">=</span><span class="n">proxy_url</span><span class="p">)</span>
-<a id="__codelineno-17-12" name="__codelineno-17-12" href="#__codelineno-17-12"></a>        <span class="p">)</span>
-<a id="__codelineno-17-13" name="__codelineno-17-13" href="#__codelineno-17-13"></a>    <span class="p">)</span>
-<a id="__codelineno-17-14" name="__codelineno-17-14" href="#__codelineno-17-14"></a>
-<a id="__codelineno-17-15" name="__codelineno-17-15" href="#__codelineno-17-15"></a>    <span class="n">api</span> <span class="o">=</span> <span class="n">OnlyFansAPI</span><span class="p">(</span><span class="n">config</span><span class="p">)</span>
-<a id="__codelineno-17-16" name="__codelineno-17-16" href="#__codelineno-17-16"></a>
-<a id="__codelineno-17-17" name="__codelineno-17-17" href="#__codelineno-17-17"></a>    <span class="n">auth_json</span> <span class="o">=</span> <span class="p">{</span>
-<a id="__codelineno-17-18" name="__codelineno-17-18" href="#__codelineno-17-18"></a>        <span class="s2">&quot;cookie&quot;</span><span class="p">:</span> <span class="s2">&quot;your_cookie&quot;</span><span class="p">,</span>
-<a id="__codelineno-17-19" name="__codelineno-17-19" href="#__codelineno-17-19"></a>        <span class="s2">&quot;user_agent&quot;</span><span class="p">:</span> <span class="s2">&quot;your_user_agent&quot;</span><span class="p">,</span>
-<a id="__codelineno-17-20" name="__codelineno-17-20" href="#__codelineno-17-20"></a>        <span class="s2">&quot;x-bc&quot;</span><span class="p">:</span> <span class="s2">&quot;your_x-bc&quot;</span>
-<a id="__codelineno-17-21" name="__codelineno-17-21" href="#__codelineno-17-21"></a>    <span class="p">}</span>
-<a id="__codelineno-17-22" name="__codelineno-17-22" href="#__codelineno-17-22"></a>
-<a id="__codelineno-17-23" name="__codelineno-17-23" href="#__codelineno-17-23"></a>    <span class="k">try</span><span class="p">:</span>
-<a id="__codelineno-17-24" name="__codelineno-17-24" href="#__codelineno-17-24"></a>        <span class="k">async</span> <span class="k">with</span> <span class="n">api</span><span class="o">.</span><span class="n">login_context</span><span class="p">(</span><span class="n">auth_json</span><span class="p">)</span> <span class="k">as</span> <span class="n">authed</span><span class="p">:</span>
-<a id="__codelineno-17-25" name="__codelineno-17-25" href="#__codelineno-17-25"></a>            <span class="k">if</span> <span class="n">authed</span> <span class="ow">and</span> <span class="n">authed</span><span class="o">.</span><span class="n">is_authed</span><span class="p">():</span>
-<a id="__codelineno-17-26" name="__codelineno-17-26" href="#__codelineno-17-26"></a>                <span class="c1"># Verify proxy is working</span>
-<a id="__codelineno-17-27" name="__codelineno-17-27" href="#__codelineno-17-27"></a>                <span class="n">me</span> <span class="o">=</span> <span class="k">await</span> <span class="n">authed</span><span class="o">.</span><span class="n">get_me</span><span class="p">()</span>
-<a id="__codelineno-17-28" name="__codelineno-17-28" href="#__codelineno-17-28"></a>                <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;✓ Connected via proxy as: </span><span class="si">{</span><span class="n">me</span><span class="o">.</span><span class="n">username</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
-<a id="__codelineno-17-29" name="__codelineno-17-29" href="#__codelineno-17-29"></a>
-<a id="__codelineno-17-30" name="__codelineno-17-30" href="#__codelineno-17-30"></a>                <span class="c1"># Fetch data through proxy</span>
-<a id="__codelineno-17-31" name="__codelineno-17-31" href="#__codelineno-17-31"></a>                <span class="n">user</span> <span class="o">=</span> <span class="k">await</span> <span class="n">authed</span><span class="o">.</span><span class="n">get_user</span><span class="p">(</span><span class="s2">&quot;username&quot;</span><span class="p">)</span>
-<a id="__codelineno-17-32" name="__codelineno-17-32" href="#__codelineno-17-32"></a>                <span class="n">posts</span> <span class="o">=</span> <span class="k">await</span> <span class="n">user</span><span class="o">.</span><span class="n">get_posts</span><span class="p">(</span><span class="n">limit</span><span class="o">=</span><span class="mi">10</span><span class="p">)</span>
-<a id="__codelineno-17-33" name="__codelineno-17-33" href="#__codelineno-17-33"></a>                <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;✓ Fetched </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">posts</span><span class="p">)</span><span class="si">}</span><span class="s2"> posts via proxy&quot;</span><span class="p">)</span>
+<a id="__codelineno-17-9" name="__codelineno-17-9" href="#__codelineno-17-9"></a>    <span class="n">config</span> <span class="o">=</span> <span class="n">UltimaScraperAPIConfig</span><span class="p">()</span>
+<a id="__codelineno-17-10" name="__codelineno-17-10" href="#__codelineno-17-10"></a>    <span class="n">config</span><span class="o">.</span><span class="n">settings</span><span class="o">.</span><span class="n">network</span><span class="o">.</span><span class="n">proxies</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">Proxy</span><span class="p">(</span><span class="n">url</span><span class="o">=</span><span class="n">proxy_url</span><span class="p">))</span>
+<a id="__codelineno-17-11" name="__codelineno-17-11" href="#__codelineno-17-11"></a>
+<a id="__codelineno-17-12" name="__codelineno-17-12" href="#__codelineno-17-12"></a>    <span class="n">api</span> <span class="o">=</span> <span class="n">OnlyFansAPI</span><span class="p">(</span><span class="n">config</span><span class="p">)</span>
+<a id="__codelineno-17-13" name="__codelineno-17-13" href="#__codelineno-17-13"></a>
+<a id="__codelineno-17-14" name="__codelineno-17-14" href="#__codelineno-17-14"></a>    <span class="n">auth_json</span> <span class="o">=</span> <span class="p">{</span>
+<a id="__codelineno-17-15" name="__codelineno-17-15" href="#__codelineno-17-15"></a>        <span class="s2">&quot;cookie&quot;</span><span class="p">:</span> <span class="s2">&quot;your_cookie&quot;</span><span class="p">,</span>
+<a id="__codelineno-17-16" name="__codelineno-17-16" href="#__codelineno-17-16"></a>        <span class="s2">&quot;user_agent&quot;</span><span class="p">:</span> <span class="s2">&quot;your_user_agent&quot;</span><span class="p">,</span>
+<a id="__codelineno-17-17" name="__codelineno-17-17" href="#__codelineno-17-17"></a>        <span class="s2">&quot;x-bc&quot;</span><span class="p">:</span> <span class="s2">&quot;your_x-bc&quot;</span>
+<a id="__codelineno-17-18" name="__codelineno-17-18" href="#__codelineno-17-18"></a>    <span class="p">}</span>
+<a id="__codelineno-17-19" name="__codelineno-17-19" href="#__codelineno-17-19"></a>
+<a id="__codelineno-17-20" name="__codelineno-17-20" href="#__codelineno-17-20"></a>    <span class="k">try</span><span class="p">:</span>
+<a id="__codelineno-17-21" name="__codelineno-17-21" href="#__codelineno-17-21"></a>        <span class="k">async</span> <span class="k">with</span> <span class="n">api</span><span class="o">.</span><span class="n">login_context</span><span class="p">(</span><span class="n">auth_json</span><span class="p">)</span> <span class="k">as</span> <span class="n">authed</span><span class="p">:</span>
+<a id="__codelineno-17-22" name="__codelineno-17-22" href="#__codelineno-17-22"></a>            <span class="k">if</span> <span class="n">authed</span> <span class="ow">and</span> <span class="n">authed</span><span class="o">.</span><span class="n">is_authed</span><span class="p">():</span>
+<a id="__codelineno-17-23" name="__codelineno-17-23" href="#__codelineno-17-23"></a>                <span class="c1"># Verify proxy is working</span>
+<a id="__codelineno-17-24" name="__codelineno-17-24" href="#__codelineno-17-24"></a>                <span class="n">me</span> <span class="o">=</span> <span class="k">await</span> <span class="n">authed</span><span class="o">.</span><span class="n">get_authed_user</span><span class="p">()</span>
+<a id="__codelineno-17-25" name="__codelineno-17-25" href="#__codelineno-17-25"></a>                <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;✓ Connected via proxy as: </span><span class="si">{</span><span class="n">me</span><span class="o">.</span><span class="n">username</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+<a id="__codelineno-17-26" name="__codelineno-17-26" href="#__codelineno-17-26"></a>
+<a id="__codelineno-17-27" name="__codelineno-17-27" href="#__codelineno-17-27"></a>                <span class="c1"># Fetch data through proxy</span>
+<a id="__codelineno-17-28" name="__codelineno-17-28" href="#__codelineno-17-28"></a>                <span class="n">user</span> <span class="o">=</span> <span class="k">await</span> <span class="n">authed</span><span class="o">.</span><span class="n">get_user</span><span class="p">(</span><span class="s2">&quot;username&quot;</span><span class="p">)</span>
+<a id="__codelineno-17-29" name="__codelineno-17-29" href="#__codelineno-17-29"></a>                <span class="n">posts</span> <span class="o">=</span> <span class="k">await</span> <span class="n">user</span><span class="o">.</span><span class="n">get_posts</span><span class="p">(</span><span class="n">limit</span><span class="o">=</span><span class="mi">10</span><span class="p">)</span>
+<a id="__codelineno-17-30" name="__codelineno-17-30" href="#__codelineno-17-30"></a>                <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;✓ Fetched </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">posts</span><span class="p">)</span><span class="si">}</span><span class="s2"> posts via proxy&quot;</span><span class="p">)</span>
+<a id="__codelineno-17-31" name="__codelineno-17-31" href="#__codelineno-17-31"></a>
+<a id="__codelineno-17-32" name="__codelineno-17-32" href="#__codelineno-17-32"></a>            <span class="k">else</span><span class="p">:</span>
+<a id="__codelineno-17-33" name="__codelineno-17-33" href="#__codelineno-17-33"></a>                <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;✗ Authentication failed&quot;</span><span class="p">)</span>
 <a id="__codelineno-17-34" name="__codelineno-17-34" href="#__codelineno-17-34"></a>
-<a id="__codelineno-17-35" name="__codelineno-17-35" href="#__codelineno-17-35"></a>            <span class="k">else</span><span class="p">:</span>
-<a id="__codelineno-17-36" name="__codelineno-17-36" href="#__codelineno-17-36"></a>                <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;✗ Authentication failed&quot;</span><span class="p">)</span>
-<a id="__codelineno-17-37" name="__codelineno-17-37" href="#__codelineno-17-37"></a>
-<a id="__codelineno-17-38" name="__codelineno-17-38" href="#__codelineno-17-38"></a>    <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
-<a id="__codelineno-17-39" name="__codelineno-17-39" href="#__codelineno-17-39"></a>        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;✗ Error with proxy: </span><span class="si">{</span><span class="n">e</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
-<a id="__codelineno-17-40" name="__codelineno-17-40" href="#__codelineno-17-40"></a>        <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Try testing proxy connectivity first&quot;</span><span class="p">)</span>
-<a id="__codelineno-17-41" name="__codelineno-17-41" href="#__codelineno-17-41"></a>
-<a id="__codelineno-17-42" name="__codelineno-17-42" href="#__codelineno-17-42"></a><span class="k">if</span> <span class="vm">__name__</span> <span class="o">==</span> <span class="s2">&quot;__main__&quot;</span><span class="p">:</span>
-<a id="__codelineno-17-43" name="__codelineno-17-43" href="#__codelineno-17-43"></a>    <span class="n">asyncio</span><span class="o">.</span><span class="n">run</span><span class="p">(</span><span class="n">main</span><span class="p">())</span>
+<a id="__codelineno-17-35" name="__codelineno-17-35" href="#__codelineno-17-35"></a>    <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+<a id="__codelineno-17-36" name="__codelineno-17-36" href="#__codelineno-17-36"></a>        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;✗ Error with proxy: </span><span class="si">{</span><span class="n">e</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+<a id="__codelineno-17-37" name="__codelineno-17-37" href="#__codelineno-17-37"></a>        <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Try testing proxy connectivity first&quot;</span><span class="p">)</span>
+<a id="__codelineno-17-38" name="__codelineno-17-38" href="#__codelineno-17-38"></a>
+<a id="__codelineno-17-39" name="__codelineno-17-39" href="#__codelineno-17-39"></a><span class="k">if</span> <span class="vm">__name__</span> <span class="o">==</span> <span class="s2">&quot;__main__&quot;</span><span class="p">:</span>
+<a id="__codelineno-17-40" name="__codelineno-17-40" href="#__codelineno-17-40"></a>    <span class="n">asyncio</span><span class="o">.</span><span class="n">run</span><span class="p">(</span><span class="n">main</span><span class="p">())</span>
 </code></pre></div>
 <h3 id="proxy-with-multiple-platforms">Proxy with Multiple Platforms</h3>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-18-1" name="__codelineno-18-1" href="#__codelineno-18-1"></a><span class="c1"># Use same proxy for all platforms</span>
 <a id="__codelineno-18-2" name="__codelineno-18-2" href="#__codelineno-18-2"></a><span class="n">proxy_url</span> <span class="o">=</span> <span class="s2">&quot;socks5://proxy.example.com:1080&quot;</span>
 <a id="__codelineno-18-3" name="__codelineno-18-3" href="#__codelineno-18-3"></a>
-<a id="__codelineno-18-4" name="__codelineno-18-4" href="#__codelineno-18-4"></a><span class="n">config</span> <span class="o">=</span> <span class="n">UltimaScraperAPIConfig</span><span class="p">(</span>
-<a id="__codelineno-18-5" name="__codelineno-18-5" href="#__codelineno-18-5"></a>    <span class="n">network</span><span class="o">=</span><span class="n">Network</span><span class="p">(</span>
-<a id="__codelineno-18-6" name="__codelineno-18-6" href="#__codelineno-18-6"></a>        <span class="n">proxy</span><span class="o">=</span><span class="n">Proxy</span><span class="p">(</span><span class="n">http</span><span class="o">=</span><span class="n">proxy_url</span><span class="p">,</span> <span class="n">https</span><span class="o">=</span><span class="n">proxy_url</span><span class="p">)</span>
-<a id="__codelineno-18-7" name="__codelineno-18-7" href="#__codelineno-18-7"></a>    <span class="p">)</span>
-<a id="__codelineno-18-8" name="__codelineno-18-8" href="#__codelineno-18-8"></a><span class="p">)</span>
-<a id="__codelineno-18-9" name="__codelineno-18-9" href="#__codelineno-18-9"></a>
-<a id="__codelineno-18-10" name="__codelineno-18-10" href="#__codelineno-18-10"></a><span class="c1"># OnlyFans</span>
-<a id="__codelineno-18-11" name="__codelineno-18-11" href="#__codelineno-18-11"></a><span class="kn">from</span><span class="w"> </span><span class="nn">ultima_scraper_api</span><span class="w"> </span><span class="kn">import</span> <span class="n">OnlyFansAPI</span>
-<a id="__codelineno-18-12" name="__codelineno-18-12" href="#__codelineno-18-12"></a><span class="n">of_api</span> <span class="o">=</span> <span class="n">OnlyFansAPI</span><span class="p">(</span><span class="n">config</span><span class="p">)</span>
-<a id="__codelineno-18-13" name="__codelineno-18-13" href="#__codelineno-18-13"></a>
-<a id="__codelineno-18-14" name="__codelineno-18-14" href="#__codelineno-18-14"></a><span class="c1"># Fansly</span>
-<a id="__codelineno-18-15" name="__codelineno-18-15" href="#__codelineno-18-15"></a><span class="kn">from</span><span class="w"> </span><span class="nn">ultima_scraper_api</span><span class="w"> </span><span class="kn">import</span> <span class="n">FanslyAPI</span>
-<a id="__codelineno-18-16" name="__codelineno-18-16" href="#__codelineno-18-16"></a><span class="n">fansly_api</span> <span class="o">=</span> <span class="n">FanslyAPI</span><span class="p">(</span><span class="n">config</span><span class="p">)</span>
-<a id="__codelineno-18-17" name="__codelineno-18-17" href="#__codelineno-18-17"></a>
-<a id="__codelineno-18-18" name="__codelineno-18-18" href="#__codelineno-18-18"></a><span class="c1"># All platforms will use the same proxy</span>
+<a id="__codelineno-18-4" name="__codelineno-18-4" href="#__codelineno-18-4"></a><span class="n">config</span> <span class="o">=</span> <span class="n">UltimaScraperAPIConfig</span><span class="p">()</span>
+<a id="__codelineno-18-5" name="__codelineno-18-5" href="#__codelineno-18-5"></a><span class="n">config</span><span class="o">.</span><span class="n">settings</span><span class="o">.</span><span class="n">network</span><span class="o">.</span><span class="n">proxies</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">Proxy</span><span class="p">(</span><span class="n">url</span><span class="o">=</span><span class="n">proxy_url</span><span class="p">))</span>
+<a id="__codelineno-18-6" name="__codelineno-18-6" href="#__codelineno-18-6"></a>
+<a id="__codelineno-18-7" name="__codelineno-18-7" href="#__codelineno-18-7"></a><span class="c1"># OnlyFans</span>
+<a id="__codelineno-18-8" name="__codelineno-18-8" href="#__codelineno-18-8"></a><span class="kn">from</span><span class="w"> </span><span class="nn">ultima_scraper_api</span><span class="w"> </span><span class="kn">import</span> <span class="n">OnlyFansAPI</span>
+<a id="__codelineno-18-9" name="__codelineno-18-9" href="#__codelineno-18-9"></a><span class="n">of_api</span> <span class="o">=</span> <span class="n">OnlyFansAPI</span><span class="p">(</span><span class="n">config</span><span class="p">)</span>
+<a id="__codelineno-18-10" name="__codelineno-18-10" href="#__codelineno-18-10"></a>
+<a id="__codelineno-18-11" name="__codelineno-18-11" href="#__codelineno-18-11"></a><span class="c1"># Fansly</span>
+<a id="__codelineno-18-12" name="__codelineno-18-12" href="#__codelineno-18-12"></a><span class="kn">from</span><span class="w"> </span><span class="nn">ultima_scraper_api</span><span class="w"> </span><span class="kn">import</span> <span class="n">FanslyAPI</span>
+<a id="__codelineno-18-13" name="__codelineno-18-13" href="#__codelineno-18-13"></a><span class="n">fansly_api</span> <span class="o">=</span> <span class="n">FanslyAPI</span><span class="p">(</span><span class="n">config</span><span class="p">)</span>
+<a id="__codelineno-18-14" name="__codelineno-18-14" href="#__codelineno-18-14"></a>
+<a id="__codelineno-18-15" name="__codelineno-18-15" href="#__codelineno-18-15"></a><span class="c1"># All platforms will use the same proxy</span>
 </code></pre></div>
 <h3 id="dynamic-proxy-configuration">Dynamic Proxy Configuration</h3>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-19-1" name="__codelineno-19-1" href="#__codelineno-19-1"></a><span class="kn">import</span><span class="w"> </span><span class="nn">os</span>
@@ -2652,16 +2622,13 @@
 <a id="__codelineno-19-24" name="__codelineno-19-24" href="#__codelineno-19-24"></a>
 <a id="__codelineno-19-25" name="__codelineno-19-25" href="#__codelineno-19-25"></a><span class="k">if</span> <span class="n">proxy_url</span><span class="p">:</span>
 <a id="__codelineno-19-26" name="__codelineno-19-26" href="#__codelineno-19-26"></a>    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Using proxy: </span><span class="si">{</span><span class="n">proxy_url</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
-<a id="__codelineno-19-27" name="__codelineno-19-27" href="#__codelineno-19-27"></a>    <span class="n">config</span> <span class="o">=</span> <span class="n">UltimaScraperAPIConfig</span><span class="p">(</span>
-<a id="__codelineno-19-28" name="__codelineno-19-28" href="#__codelineno-19-28"></a>        <span class="n">network</span><span class="o">=</span><span class="n">Network</span><span class="p">(</span>
-<a id="__codelineno-19-29" name="__codelineno-19-29" href="#__codelineno-19-29"></a>            <span class="n">proxy</span><span class="o">=</span><span class="n">Proxy</span><span class="p">(</span><span class="n">http</span><span class="o">=</span><span class="n">proxy_url</span><span class="p">,</span> <span class="n">https</span><span class="o">=</span><span class="n">proxy_url</span><span class="p">)</span>
-<a id="__codelineno-19-30" name="__codelineno-19-30" href="#__codelineno-19-30"></a>        <span class="p">)</span>
-<a id="__codelineno-19-31" name="__codelineno-19-31" href="#__codelineno-19-31"></a>    <span class="p">)</span>
-<a id="__codelineno-19-32" name="__codelineno-19-32" href="#__codelineno-19-32"></a><span class="k">else</span><span class="p">:</span>
-<a id="__codelineno-19-33" name="__codelineno-19-33" href="#__codelineno-19-33"></a>    <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;No proxy configured - using direct connection&quot;</span><span class="p">)</span>
-<a id="__codelineno-19-34" name="__codelineno-19-34" href="#__codelineno-19-34"></a>    <span class="n">config</span> <span class="o">=</span> <span class="n">UltimaScraperAPIConfig</span><span class="p">()</span>
-<a id="__codelineno-19-35" name="__codelineno-19-35" href="#__codelineno-19-35"></a>
-<a id="__codelineno-19-36" name="__codelineno-19-36" href="#__codelineno-19-36"></a><span class="n">api</span> <span class="o">=</span> <span class="n">OnlyFansAPI</span><span class="p">(</span><span class="n">config</span><span class="p">)</span>
+<a id="__codelineno-19-27" name="__codelineno-19-27" href="#__codelineno-19-27"></a>    <span class="n">config</span> <span class="o">=</span> <span class="n">UltimaScraperAPIConfig</span><span class="p">()</span>
+<a id="__codelineno-19-28" name="__codelineno-19-28" href="#__codelineno-19-28"></a>    <span class="n">config</span><span class="o">.</span><span class="n">settings</span><span class="o">.</span><span class="n">network</span><span class="o">.</span><span class="n">proxies</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">Proxy</span><span class="p">(</span><span class="n">url</span><span class="o">=</span><span class="n">proxy_url</span><span class="p">))</span>
+<a id="__codelineno-19-29" name="__codelineno-19-29" href="#__codelineno-19-29"></a><span class="k">else</span><span class="p">:</span>
+<a id="__codelineno-19-30" name="__codelineno-19-30" href="#__codelineno-19-30"></a>    <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;No proxy configured - using direct connection&quot;</span><span class="p">)</span>
+<a id="__codelineno-19-31" name="__codelineno-19-31" href="#__codelineno-19-31"></a>    <span class="n">config</span> <span class="o">=</span> <span class="n">UltimaScraperAPIConfig</span><span class="p">()</span>
+<a id="__codelineno-19-32" name="__codelineno-19-32" href="#__codelineno-19-32"></a>
+<a id="__codelineno-19-33" name="__codelineno-19-33" href="#__codelineno-19-33"></a><span class="n">api</span> <span class="o">=</span> <span class="n">OnlyFansAPI</span><span class="p">(</span><span class="n">config</span><span class="p">)</span>
 </code></pre></div>
 <hr />
 <h2 id="troubleshooting">Troubleshooting</h2>
@@ -2712,14 +2679,11 @@
 <p><strong>Try different proxy:</strong>
    <div class="highlight"><pre><span></span><code><a id="__codelineno-24-1" name="__codelineno-24-1" href="#__codelineno-24-1"></a><span class="c1"># Fallback to direct connection if proxy fails</span>
 <a id="__codelineno-24-2" name="__codelineno-24-2" href="#__codelineno-24-2"></a><span class="k">try</span><span class="p">:</span>
-<a id="__codelineno-24-3" name="__codelineno-24-3" href="#__codelineno-24-3"></a>    <span class="n">config</span> <span class="o">=</span> <span class="n">UltimaScraperAPIConfig</span><span class="p">(</span>
-<a id="__codelineno-24-4" name="__codelineno-24-4" href="#__codelineno-24-4"></a>        <span class="n">network</span><span class="o">=</span><span class="n">Network</span><span class="p">(</span>
-<a id="__codelineno-24-5" name="__codelineno-24-5" href="#__codelineno-24-5"></a>            <span class="n">proxy</span><span class="o">=</span><span class="n">Proxy</span><span class="p">(</span><span class="n">http</span><span class="o">=</span><span class="n">proxy_url</span><span class="p">,</span> <span class="n">https</span><span class="o">=</span><span class="n">proxy_url</span><span class="p">)</span>
-<a id="__codelineno-24-6" name="__codelineno-24-6" href="#__codelineno-24-6"></a>        <span class="p">)</span>
-<a id="__codelineno-24-7" name="__codelineno-24-7" href="#__codelineno-24-7"></a>    <span class="p">)</span>
-<a id="__codelineno-24-8" name="__codelineno-24-8" href="#__codelineno-24-8"></a><span class="k">except</span> <span class="ne">Exception</span><span class="p">:</span>
-<a id="__codelineno-24-9" name="__codelineno-24-9" href="#__codelineno-24-9"></a>    <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Proxy failed, using direct connection&quot;</span><span class="p">)</span>
-<a id="__codelineno-24-10" name="__codelineno-24-10" href="#__codelineno-24-10"></a>    <span class="n">config</span> <span class="o">=</span> <span class="n">UltimaScraperAPIConfig</span><span class="p">()</span>
+<a id="__codelineno-24-3" name="__codelineno-24-3" href="#__codelineno-24-3"></a>    <span class="n">config</span> <span class="o">=</span> <span class="n">UltimaScraperAPIConfig</span><span class="p">()</span>
+<a id="__codelineno-24-4" name="__codelineno-24-4" href="#__codelineno-24-4"></a>    <span class="n">config</span><span class="o">.</span><span class="n">settings</span><span class="o">.</span><span class="n">network</span><span class="o">.</span><span class="n">proxies</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">Proxy</span><span class="p">(</span><span class="n">url</span><span class="o">=</span><span class="n">proxy_url</span><span class="p">))</span>
+<a id="__codelineno-24-5" name="__codelineno-24-5" href="#__codelineno-24-5"></a><span class="k">except</span> <span class="ne">Exception</span><span class="p">:</span>
+<a id="__codelineno-24-6" name="__codelineno-24-6" href="#__codelineno-24-6"></a>    <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Proxy failed, using direct connection&quot;</span><span class="p">)</span>
+<a id="__codelineno-24-7" name="__codelineno-24-7" href="#__codelineno-24-7"></a>    <span class="n">config</span> <span class="o">=</span> <span class="n">UltimaScraperAPIConfig</span><span class="p">()</span>
 </code></pre></div></p>
 </li>
 </ol>
@@ -2751,284 +2715,259 @@
 <a id="__codelineno-26-3" name="__codelineno-26-3" href="#__codelineno-26-3"></a><span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">benchmark_proxy</span><span class="p">(</span><span class="n">proxy_url</span><span class="p">):</span>
 <a id="__codelineno-26-4" name="__codelineno-26-4" href="#__codelineno-26-4"></a>    <span class="n">start</span> <span class="o">=</span> <span class="n">time</span><span class="o">.</span><span class="n">time</span><span class="p">()</span>
 <a id="__codelineno-26-5" name="__codelineno-26-5" href="#__codelineno-26-5"></a>    <span class="c1"># Make test request</span>
-<a id="__codelineno-26-6" name="__codelineno-26-6" href="#__codelineno-26-6"></a>    <span class="n">config</span> <span class="o">=</span> <span class="n">UltimaScraperAPIConfig</span><span class="p">(</span>
-<a id="__codelineno-26-7" name="__codelineno-26-7" href="#__codelineno-26-7"></a>        <span class="n">network</span><span class="o">=</span><span class="n">Network</span><span class="p">(</span>
-<a id="__codelineno-26-8" name="__codelineno-26-8" href="#__codelineno-26-8"></a>            <span class="n">proxy</span><span class="o">=</span><span class="n">Proxy</span><span class="p">(</span><span class="n">http</span><span class="o">=</span><span class="n">proxy_url</span><span class="p">,</span> <span class="n">https</span><span class="o">=</span><span class="n">proxy_url</span><span class="p">)</span>
-<a id="__codelineno-26-9" name="__codelineno-26-9" href="#__codelineno-26-9"></a>        <span class="p">)</span>
-<a id="__codelineno-26-10" name="__codelineno-26-10" href="#__codelineno-26-10"></a>    <span class="p">)</span>
-<a id="__codelineno-26-11" name="__codelineno-26-11" href="#__codelineno-26-11"></a>    <span class="c1"># ... make request ...</span>
-<a id="__codelineno-26-12" name="__codelineno-26-12" href="#__codelineno-26-12"></a>    <span class="n">elapsed</span> <span class="o">=</span> <span class="n">time</span><span class="o">.</span><span class="n">time</span><span class="p">()</span> <span class="o">-</span> <span class="n">start</span>
-<a id="__codelineno-26-13" name="__codelineno-26-13" href="#__codelineno-26-13"></a>    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">proxy_url</span><span class="si">}</span><span class="s2">: </span><span class="si">{</span><span class="n">elapsed</span><span class="si">:</span><span class="s2">.2f</span><span class="si">}</span><span class="s2">s&quot;</span><span class="p">)</span>
-<a id="__codelineno-26-14" name="__codelineno-26-14" href="#__codelineno-26-14"></a>    <span class="k">return</span> <span class="n">elapsed</span>
+<a id="__codelineno-26-6" name="__codelineno-26-6" href="#__codelineno-26-6"></a>    <span class="n">config</span> <span class="o">=</span> <span class="n">UltimaScraperAPIConfig</span><span class="p">()</span>
+<a id="__codelineno-26-7" name="__codelineno-26-7" href="#__codelineno-26-7"></a>    <span class="n">config</span><span class="o">.</span><span class="n">settings</span><span class="o">.</span><span class="n">network</span><span class="o">.</span><span class="n">proxies</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">Proxy</span><span class="p">(</span><span class="n">url</span><span class="o">=</span><span class="n">proxy_url</span><span class="p">))</span>
+<a id="__codelineno-26-8" name="__codelineno-26-8" href="#__codelineno-26-8"></a>    <span class="c1"># ... make request ...</span>
+<a id="__codelineno-26-9" name="__codelineno-26-9" href="#__codelineno-26-9"></a>    <span class="n">elapsed</span> <span class="o">=</span> <span class="n">time</span><span class="o">.</span><span class="n">time</span><span class="p">()</span> <span class="o">-</span> <span class="n">start</span>
+<a id="__codelineno-26-10" name="__codelineno-26-10" href="#__codelineno-26-10"></a>    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">proxy_url</span><span class="si">}</span><span class="s2">: </span><span class="si">{</span><span class="n">elapsed</span><span class="si">:</span><span class="s2">.2f</span><span class="si">}</span><span class="s2">s&quot;</span><span class="p">)</span>
+<a id="__codelineno-26-11" name="__codelineno-26-11" href="#__codelineno-26-11"></a>    <span class="k">return</span> <span class="n">elapsed</span>
 </code></pre></div></p>
 </li>
 <li>
 <p><strong>Implement timeout settings:</strong>
-   <div class="highlight"><pre><span></span><code><a id="__codelineno-27-1" name="__codelineno-27-1" href="#__codelineno-27-1"></a><span class="c1"># Add timeout to prevent hanging</span>
-<a id="__codelineno-27-2" name="__codelineno-27-2" href="#__codelineno-27-2"></a><span class="n">config</span> <span class="o">=</span> <span class="n">UltimaScraperAPIConfig</span><span class="p">(</span>
-<a id="__codelineno-27-3" name="__codelineno-27-3" href="#__codelineno-27-3"></a>    <span class="n">network</span><span class="o">=</span><span class="n">Network</span><span class="p">(</span>
-<a id="__codelineno-27-4" name="__codelineno-27-4" href="#__codelineno-27-4"></a>        <span class="n">proxy</span><span class="o">=</span><span class="n">Proxy</span><span class="p">(</span><span class="n">http</span><span class="o">=</span><span class="n">proxy_url</span><span class="p">,</span> <span class="n">https</span><span class="o">=</span><span class="n">proxy_url</span><span class="p">),</span>
-<a id="__codelineno-27-5" name="__codelineno-27-5" href="#__codelineno-27-5"></a>        <span class="n">timeout</span><span class="o">=</span><span class="mi">30</span>  <span class="c1"># 30 second timeout</span>
-<a id="__codelineno-27-6" name="__codelineno-27-6" href="#__codelineno-27-6"></a>    <span class="p">)</span>
-<a id="__codelineno-27-7" name="__codelineno-27-7" href="#__codelineno-27-7"></a><span class="p">)</span>
-</code></pre></div></p>
+   <code>python
+  # Configure per-proxy connection limits to prevent overload
+  config = UltimaScraperAPIConfig()
+  config.settings.network.proxies.append(
+      Proxy(url=proxy_url, max_connections=25)
+  )</code></p>
 </li>
 </ol>
 <h3 id="authentication-errors">Authentication Errors</h3>
 <div class="admonition error">
 <p class="admonition-title">Common Error</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-28-1" name="__codelineno-28-1" href="#__codelineno-28-1"></a>ProxyError: Proxy authentication failed
+<div class="highlight"><pre><span></span><code><a id="__codelineno-27-1" name="__codelineno-27-1" href="#__codelineno-27-1"></a>ProxyError: Proxy authentication failed
 </code></pre></div>
 </div>
 <p><strong>Solutions:</strong></p>
 <ol>
 <li>
 <p><strong>Verify credentials format:</strong>
-   <div class="highlight"><pre><span></span><code><a id="__codelineno-29-1" name="__codelineno-29-1" href="#__codelineno-29-1"></a><span class="c1"># Correct format</span>
-<a id="__codelineno-29-2" name="__codelineno-29-2" href="#__codelineno-29-2"></a><span class="n">proxy_url</span> <span class="o">=</span> <span class="s2">&quot;socks5://username:password@proxy.com:1080&quot;</span>
-<a id="__codelineno-29-3" name="__codelineno-29-3" href="#__codelineno-29-3"></a>
-<a id="__codelineno-29-4" name="__codelineno-29-4" href="#__codelineno-29-4"></a><span class="c1"># Common mistakes:</span>
-<a id="__codelineno-29-5" name="__codelineno-29-5" href="#__codelineno-29-5"></a><span class="c1"># - Wrong order: &quot;socks5://password:username@...&quot;</span>
-<a id="__codelineno-29-6" name="__codelineno-29-6" href="#__codelineno-29-6"></a><span class="c1"># - Missing @ symbol</span>
-<a id="__codelineno-29-7" name="__codelineno-29-7" href="#__codelineno-29-7"></a><span class="c1"># - Unencoded special characters</span>
+   <div class="highlight"><pre><span></span><code><a id="__codelineno-28-1" name="__codelineno-28-1" href="#__codelineno-28-1"></a><span class="c1"># Correct format</span>
+<a id="__codelineno-28-2" name="__codelineno-28-2" href="#__codelineno-28-2"></a><span class="n">proxy_url</span> <span class="o">=</span> <span class="s2">&quot;socks5://username:password@proxy.com:1080&quot;</span>
+<a id="__codelineno-28-3" name="__codelineno-28-3" href="#__codelineno-28-3"></a>
+<a id="__codelineno-28-4" name="__codelineno-28-4" href="#__codelineno-28-4"></a><span class="c1"># Common mistakes:</span>
+<a id="__codelineno-28-5" name="__codelineno-28-5" href="#__codelineno-28-5"></a><span class="c1"># - Wrong order: &quot;socks5://password:username@...&quot;</span>
+<a id="__codelineno-28-6" name="__codelineno-28-6" href="#__codelineno-28-6"></a><span class="c1"># - Missing @ symbol</span>
+<a id="__codelineno-28-7" name="__codelineno-28-7" href="#__codelineno-28-7"></a><span class="c1"># - Unencoded special characters</span>
 </code></pre></div></p>
 </li>
 <li>
 <p><strong>URL-encode special characters:</strong>
-   <div class="highlight"><pre><span></span><code><a id="__codelineno-30-1" name="__codelineno-30-1" href="#__codelineno-30-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">urllib.parse</span><span class="w"> </span><span class="kn">import</span> <span class="n">quote</span>
-<a id="__codelineno-30-2" name="__codelineno-30-2" href="#__codelineno-30-2"></a>
-<a id="__codelineno-30-3" name="__codelineno-30-3" href="#__codelineno-30-3"></a><span class="c1"># If username/password contains @, :, /, etc.</span>
-<a id="__codelineno-30-4" name="__codelineno-30-4" href="#__codelineno-30-4"></a><span class="n">username</span> <span class="o">=</span> <span class="n">quote</span><span class="p">(</span><span class="s2">&quot;user@company.com&quot;</span><span class="p">,</span> <span class="n">safe</span><span class="o">=</span><span class="s2">&quot;&quot;</span><span class="p">)</span>
-<a id="__codelineno-30-5" name="__codelineno-30-5" href="#__codelineno-30-5"></a><span class="n">password</span> <span class="o">=</span> <span class="n">quote</span><span class="p">(</span><span class="s2">&quot;p@$$w0rd!#$&quot;</span><span class="p">,</span> <span class="n">safe</span><span class="o">=</span><span class="s2">&quot;&quot;</span><span class="p">)</span>
-<a id="__codelineno-30-6" name="__codelineno-30-6" href="#__codelineno-30-6"></a>
-<a id="__codelineno-30-7" name="__codelineno-30-7" href="#__codelineno-30-7"></a><span class="n">proxy_url</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;socks5://</span><span class="si">{</span><span class="n">username</span><span class="si">}</span><span class="s2">:</span><span class="si">{</span><span class="n">password</span><span class="si">}</span><span class="s2">@proxy.com:1080&quot;</span>
+   <div class="highlight"><pre><span></span><code><a id="__codelineno-29-1" name="__codelineno-29-1" href="#__codelineno-29-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">urllib.parse</span><span class="w"> </span><span class="kn">import</span> <span class="n">quote</span>
+<a id="__codelineno-29-2" name="__codelineno-29-2" href="#__codelineno-29-2"></a>
+<a id="__codelineno-29-3" name="__codelineno-29-3" href="#__codelineno-29-3"></a><span class="c1"># If username/password contains @, :, /, etc.</span>
+<a id="__codelineno-29-4" name="__codelineno-29-4" href="#__codelineno-29-4"></a><span class="n">username</span> <span class="o">=</span> <span class="n">quote</span><span class="p">(</span><span class="s2">&quot;user@company.com&quot;</span><span class="p">,</span> <span class="n">safe</span><span class="o">=</span><span class="s2">&quot;&quot;</span><span class="p">)</span>
+<a id="__codelineno-29-5" name="__codelineno-29-5" href="#__codelineno-29-5"></a><span class="n">password</span> <span class="o">=</span> <span class="n">quote</span><span class="p">(</span><span class="s2">&quot;p@$$w0rd!#$&quot;</span><span class="p">,</span> <span class="n">safe</span><span class="o">=</span><span class="s2">&quot;&quot;</span><span class="p">)</span>
+<a id="__codelineno-29-6" name="__codelineno-29-6" href="#__codelineno-29-6"></a>
+<a id="__codelineno-29-7" name="__codelineno-29-7" href="#__codelineno-29-7"></a><span class="n">proxy_url</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;socks5://</span><span class="si">{</span><span class="n">username</span><span class="si">}</span><span class="s2">:</span><span class="si">{</span><span class="n">password</span><span class="si">}</span><span class="s2">@proxy.com:1080&quot;</span>
 </code></pre></div></p>
 </li>
 <li>
 <p><strong>Test credentials separately:</strong>
-   <div class="highlight"><pre><span></span><code><a id="__codelineno-31-1" name="__codelineno-31-1" href="#__codelineno-31-1"></a><span class="c1"># Test SOCKS5 auth with curl</span>
-<a id="__codelineno-31-2" name="__codelineno-31-2" href="#__codelineno-31-2"></a>curl<span class="w"> </span>--proxy<span class="w"> </span>socks5://username:password@proxy.com:1080<span class="w"> </span><span class="se">\</span>
-<a id="__codelineno-31-3" name="__codelineno-31-3" href="#__codelineno-31-3"></a><span class="w">     </span>https://httpbin.org/ip
+   <div class="highlight"><pre><span></span><code><a id="__codelineno-30-1" name="__codelineno-30-1" href="#__codelineno-30-1"></a><span class="c1"># Test SOCKS5 auth with curl</span>
+<a id="__codelineno-30-2" name="__codelineno-30-2" href="#__codelineno-30-2"></a>curl<span class="w"> </span>--proxy<span class="w"> </span>socks5://username:password@proxy.com:1080<span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-30-3" name="__codelineno-30-3" href="#__codelineno-30-3"></a><span class="w">     </span>https://httpbin.org/ip
 </code></pre></div></p>
 </li>
 </ol>
 <h3 id="ssltls-certificate-errors">SSL/TLS Certificate Errors</h3>
 <div class="admonition error">
 <p class="admonition-title">Common Error</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-32-1" name="__codelineno-32-1" href="#__codelineno-32-1"></a>ssl.SSLError: certificate verify failed
+<div class="highlight"><pre><span></span><code><a id="__codelineno-31-1" name="__codelineno-31-1" href="#__codelineno-31-1"></a>ssl.SSLError: certificate verify failed
 </code></pre></div>
 </div>
 <p><strong>Solutions:</strong></p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-33-1" name="__codelineno-33-1" href="#__codelineno-33-1"></a><span class="c1"># For testing only - disable SSL verification</span>
-<a id="__codelineno-33-2" name="__codelineno-33-2" href="#__codelineno-33-2"></a><span class="c1"># WARNING: Only use in development!</span>
-<a id="__codelineno-33-3" name="__codelineno-33-3" href="#__codelineno-33-3"></a><span class="n">config</span> <span class="o">=</span> <span class="n">UltimaScraperAPIConfig</span><span class="p">(</span>
-<a id="__codelineno-33-4" name="__codelineno-33-4" href="#__codelineno-33-4"></a>    <span class="n">network</span><span class="o">=</span><span class="n">Network</span><span class="p">(</span>
-<a id="__codelineno-33-5" name="__codelineno-33-5" href="#__codelineno-33-5"></a>        <span class="n">proxy</span><span class="o">=</span><span class="n">Proxy</span><span class="p">(</span><span class="n">http</span><span class="o">=</span><span class="n">proxy_url</span><span class="p">,</span> <span class="n">https</span><span class="o">=</span><span class="n">proxy_url</span><span class="p">),</span>
-<a id="__codelineno-33-6" name="__codelineno-33-6" href="#__codelineno-33-6"></a>        <span class="n">verify_ssl</span><span class="o">=</span><span class="kc">False</span>  <span class="c1"># Disable SSL verification</span>
-<a id="__codelineno-33-7" name="__codelineno-33-7" href="#__codelineno-33-7"></a>    <span class="p">)</span>
-<a id="__codelineno-33-8" name="__codelineno-33-8" href="#__codelineno-33-8"></a><span class="p">)</span>
-<a id="__codelineno-33-9" name="__codelineno-33-9" href="#__codelineno-33-9"></a>
-<a id="__codelineno-33-10" name="__codelineno-33-10" href="#__codelineno-33-10"></a><span class="c1"># Better: Use proper certificates</span>
-<a id="__codelineno-33-11" name="__codelineno-33-11" href="#__codelineno-33-11"></a><span class="c1"># Install required CA certificates on your system</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-32-1" name="__codelineno-32-1" href="#__codelineno-32-1"></a><span class="c1"># Configure the proxy URL and use a proxy that supports TLS tunneling.</span>
+<a id="__codelineno-32-2" name="__codelineno-32-2" href="#__codelineno-32-2"></a><span class="n">config</span> <span class="o">=</span> <span class="n">UltimaScraperAPIConfig</span><span class="p">()</span>
+<a id="__codelineno-32-3" name="__codelineno-32-3" href="#__codelineno-32-3"></a><span class="n">config</span><span class="o">.</span><span class="n">settings</span><span class="o">.</span><span class="n">network</span><span class="o">.</span><span class="n">proxies</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">Proxy</span><span class="p">(</span><span class="n">url</span><span class="o">=</span><span class="n">proxy_url</span><span class="p">))</span>
+<a id="__codelineno-32-4" name="__codelineno-32-4" href="#__codelineno-32-4"></a>
+<a id="__codelineno-32-5" name="__codelineno-32-5" href="#__codelineno-32-5"></a><span class="c1"># Better: Use proper certificates</span>
+<a id="__codelineno-32-6" name="__codelineno-32-6" href="#__codelineno-32-6"></a><span class="c1"># Install required CA certificates on your system</span>
 </code></pre></div>
 <h3 id="rate-limiting-through-proxy">Rate Limiting Through Proxy</h3>
 <p>Even with proxies, you may encounter rate limits:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-34-1" name="__codelineno-34-1" href="#__codelineno-34-1"></a><span class="kn">import</span><span class="w"> </span><span class="nn">asyncio</span>
-<a id="__codelineno-34-2" name="__codelineno-34-2" href="#__codelineno-34-2"></a>
-<a id="__codelineno-34-3" name="__codelineno-34-3" href="#__codelineno-34-3"></a><span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">fetch_with_rate_limit</span><span class="p">(</span><span class="n">authed</span><span class="p">,</span> <span class="n">username</span><span class="p">):</span>
-<a id="__codelineno-34-4" name="__codelineno-34-4" href="#__codelineno-34-4"></a><span class="w">    </span><span class="sd">&quot;&quot;&quot;Fetch with built-in rate limiting&quot;&quot;&quot;</span>
-<a id="__codelineno-34-5" name="__codelineno-34-5" href="#__codelineno-34-5"></a>    <span class="k">try</span><span class="p">:</span>
-<a id="__codelineno-34-6" name="__codelineno-34-6" href="#__codelineno-34-6"></a>        <span class="n">user</span> <span class="o">=</span> <span class="k">await</span> <span class="n">authed</span><span class="o">.</span><span class="n">get_user</span><span class="p">(</span><span class="n">username</span><span class="p">)</span>
-<a id="__codelineno-34-7" name="__codelineno-34-7" href="#__codelineno-34-7"></a>
-<a id="__codelineno-34-8" name="__codelineno-34-8" href="#__codelineno-34-8"></a>        <span class="c1"># Add delay between requests</span>
-<a id="__codelineno-34-9" name="__codelineno-34-9" href="#__codelineno-34-9"></a>        <span class="k">await</span> <span class="n">asyncio</span><span class="o">.</span><span class="n">sleep</span><span class="p">(</span><span class="mf">1.0</span><span class="p">)</span>
-<a id="__codelineno-34-10" name="__codelineno-34-10" href="#__codelineno-34-10"></a>
-<a id="__codelineno-34-11" name="__codelineno-34-11" href="#__codelineno-34-11"></a>        <span class="k">return</span> <span class="n">user</span>
-<a id="__codelineno-34-12" name="__codelineno-34-12" href="#__codelineno-34-12"></a>    <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
-<a id="__codelineno-34-13" name="__codelineno-34-13" href="#__codelineno-34-13"></a>        <span class="k">if</span> <span class="s2">&quot;rate limit&quot;</span> <span class="ow">in</span> <span class="nb">str</span><span class="p">(</span><span class="n">e</span><span class="p">)</span><span class="o">.</span><span class="n">lower</span><span class="p">():</span>
-<a id="__codelineno-34-14" name="__codelineno-34-14" href="#__codelineno-34-14"></a>            <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Rate limited - waiting...&quot;</span><span class="p">)</span>
-<a id="__codelineno-34-15" name="__codelineno-34-15" href="#__codelineno-34-15"></a>            <span class="k">await</span> <span class="n">asyncio</span><span class="o">.</span><span class="n">sleep</span><span class="p">(</span><span class="mi">60</span><span class="p">)</span>  <span class="c1"># Wait 1 minute</span>
-<a id="__codelineno-34-16" name="__codelineno-34-16" href="#__codelineno-34-16"></a>            <span class="k">return</span> <span class="k">await</span> <span class="n">fetch_with_rate_limit</span><span class="p">(</span><span class="n">authed</span><span class="p">,</span> <span class="n">username</span><span class="p">)</span>
-<a id="__codelineno-34-17" name="__codelineno-34-17" href="#__codelineno-34-17"></a>        <span class="k">raise</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-33-1" name="__codelineno-33-1" href="#__codelineno-33-1"></a><span class="kn">import</span><span class="w"> </span><span class="nn">asyncio</span>
+<a id="__codelineno-33-2" name="__codelineno-33-2" href="#__codelineno-33-2"></a>
+<a id="__codelineno-33-3" name="__codelineno-33-3" href="#__codelineno-33-3"></a><span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">fetch_with_rate_limit</span><span class="p">(</span><span class="n">authed</span><span class="p">,</span> <span class="n">username</span><span class="p">):</span>
+<a id="__codelineno-33-4" name="__codelineno-33-4" href="#__codelineno-33-4"></a><span class="w">    </span><span class="sd">&quot;&quot;&quot;Fetch with built-in rate limiting&quot;&quot;&quot;</span>
+<a id="__codelineno-33-5" name="__codelineno-33-5" href="#__codelineno-33-5"></a>    <span class="k">try</span><span class="p">:</span>
+<a id="__codelineno-33-6" name="__codelineno-33-6" href="#__codelineno-33-6"></a>        <span class="n">user</span> <span class="o">=</span> <span class="k">await</span> <span class="n">authed</span><span class="o">.</span><span class="n">get_user</span><span class="p">(</span><span class="n">username</span><span class="p">)</span>
+<a id="__codelineno-33-7" name="__codelineno-33-7" href="#__codelineno-33-7"></a>
+<a id="__codelineno-33-8" name="__codelineno-33-8" href="#__codelineno-33-8"></a>        <span class="c1"># Add delay between requests</span>
+<a id="__codelineno-33-9" name="__codelineno-33-9" href="#__codelineno-33-9"></a>        <span class="k">await</span> <span class="n">asyncio</span><span class="o">.</span><span class="n">sleep</span><span class="p">(</span><span class="mf">1.0</span><span class="p">)</span>
+<a id="__codelineno-33-10" name="__codelineno-33-10" href="#__codelineno-33-10"></a>
+<a id="__codelineno-33-11" name="__codelineno-33-11" href="#__codelineno-33-11"></a>        <span class="k">return</span> <span class="n">user</span>
+<a id="__codelineno-33-12" name="__codelineno-33-12" href="#__codelineno-33-12"></a>    <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+<a id="__codelineno-33-13" name="__codelineno-33-13" href="#__codelineno-33-13"></a>        <span class="k">if</span> <span class="s2">&quot;rate limit&quot;</span> <span class="ow">in</span> <span class="nb">str</span><span class="p">(</span><span class="n">e</span><span class="p">)</span><span class="o">.</span><span class="n">lower</span><span class="p">():</span>
+<a id="__codelineno-33-14" name="__codelineno-33-14" href="#__codelineno-33-14"></a>            <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Rate limited - waiting...&quot;</span><span class="p">)</span>
+<a id="__codelineno-33-15" name="__codelineno-33-15" href="#__codelineno-33-15"></a>            <span class="k">await</span> <span class="n">asyncio</span><span class="o">.</span><span class="n">sleep</span><span class="p">(</span><span class="mi">60</span><span class="p">)</span>  <span class="c1"># Wait 1 minute</span>
+<a id="__codelineno-33-16" name="__codelineno-33-16" href="#__codelineno-33-16"></a>            <span class="k">return</span> <span class="k">await</span> <span class="n">fetch_with_rate_limit</span><span class="p">(</span><span class="n">authed</span><span class="p">,</span> <span class="n">username</span><span class="p">)</span>
+<a id="__codelineno-33-17" name="__codelineno-33-17" href="#__codelineno-33-17"></a>        <span class="k">raise</span>
 </code></pre></div>
 <hr />
 <h2 id="best-practices">Best Practices</h2>
 <h3 id="1-choose-the-right-proxy-type">1. Choose the Right Proxy Type</h3>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-35-1" name="__codelineno-35-1" href="#__codelineno-35-1"></a><span class="c1"># ✅ Best: SOCKS5 for privacy and performance</span>
-<a id="__codelineno-35-2" name="__codelineno-35-2" href="#__codelineno-35-2"></a><span class="n">proxy_url</span> <span class="o">=</span> <span class="s2">&quot;socks5://proxy.com:1080&quot;</span>
-<a id="__codelineno-35-3" name="__codelineno-35-3" href="#__codelineno-35-3"></a>
-<a id="__codelineno-35-4" name="__codelineno-35-4" href="#__codelineno-35-4"></a><span class="c1"># ✅ Good: HTTPS for encrypted traffic</span>
-<a id="__codelineno-35-5" name="__codelineno-35-5" href="#__codelineno-35-5"></a><span class="n">proxy_url</span> <span class="o">=</span> <span class="s2">&quot;https://proxy.com:8080&quot;</span>
-<a id="__codelineno-35-6" name="__codelineno-35-6" href="#__codelineno-35-6"></a>
-<a id="__codelineno-35-7" name="__codelineno-35-7" href="#__codelineno-35-7"></a><span class="c1"># ⚠️ OK: HTTP for basic needs</span>
-<a id="__codelineno-35-8" name="__codelineno-35-8" href="#__codelineno-35-8"></a><span class="n">proxy_url</span> <span class="o">=</span> <span class="s2">&quot;http://proxy.com:8080&quot;</span>
-<a id="__codelineno-35-9" name="__codelineno-35-9" href="#__codelineno-35-9"></a>
-<a id="__codelineno-35-10" name="__codelineno-35-10" href="#__codelineno-35-10"></a><span class="c1"># ❌ Avoid: SOCKS4 (no authentication, less secure)</span>
-<a id="__codelineno-35-11" name="__codelineno-35-11" href="#__codelineno-35-11"></a><span class="n">proxy_url</span> <span class="o">=</span> <span class="s2">&quot;socks4://proxy.com:1080&quot;</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-34-1" name="__codelineno-34-1" href="#__codelineno-34-1"></a><span class="c1"># ✅ Best: SOCKS5 for privacy and performance</span>
+<a id="__codelineno-34-2" name="__codelineno-34-2" href="#__codelineno-34-2"></a><span class="n">proxy_url</span> <span class="o">=</span> <span class="s2">&quot;socks5://proxy.com:1080&quot;</span>
+<a id="__codelineno-34-3" name="__codelineno-34-3" href="#__codelineno-34-3"></a>
+<a id="__codelineno-34-4" name="__codelineno-34-4" href="#__codelineno-34-4"></a><span class="c1"># ✅ Good: HTTPS for encrypted traffic</span>
+<a id="__codelineno-34-5" name="__codelineno-34-5" href="#__codelineno-34-5"></a><span class="n">proxy_url</span> <span class="o">=</span> <span class="s2">&quot;https://proxy.com:8080&quot;</span>
+<a id="__codelineno-34-6" name="__codelineno-34-6" href="#__codelineno-34-6"></a>
+<a id="__codelineno-34-7" name="__codelineno-34-7" href="#__codelineno-34-7"></a><span class="c1"># ⚠️ OK: HTTP for basic needs</span>
+<a id="__codelineno-34-8" name="__codelineno-34-8" href="#__codelineno-34-8"></a><span class="n">proxy_url</span> <span class="o">=</span> <span class="s2">&quot;http://proxy.com:8080&quot;</span>
+<a id="__codelineno-34-9" name="__codelineno-34-9" href="#__codelineno-34-9"></a>
+<a id="__codelineno-34-10" name="__codelineno-34-10" href="#__codelineno-34-10"></a><span class="c1"># ❌ Avoid: SOCKS4 (no authentication, less secure)</span>
+<a id="__codelineno-34-11" name="__codelineno-34-11" href="#__codelineno-34-11"></a><span class="n">proxy_url</span> <span class="o">=</span> <span class="s2">&quot;socks4://proxy.com:1080&quot;</span>
 </code></pre></div>
 <h3 id="2-implement-proxy-rotation">2. Implement Proxy Rotation</h3>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-36-1" name="__codelineno-36-1" href="#__codelineno-36-1"></a><span class="c1"># Rotate proxies to distribute load</span>
-<a id="__codelineno-36-2" name="__codelineno-36-2" href="#__codelineno-36-2"></a><span class="n">proxy_list</span> <span class="o">=</span> <span class="p">[</span>
-<a id="__codelineno-36-3" name="__codelineno-36-3" href="#__codelineno-36-3"></a>    <span class="s2">&quot;socks5://proxy1.com:1080&quot;</span><span class="p">,</span>
-<a id="__codelineno-36-4" name="__codelineno-36-4" href="#__codelineno-36-4"></a>    <span class="s2">&quot;socks5://proxy2.com:1080&quot;</span><span class="p">,</span>
-<a id="__codelineno-36-5" name="__codelineno-36-5" href="#__codelineno-36-5"></a>    <span class="s2">&quot;socks5://proxy3.com:1080&quot;</span><span class="p">,</span>
-<a id="__codelineno-36-6" name="__codelineno-36-6" href="#__codelineno-36-6"></a><span class="p">]</span>
-<a id="__codelineno-36-7" name="__codelineno-36-7" href="#__codelineno-36-7"></a>
-<a id="__codelineno-36-8" name="__codelineno-36-8" href="#__codelineno-36-8"></a><span class="kn">import</span><span class="w"> </span><span class="nn">random</span>
-<a id="__codelineno-36-9" name="__codelineno-36-9" href="#__codelineno-36-9"></a>
-<a id="__codelineno-36-10" name="__codelineno-36-10" href="#__codelineno-36-10"></a><span class="k">def</span><span class="w"> </span><span class="nf">get_random_proxy</span><span class="p">():</span>
-<a id="__codelineno-36-11" name="__codelineno-36-11" href="#__codelineno-36-11"></a>    <span class="k">return</span> <span class="n">random</span><span class="o">.</span><span class="n">choice</span><span class="p">(</span><span class="n">proxy_list</span><span class="p">)</span>
-<a id="__codelineno-36-12" name="__codelineno-36-12" href="#__codelineno-36-12"></a>
-<a id="__codelineno-36-13" name="__codelineno-36-13" href="#__codelineno-36-13"></a><span class="c1"># Use different proxy for each session</span>
-<a id="__codelineno-36-14" name="__codelineno-36-14" href="#__codelineno-36-14"></a><span class="n">proxy_url</span> <span class="o">=</span> <span class="n">get_random_proxy</span><span class="p">()</span>
-<a id="__codelineno-36-15" name="__codelineno-36-15" href="#__codelineno-36-15"></a><span class="n">config</span> <span class="o">=</span> <span class="n">UltimaScraperAPIConfig</span><span class="p">(</span>
-<a id="__codelineno-36-16" name="__codelineno-36-16" href="#__codelineno-36-16"></a>    <span class="n">network</span><span class="o">=</span><span class="n">Network</span><span class="p">(</span>
-<a id="__codelineno-36-17" name="__codelineno-36-17" href="#__codelineno-36-17"></a>        <span class="n">proxy</span><span class="o">=</span><span class="n">Proxy</span><span class="p">(</span><span class="n">http</span><span class="o">=</span><span class="n">proxy_url</span><span class="p">,</span> <span class="n">https</span><span class="o">=</span><span class="n">proxy_url</span><span class="p">)</span>
-<a id="__codelineno-36-18" name="__codelineno-36-18" href="#__codelineno-36-18"></a>    <span class="p">)</span>
-<a id="__codelineno-36-19" name="__codelineno-36-19" href="#__codelineno-36-19"></a><span class="p">)</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-35-1" name="__codelineno-35-1" href="#__codelineno-35-1"></a><span class="c1"># Rotate proxies to distribute load</span>
+<a id="__codelineno-35-2" name="__codelineno-35-2" href="#__codelineno-35-2"></a><span class="n">proxy_list</span> <span class="o">=</span> <span class="p">[</span>
+<a id="__codelineno-35-3" name="__codelineno-35-3" href="#__codelineno-35-3"></a>    <span class="s2">&quot;socks5://proxy1.com:1080&quot;</span><span class="p">,</span>
+<a id="__codelineno-35-4" name="__codelineno-35-4" href="#__codelineno-35-4"></a>    <span class="s2">&quot;socks5://proxy2.com:1080&quot;</span><span class="p">,</span>
+<a id="__codelineno-35-5" name="__codelineno-35-5" href="#__codelineno-35-5"></a>    <span class="s2">&quot;socks5://proxy3.com:1080&quot;</span><span class="p">,</span>
+<a id="__codelineno-35-6" name="__codelineno-35-6" href="#__codelineno-35-6"></a><span class="p">]</span>
+<a id="__codelineno-35-7" name="__codelineno-35-7" href="#__codelineno-35-7"></a>
+<a id="__codelineno-35-8" name="__codelineno-35-8" href="#__codelineno-35-8"></a><span class="kn">import</span><span class="w"> </span><span class="nn">random</span>
+<a id="__codelineno-35-9" name="__codelineno-35-9" href="#__codelineno-35-9"></a>
+<a id="__codelineno-35-10" name="__codelineno-35-10" href="#__codelineno-35-10"></a><span class="k">def</span><span class="w"> </span><span class="nf">get_random_proxy</span><span class="p">():</span>
+<a id="__codelineno-35-11" name="__codelineno-35-11" href="#__codelineno-35-11"></a>    <span class="k">return</span> <span class="n">random</span><span class="o">.</span><span class="n">choice</span><span class="p">(</span><span class="n">proxy_list</span><span class="p">)</span>
+<a id="__codelineno-35-12" name="__codelineno-35-12" href="#__codelineno-35-12"></a>
+<a id="__codelineno-35-13" name="__codelineno-35-13" href="#__codelineno-35-13"></a><span class="c1"># Use different proxy for each session</span>
+<a id="__codelineno-35-14" name="__codelineno-35-14" href="#__codelineno-35-14"></a><span class="n">proxy_url</span> <span class="o">=</span> <span class="n">get_random_proxy</span><span class="p">()</span>
+<a id="__codelineno-35-15" name="__codelineno-35-15" href="#__codelineno-35-15"></a><span class="n">config</span> <span class="o">=</span> <span class="n">UltimaScraperAPIConfig</span><span class="p">()</span>
+<a id="__codelineno-35-16" name="__codelineno-35-16" href="#__codelineno-35-16"></a><span class="n">config</span><span class="o">.</span><span class="n">settings</span><span class="o">.</span><span class="n">network</span><span class="o">.</span><span class="n">proxies</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">Proxy</span><span class="p">(</span><span class="n">url</span><span class="o">=</span><span class="n">proxy_url</span><span class="p">))</span>
 </code></pre></div>
 <h3 id="3-test-proxies-before-use">3. Test Proxies Before Use</h3>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-37-1" name="__codelineno-37-1" href="#__codelineno-37-1"></a><span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">validate_proxy</span><span class="p">(</span><span class="n">proxy_url</span><span class="p">):</span>
-<a id="__codelineno-37-2" name="__codelineno-37-2" href="#__codelineno-37-2"></a><span class="w">    </span><span class="sd">&quot;&quot;&quot;Test if proxy is working before using it&quot;&quot;&quot;</span>
-<a id="__codelineno-37-3" name="__codelineno-37-3" href="#__codelineno-37-3"></a>    <span class="k">try</span><span class="p">:</span>
-<a id="__codelineno-37-4" name="__codelineno-37-4" href="#__codelineno-37-4"></a>        <span class="kn">import</span><span class="w"> </span><span class="nn">aiohttp</span>
-<a id="__codelineno-37-5" name="__codelineno-37-5" href="#__codelineno-37-5"></a>        <span class="kn">from</span><span class="w"> </span><span class="nn">aiohttp_socks</span><span class="w"> </span><span class="kn">import</span> <span class="n">ProxyConnector</span>
-<a id="__codelineno-37-6" name="__codelineno-37-6" href="#__codelineno-37-6"></a>
-<a id="__codelineno-37-7" name="__codelineno-37-7" href="#__codelineno-37-7"></a>        <span class="n">connector</span> <span class="o">=</span> <span class="n">ProxyConnector</span><span class="o">.</span><span class="n">from_url</span><span class="p">(</span><span class="n">proxy_url</span><span class="p">)</span>
-<a id="__codelineno-37-8" name="__codelineno-37-8" href="#__codelineno-37-8"></a>        <span class="k">async</span> <span class="k">with</span> <span class="n">aiohttp</span><span class="o">.</span><span class="n">ClientSession</span><span class="p">(</span><span class="n">connector</span><span class="o">=</span><span class="n">connector</span><span class="p">)</span> <span class="k">as</span> <span class="n">session</span><span class="p">:</span>
-<a id="__codelineno-37-9" name="__codelineno-37-9" href="#__codelineno-37-9"></a>            <span class="k">async</span> <span class="k">with</span> <span class="n">session</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;https://httpbin.org/ip&quot;</span><span class="p">,</span> <span class="n">timeout</span><span class="o">=</span><span class="mi">10</span><span class="p">)</span> <span class="k">as</span> <span class="n">resp</span><span class="p">:</span>
-<a id="__codelineno-37-10" name="__codelineno-37-10" href="#__codelineno-37-10"></a>                <span class="k">if</span> <span class="n">resp</span><span class="o">.</span><span class="n">status</span> <span class="o">==</span> <span class="mi">200</span><span class="p">:</span>
-<a id="__codelineno-37-11" name="__codelineno-37-11" href="#__codelineno-37-11"></a>                    <span class="n">data</span> <span class="o">=</span> <span class="k">await</span> <span class="n">resp</span><span class="o">.</span><span class="n">json</span><span class="p">()</span>
-<a id="__codelineno-37-12" name="__codelineno-37-12" href="#__codelineno-37-12"></a>                    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;✓ Proxy working - IP: </span><span class="si">{</span><span class="n">data</span><span class="p">[</span><span class="s1">&#39;origin&#39;</span><span class="p">]</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
-<a id="__codelineno-37-13" name="__codelineno-37-13" href="#__codelineno-37-13"></a>                    <span class="k">return</span> <span class="kc">True</span>
-<a id="__codelineno-37-14" name="__codelineno-37-14" href="#__codelineno-37-14"></a>    <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
-<a id="__codelineno-37-15" name="__codelineno-37-15" href="#__codelineno-37-15"></a>        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;✗ Proxy failed: </span><span class="si">{</span><span class="n">e</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
-<a id="__codelineno-37-16" name="__codelineno-37-16" href="#__codelineno-37-16"></a>        <span class="k">return</span> <span class="kc">False</span>
-<a id="__codelineno-37-17" name="__codelineno-37-17" href="#__codelineno-37-17"></a>
-<a id="__codelineno-37-18" name="__codelineno-37-18" href="#__codelineno-37-18"></a><span class="c1"># Validate before using</span>
-<a id="__codelineno-37-19" name="__codelineno-37-19" href="#__codelineno-37-19"></a><span class="k">if</span> <span class="k">await</span> <span class="n">validate_proxy</span><span class="p">(</span><span class="n">proxy_url</span><span class="p">):</span>
-<a id="__codelineno-37-20" name="__codelineno-37-20" href="#__codelineno-37-20"></a>    <span class="n">config</span> <span class="o">=</span> <span class="n">UltimaScraperAPIConfig</span><span class="p">(</span>
-<a id="__codelineno-37-21" name="__codelineno-37-21" href="#__codelineno-37-21"></a>        <span class="n">network</span><span class="o">=</span><span class="n">Network</span><span class="p">(</span>
-<a id="__codelineno-37-22" name="__codelineno-37-22" href="#__codelineno-37-22"></a>            <span class="n">proxy</span><span class="o">=</span><span class="n">Proxy</span><span class="p">(</span><span class="n">http</span><span class="o">=</span><span class="n">proxy_url</span><span class="p">,</span> <span class="n">https</span><span class="o">=</span><span class="n">proxy_url</span><span class="p">)</span>
-<a id="__codelineno-37-23" name="__codelineno-37-23" href="#__codelineno-37-23"></a>        <span class="p">)</span>
-<a id="__codelineno-37-24" name="__codelineno-37-24" href="#__codelineno-37-24"></a>    <span class="p">)</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-36-1" name="__codelineno-36-1" href="#__codelineno-36-1"></a><span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">validate_proxy</span><span class="p">(</span><span class="n">proxy_url</span><span class="p">):</span>
+<a id="__codelineno-36-2" name="__codelineno-36-2" href="#__codelineno-36-2"></a><span class="w">    </span><span class="sd">&quot;&quot;&quot;Test if proxy is working before using it&quot;&quot;&quot;</span>
+<a id="__codelineno-36-3" name="__codelineno-36-3" href="#__codelineno-36-3"></a>    <span class="k">try</span><span class="p">:</span>
+<a id="__codelineno-36-4" name="__codelineno-36-4" href="#__codelineno-36-4"></a>        <span class="kn">import</span><span class="w"> </span><span class="nn">aiohttp</span>
+<a id="__codelineno-36-5" name="__codelineno-36-5" href="#__codelineno-36-5"></a>        <span class="kn">from</span><span class="w"> </span><span class="nn">aiohttp_socks</span><span class="w"> </span><span class="kn">import</span> <span class="n">ProxyConnector</span>
+<a id="__codelineno-36-6" name="__codelineno-36-6" href="#__codelineno-36-6"></a>
+<a id="__codelineno-36-7" name="__codelineno-36-7" href="#__codelineno-36-7"></a>        <span class="n">connector</span> <span class="o">=</span> <span class="n">ProxyConnector</span><span class="o">.</span><span class="n">from_url</span><span class="p">(</span><span class="n">proxy_url</span><span class="p">)</span>
+<a id="__codelineno-36-8" name="__codelineno-36-8" href="#__codelineno-36-8"></a>        <span class="k">async</span> <span class="k">with</span> <span class="n">aiohttp</span><span class="o">.</span><span class="n">ClientSession</span><span class="p">(</span><span class="n">connector</span><span class="o">=</span><span class="n">connector</span><span class="p">)</span> <span class="k">as</span> <span class="n">session</span><span class="p">:</span>
+<a id="__codelineno-36-9" name="__codelineno-36-9" href="#__codelineno-36-9"></a>            <span class="k">async</span> <span class="k">with</span> <span class="n">session</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;https://httpbin.org/ip&quot;</span><span class="p">,</span> <span class="n">timeout</span><span class="o">=</span><span class="mi">10</span><span class="p">)</span> <span class="k">as</span> <span class="n">resp</span><span class="p">:</span>
+<a id="__codelineno-36-10" name="__codelineno-36-10" href="#__codelineno-36-10"></a>                <span class="k">if</span> <span class="n">resp</span><span class="o">.</span><span class="n">status</span> <span class="o">==</span> <span class="mi">200</span><span class="p">:</span>
+<a id="__codelineno-36-11" name="__codelineno-36-11" href="#__codelineno-36-11"></a>                    <span class="n">data</span> <span class="o">=</span> <span class="k">await</span> <span class="n">resp</span><span class="o">.</span><span class="n">json</span><span class="p">()</span>
+<a id="__codelineno-36-12" name="__codelineno-36-12" href="#__codelineno-36-12"></a>                    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;✓ Proxy working - IP: </span><span class="si">{</span><span class="n">data</span><span class="p">[</span><span class="s1">&#39;origin&#39;</span><span class="p">]</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+<a id="__codelineno-36-13" name="__codelineno-36-13" href="#__codelineno-36-13"></a>                    <span class="k">return</span> <span class="kc">True</span>
+<a id="__codelineno-36-14" name="__codelineno-36-14" href="#__codelineno-36-14"></a>    <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+<a id="__codelineno-36-15" name="__codelineno-36-15" href="#__codelineno-36-15"></a>        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;✗ Proxy failed: </span><span class="si">{</span><span class="n">e</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+<a id="__codelineno-36-16" name="__codelineno-36-16" href="#__codelineno-36-16"></a>        <span class="k">return</span> <span class="kc">False</span>
+<a id="__codelineno-36-17" name="__codelineno-36-17" href="#__codelineno-36-17"></a>
+<a id="__codelineno-36-18" name="__codelineno-36-18" href="#__codelineno-36-18"></a><span class="c1"># Validate before using</span>
+<a id="__codelineno-36-19" name="__codelineno-36-19" href="#__codelineno-36-19"></a><span class="k">if</span> <span class="k">await</span> <span class="n">validate_proxy</span><span class="p">(</span><span class="n">proxy_url</span><span class="p">):</span>
+<a id="__codelineno-36-20" name="__codelineno-36-20" href="#__codelineno-36-20"></a>    <span class="n">config</span> <span class="o">=</span> <span class="n">UltimaScraperAPIConfig</span><span class="p">()</span>
+<a id="__codelineno-36-21" name="__codelineno-36-21" href="#__codelineno-36-21"></a>    <span class="n">config</span><span class="o">.</span><span class="n">settings</span><span class="o">.</span><span class="n">network</span><span class="o">.</span><span class="n">proxies</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">Proxy</span><span class="p">(</span><span class="n">url</span><span class="o">=</span><span class="n">proxy_url</span><span class="p">))</span>
 </code></pre></div>
 <h3 id="4-monitor-proxy-health">4. Monitor Proxy Health</h3>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-38-1" name="__codelineno-38-1" href="#__codelineno-38-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">collections</span><span class="w"> </span><span class="kn">import</span> <span class="n">defaultdict</span>
-<a id="__codelineno-38-2" name="__codelineno-38-2" href="#__codelineno-38-2"></a><span class="kn">import</span><span class="w"> </span><span class="nn">time</span>
-<a id="__codelineno-38-3" name="__codelineno-38-3" href="#__codelineno-38-3"></a>
-<a id="__codelineno-38-4" name="__codelineno-38-4" href="#__codelineno-38-4"></a><span class="k">class</span><span class="w"> </span><span class="nc">ProxyMonitor</span><span class="p">:</span>
-<a id="__codelineno-38-5" name="__codelineno-38-5" href="#__codelineno-38-5"></a>    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-<a id="__codelineno-38-6" name="__codelineno-38-6" href="#__codelineno-38-6"></a>        <span class="bp">self</span><span class="o">.</span><span class="n">stats</span> <span class="o">=</span> <span class="n">defaultdict</span><span class="p">(</span><span class="k">lambda</span><span class="p">:</span> <span class="p">{</span>
-<a id="__codelineno-38-7" name="__codelineno-38-7" href="#__codelineno-38-7"></a>            <span class="s2">&quot;requests&quot;</span><span class="p">:</span> <span class="mi">0</span><span class="p">,</span>
-<a id="__codelineno-38-8" name="__codelineno-38-8" href="#__codelineno-38-8"></a>            <span class="s2">&quot;failures&quot;</span><span class="p">:</span> <span class="mi">0</span><span class="p">,</span>
-<a id="__codelineno-38-9" name="__codelineno-38-9" href="#__codelineno-38-9"></a>            <span class="s2">&quot;total_time&quot;</span><span class="p">:</span> <span class="mi">0</span><span class="p">,</span>
-<a id="__codelineno-38-10" name="__codelineno-38-10" href="#__codelineno-38-10"></a>            <span class="s2">&quot;last_used&quot;</span><span class="p">:</span> <span class="kc">None</span>
-<a id="__codelineno-38-11" name="__codelineno-38-11" href="#__codelineno-38-11"></a>        <span class="p">})</span>
-<a id="__codelineno-38-12" name="__codelineno-38-12" href="#__codelineno-38-12"></a>
-<a id="__codelineno-38-13" name="__codelineno-38-13" href="#__codelineno-38-13"></a>    <span class="k">def</span><span class="w"> </span><span class="nf">record_request</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">proxy_url</span><span class="p">,</span> <span class="n">success</span><span class="p">,</span> <span class="n">elapsed_time</span><span class="p">):</span>
-<a id="__codelineno-38-14" name="__codelineno-38-14" href="#__codelineno-38-14"></a>        <span class="n">stats</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">stats</span><span class="p">[</span><span class="n">proxy_url</span><span class="p">]</span>
-<a id="__codelineno-38-15" name="__codelineno-38-15" href="#__codelineno-38-15"></a>        <span class="n">stats</span><span class="p">[</span><span class="s2">&quot;requests&quot;</span><span class="p">]</span> <span class="o">+=</span> <span class="mi">1</span>
-<a id="__codelineno-38-16" name="__codelineno-38-16" href="#__codelineno-38-16"></a>        <span class="k">if</span> <span class="ow">not</span> <span class="n">success</span><span class="p">:</span>
-<a id="__codelineno-38-17" name="__codelineno-38-17" href="#__codelineno-38-17"></a>            <span class="n">stats</span><span class="p">[</span><span class="s2">&quot;failures&quot;</span><span class="p">]</span> <span class="o">+=</span> <span class="mi">1</span>
-<a id="__codelineno-38-18" name="__codelineno-38-18" href="#__codelineno-38-18"></a>        <span class="n">stats</span><span class="p">[</span><span class="s2">&quot;total_time&quot;</span><span class="p">]</span> <span class="o">+=</span> <span class="n">elapsed_time</span>
-<a id="__codelineno-38-19" name="__codelineno-38-19" href="#__codelineno-38-19"></a>        <span class="n">stats</span><span class="p">[</span><span class="s2">&quot;last_used&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">time</span><span class="o">.</span><span class="n">time</span><span class="p">()</span>
-<a id="__codelineno-38-20" name="__codelineno-38-20" href="#__codelineno-38-20"></a>
-<a id="__codelineno-38-21" name="__codelineno-38-21" href="#__codelineno-38-21"></a>    <span class="k">def</span><span class="w"> </span><span class="nf">get_success_rate</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">proxy_url</span><span class="p">):</span>
-<a id="__codelineno-38-22" name="__codelineno-38-22" href="#__codelineno-38-22"></a>        <span class="n">stats</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">stats</span><span class="p">[</span><span class="n">proxy_url</span><span class="p">]</span>
-<a id="__codelineno-38-23" name="__codelineno-38-23" href="#__codelineno-38-23"></a>        <span class="k">if</span> <span class="n">stats</span><span class="p">[</span><span class="s2">&quot;requests&quot;</span><span class="p">]</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
-<a id="__codelineno-38-24" name="__codelineno-38-24" href="#__codelineno-38-24"></a>            <span class="k">return</span> <span class="mi">0</span>
-<a id="__codelineno-38-25" name="__codelineno-38-25" href="#__codelineno-38-25"></a>        <span class="k">return</span> <span class="p">(</span><span class="n">stats</span><span class="p">[</span><span class="s2">&quot;requests&quot;</span><span class="p">]</span> <span class="o">-</span> <span class="n">stats</span><span class="p">[</span><span class="s2">&quot;failures&quot;</span><span class="p">])</span> <span class="o">/</span> <span class="n">stats</span><span class="p">[</span><span class="s2">&quot;requests&quot;</span><span class="p">]</span>
-<a id="__codelineno-38-26" name="__codelineno-38-26" href="#__codelineno-38-26"></a>
-<a id="__codelineno-38-27" name="__codelineno-38-27" href="#__codelineno-38-27"></a>    <span class="k">def</span><span class="w"> </span><span class="nf">get_avg_response_time</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">proxy_url</span><span class="p">):</span>
-<a id="__codelineno-38-28" name="__codelineno-38-28" href="#__codelineno-38-28"></a>        <span class="n">stats</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">stats</span><span class="p">[</span><span class="n">proxy_url</span><span class="p">]</span>
-<a id="__codelineno-38-29" name="__codelineno-38-29" href="#__codelineno-38-29"></a>        <span class="k">if</span> <span class="n">stats</span><span class="p">[</span><span class="s2">&quot;requests&quot;</span><span class="p">]</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
-<a id="__codelineno-38-30" name="__codelineno-38-30" href="#__codelineno-38-30"></a>            <span class="k">return</span> <span class="mi">0</span>
-<a id="__codelineno-38-31" name="__codelineno-38-31" href="#__codelineno-38-31"></a>        <span class="k">return</span> <span class="n">stats</span><span class="p">[</span><span class="s2">&quot;total_time&quot;</span><span class="p">]</span> <span class="o">/</span> <span class="n">stats</span><span class="p">[</span><span class="s2">&quot;requests&quot;</span><span class="p">]</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-37-1" name="__codelineno-37-1" href="#__codelineno-37-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">collections</span><span class="w"> </span><span class="kn">import</span> <span class="n">defaultdict</span>
+<a id="__codelineno-37-2" name="__codelineno-37-2" href="#__codelineno-37-2"></a><span class="kn">import</span><span class="w"> </span><span class="nn">time</span>
+<a id="__codelineno-37-3" name="__codelineno-37-3" href="#__codelineno-37-3"></a>
+<a id="__codelineno-37-4" name="__codelineno-37-4" href="#__codelineno-37-4"></a><span class="k">class</span><span class="w"> </span><span class="nc">ProxyMonitor</span><span class="p">:</span>
+<a id="__codelineno-37-5" name="__codelineno-37-5" href="#__codelineno-37-5"></a>    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<a id="__codelineno-37-6" name="__codelineno-37-6" href="#__codelineno-37-6"></a>        <span class="bp">self</span><span class="o">.</span><span class="n">stats</span> <span class="o">=</span> <span class="n">defaultdict</span><span class="p">(</span><span class="k">lambda</span><span class="p">:</span> <span class="p">{</span>
+<a id="__codelineno-37-7" name="__codelineno-37-7" href="#__codelineno-37-7"></a>            <span class="s2">&quot;requests&quot;</span><span class="p">:</span> <span class="mi">0</span><span class="p">,</span>
+<a id="__codelineno-37-8" name="__codelineno-37-8" href="#__codelineno-37-8"></a>            <span class="s2">&quot;failures&quot;</span><span class="p">:</span> <span class="mi">0</span><span class="p">,</span>
+<a id="__codelineno-37-9" name="__codelineno-37-9" href="#__codelineno-37-9"></a>            <span class="s2">&quot;total_time&quot;</span><span class="p">:</span> <span class="mi">0</span><span class="p">,</span>
+<a id="__codelineno-37-10" name="__codelineno-37-10" href="#__codelineno-37-10"></a>            <span class="s2">&quot;last_used&quot;</span><span class="p">:</span> <span class="kc">None</span>
+<a id="__codelineno-37-11" name="__codelineno-37-11" href="#__codelineno-37-11"></a>        <span class="p">})</span>
+<a id="__codelineno-37-12" name="__codelineno-37-12" href="#__codelineno-37-12"></a>
+<a id="__codelineno-37-13" name="__codelineno-37-13" href="#__codelineno-37-13"></a>    <span class="k">def</span><span class="w"> </span><span class="nf">record_request</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">proxy_url</span><span class="p">,</span> <span class="n">success</span><span class="p">,</span> <span class="n">elapsed_time</span><span class="p">):</span>
+<a id="__codelineno-37-14" name="__codelineno-37-14" href="#__codelineno-37-14"></a>        <span class="n">stats</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">stats</span><span class="p">[</span><span class="n">proxy_url</span><span class="p">]</span>
+<a id="__codelineno-37-15" name="__codelineno-37-15" href="#__codelineno-37-15"></a>        <span class="n">stats</span><span class="p">[</span><span class="s2">&quot;requests&quot;</span><span class="p">]</span> <span class="o">+=</span> <span class="mi">1</span>
+<a id="__codelineno-37-16" name="__codelineno-37-16" href="#__codelineno-37-16"></a>        <span class="k">if</span> <span class="ow">not</span> <span class="n">success</span><span class="p">:</span>
+<a id="__codelineno-37-17" name="__codelineno-37-17" href="#__codelineno-37-17"></a>            <span class="n">stats</span><span class="p">[</span><span class="s2">&quot;failures&quot;</span><span class="p">]</span> <span class="o">+=</span> <span class="mi">1</span>
+<a id="__codelineno-37-18" name="__codelineno-37-18" href="#__codelineno-37-18"></a>        <span class="n">stats</span><span class="p">[</span><span class="s2">&quot;total_time&quot;</span><span class="p">]</span> <span class="o">+=</span> <span class="n">elapsed_time</span>
+<a id="__codelineno-37-19" name="__codelineno-37-19" href="#__codelineno-37-19"></a>        <span class="n">stats</span><span class="p">[</span><span class="s2">&quot;last_used&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">time</span><span class="o">.</span><span class="n">time</span><span class="p">()</span>
+<a id="__codelineno-37-20" name="__codelineno-37-20" href="#__codelineno-37-20"></a>
+<a id="__codelineno-37-21" name="__codelineno-37-21" href="#__codelineno-37-21"></a>    <span class="k">def</span><span class="w"> </span><span class="nf">get_success_rate</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">proxy_url</span><span class="p">):</span>
+<a id="__codelineno-37-22" name="__codelineno-37-22" href="#__codelineno-37-22"></a>        <span class="n">stats</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">stats</span><span class="p">[</span><span class="n">proxy_url</span><span class="p">]</span>
+<a id="__codelineno-37-23" name="__codelineno-37-23" href="#__codelineno-37-23"></a>        <span class="k">if</span> <span class="n">stats</span><span class="p">[</span><span class="s2">&quot;requests&quot;</span><span class="p">]</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+<a id="__codelineno-37-24" name="__codelineno-37-24" href="#__codelineno-37-24"></a>            <span class="k">return</span> <span class="mi">0</span>
+<a id="__codelineno-37-25" name="__codelineno-37-25" href="#__codelineno-37-25"></a>        <span class="k">return</span> <span class="p">(</span><span class="n">stats</span><span class="p">[</span><span class="s2">&quot;requests&quot;</span><span class="p">]</span> <span class="o">-</span> <span class="n">stats</span><span class="p">[</span><span class="s2">&quot;failures&quot;</span><span class="p">])</span> <span class="o">/</span> <span class="n">stats</span><span class="p">[</span><span class="s2">&quot;requests&quot;</span><span class="p">]</span>
+<a id="__codelineno-37-26" name="__codelineno-37-26" href="#__codelineno-37-26"></a>
+<a id="__codelineno-37-27" name="__codelineno-37-27" href="#__codelineno-37-27"></a>    <span class="k">def</span><span class="w"> </span><span class="nf">get_avg_response_time</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">proxy_url</span><span class="p">):</span>
+<a id="__codelineno-37-28" name="__codelineno-37-28" href="#__codelineno-37-28"></a>        <span class="n">stats</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">stats</span><span class="p">[</span><span class="n">proxy_url</span><span class="p">]</span>
+<a id="__codelineno-37-29" name="__codelineno-37-29" href="#__codelineno-37-29"></a>        <span class="k">if</span> <span class="n">stats</span><span class="p">[</span><span class="s2">&quot;requests&quot;</span><span class="p">]</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+<a id="__codelineno-37-30" name="__codelineno-37-30" href="#__codelineno-37-30"></a>            <span class="k">return</span> <span class="mi">0</span>
+<a id="__codelineno-37-31" name="__codelineno-37-31" href="#__codelineno-37-31"></a>        <span class="k">return</span> <span class="n">stats</span><span class="p">[</span><span class="s2">&quot;total_time&quot;</span><span class="p">]</span> <span class="o">/</span> <span class="n">stats</span><span class="p">[</span><span class="s2">&quot;requests&quot;</span><span class="p">]</span>
 </code></pre></div>
 <h3 id="5-secure-credential-storage">5. Secure Credential Storage</h3>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-39-1" name="__codelineno-39-1" href="#__codelineno-39-1"></a><span class="c1"># ❌ BAD: Hardcoded credentials</span>
-<a id="__codelineno-39-2" name="__codelineno-39-2" href="#__codelineno-39-2"></a><span class="n">proxy_url</span> <span class="o">=</span> <span class="s2">&quot;socks5://myuser:mypassword@proxy.com:1080&quot;</span>
-<a id="__codelineno-39-3" name="__codelineno-39-3" href="#__codelineno-39-3"></a>
-<a id="__codelineno-39-4" name="__codelineno-39-4" href="#__codelineno-39-4"></a><span class="c1"># ✅ GOOD: Environment variables</span>
-<a id="__codelineno-39-5" name="__codelineno-39-5" href="#__codelineno-39-5"></a><span class="kn">import</span><span class="w"> </span><span class="nn">os</span>
-<a id="__codelineno-39-6" name="__codelineno-39-6" href="#__codelineno-39-6"></a><span class="n">proxy_user</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">getenv</span><span class="p">(</span><span class="s2">&quot;PROXY_USER&quot;</span><span class="p">)</span>
-<a id="__codelineno-39-7" name="__codelineno-39-7" href="#__codelineno-39-7"></a><span class="n">proxy_pass</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">getenv</span><span class="p">(</span><span class="s2">&quot;PROXY_PASS&quot;</span><span class="p">)</span>
-<a id="__codelineno-39-8" name="__codelineno-39-8" href="#__codelineno-39-8"></a><span class="n">proxy_url</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;socks5://</span><span class="si">{</span><span class="n">proxy_user</span><span class="si">}</span><span class="s2">:</span><span class="si">{</span><span class="n">proxy_pass</span><span class="si">}</span><span class="s2">@proxy.com:1080&quot;</span>
-<a id="__codelineno-39-9" name="__codelineno-39-9" href="#__codelineno-39-9"></a>
-<a id="__codelineno-39-10" name="__codelineno-39-10" href="#__codelineno-39-10"></a><span class="c1"># ✅ BETTER: Use keyring</span>
-<a id="__codelineno-39-11" name="__codelineno-39-11" href="#__codelineno-39-11"></a><span class="kn">import</span><span class="w"> </span><span class="nn">keyring</span>
-<a id="__codelineno-39-12" name="__codelineno-39-12" href="#__codelineno-39-12"></a><span class="n">proxy_pass</span> <span class="o">=</span> <span class="n">keyring</span><span class="o">.</span><span class="n">get_password</span><span class="p">(</span><span class="s2">&quot;proxy&quot;</span><span class="p">,</span> <span class="s2">&quot;myuser&quot;</span><span class="p">)</span>
-<a id="__codelineno-39-13" name="__codelineno-39-13" href="#__codelineno-39-13"></a><span class="n">proxy_url</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;socks5://myuser:</span><span class="si">{</span><span class="n">proxy_pass</span><span class="si">}</span><span class="s2">@proxy.com:1080&quot;</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-38-1" name="__codelineno-38-1" href="#__codelineno-38-1"></a><span class="c1"># ❌ BAD: Hardcoded credentials</span>
+<a id="__codelineno-38-2" name="__codelineno-38-2" href="#__codelineno-38-2"></a><span class="n">proxy_url</span> <span class="o">=</span> <span class="s2">&quot;socks5://myuser:mypassword@proxy.com:1080&quot;</span>
+<a id="__codelineno-38-3" name="__codelineno-38-3" href="#__codelineno-38-3"></a>
+<a id="__codelineno-38-4" name="__codelineno-38-4" href="#__codelineno-38-4"></a><span class="c1"># ✅ GOOD: Environment variables</span>
+<a id="__codelineno-38-5" name="__codelineno-38-5" href="#__codelineno-38-5"></a><span class="kn">import</span><span class="w"> </span><span class="nn">os</span>
+<a id="__codelineno-38-6" name="__codelineno-38-6" href="#__codelineno-38-6"></a><span class="n">proxy_user</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">getenv</span><span class="p">(</span><span class="s2">&quot;PROXY_USER&quot;</span><span class="p">)</span>
+<a id="__codelineno-38-7" name="__codelineno-38-7" href="#__codelineno-38-7"></a><span class="n">proxy_pass</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">getenv</span><span class="p">(</span><span class="s2">&quot;PROXY_PASS&quot;</span><span class="p">)</span>
+<a id="__codelineno-38-8" name="__codelineno-38-8" href="#__codelineno-38-8"></a><span class="n">proxy_url</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;socks5://</span><span class="si">{</span><span class="n">proxy_user</span><span class="si">}</span><span class="s2">:</span><span class="si">{</span><span class="n">proxy_pass</span><span class="si">}</span><span class="s2">@proxy.com:1080&quot;</span>
+<a id="__codelineno-38-9" name="__codelineno-38-9" href="#__codelineno-38-9"></a>
+<a id="__codelineno-38-10" name="__codelineno-38-10" href="#__codelineno-38-10"></a><span class="c1"># ✅ BETTER: Use keyring</span>
+<a id="__codelineno-38-11" name="__codelineno-38-11" href="#__codelineno-38-11"></a><span class="kn">import</span><span class="w"> </span><span class="nn">keyring</span>
+<a id="__codelineno-38-12" name="__codelineno-38-12" href="#__codelineno-38-12"></a><span class="n">proxy_pass</span> <span class="o">=</span> <span class="n">keyring</span><span class="o">.</span><span class="n">get_password</span><span class="p">(</span><span class="s2">&quot;proxy&quot;</span><span class="p">,</span> <span class="s2">&quot;myuser&quot;</span><span class="p">)</span>
+<a id="__codelineno-38-13" name="__codelineno-38-13" href="#__codelineno-38-13"></a><span class="n">proxy_url</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;socks5://myuser:</span><span class="si">{</span><span class="n">proxy_pass</span><span class="si">}</span><span class="s2">@proxy.com:1080&quot;</span>
 </code></pre></div>
 <h3 id="6-implement-fallback-strategy">6. Implement Fallback Strategy</h3>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-40-1" name="__codelineno-40-1" href="#__codelineno-40-1"></a><span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">fetch_with_fallback</span><span class="p">(</span><span class="n">authed</span><span class="p">,</span> <span class="n">username</span><span class="p">):</span>
-<a id="__codelineno-40-2" name="__codelineno-40-2" href="#__codelineno-40-2"></a><span class="w">    </span><span class="sd">&quot;&quot;&quot;Try proxy first, fallback to direct connection&quot;&quot;&quot;</span>
-<a id="__codelineno-40-3" name="__codelineno-40-3" href="#__codelineno-40-3"></a>    <span class="n">proxies</span> <span class="o">=</span> <span class="p">[</span>
-<a id="__codelineno-40-4" name="__codelineno-40-4" href="#__codelineno-40-4"></a>        <span class="s2">&quot;socks5://proxy1.com:1080&quot;</span><span class="p">,</span>
-<a id="__codelineno-40-5" name="__codelineno-40-5" href="#__codelineno-40-5"></a>        <span class="s2">&quot;socks5://proxy2.com:1080&quot;</span><span class="p">,</span>
-<a id="__codelineno-40-6" name="__codelineno-40-6" href="#__codelineno-40-6"></a>        <span class="kc">None</span><span class="p">,</span>  <span class="c1"># Direct connection as last resort</span>
-<a id="__codelineno-40-7" name="__codelineno-40-7" href="#__codelineno-40-7"></a>    <span class="p">]</span>
-<a id="__codelineno-40-8" name="__codelineno-40-8" href="#__codelineno-40-8"></a>
-<a id="__codelineno-40-9" name="__codelineno-40-9" href="#__codelineno-40-9"></a>    <span class="k">for</span> <span class="n">proxy_url</span> <span class="ow">in</span> <span class="n">proxies</span><span class="p">:</span>
-<a id="__codelineno-40-10" name="__codelineno-40-10" href="#__codelineno-40-10"></a>        <span class="k">try</span><span class="p">:</span>
-<a id="__codelineno-40-11" name="__codelineno-40-11" href="#__codelineno-40-11"></a>            <span class="k">if</span> <span class="n">proxy_url</span><span class="p">:</span>
-<a id="__codelineno-40-12" name="__codelineno-40-12" href="#__codelineno-40-12"></a>                <span class="n">config</span> <span class="o">=</span> <span class="n">UltimaScraperAPIConfig</span><span class="p">(</span>
-<a id="__codelineno-40-13" name="__codelineno-40-13" href="#__codelineno-40-13"></a>                    <span class="n">network</span><span class="o">=</span><span class="n">Network</span><span class="p">(</span>
-<a id="__codelineno-40-14" name="__codelineno-40-14" href="#__codelineno-40-14"></a>                        <span class="n">proxy</span><span class="o">=</span><span class="n">Proxy</span><span class="p">(</span><span class="n">http</span><span class="o">=</span><span class="n">proxy_url</span><span class="p">,</span> <span class="n">https</span><span class="o">=</span><span class="n">proxy_url</span><span class="p">)</span>
-<a id="__codelineno-40-15" name="__codelineno-40-15" href="#__codelineno-40-15"></a>                    <span class="p">)</span>
-<a id="__codelineno-40-16" name="__codelineno-40-16" href="#__codelineno-40-16"></a>                <span class="p">)</span>
-<a id="__codelineno-40-17" name="__codelineno-40-17" href="#__codelineno-40-17"></a>                <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Trying proxy: </span><span class="si">{</span><span class="n">proxy_url</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
-<a id="__codelineno-40-18" name="__codelineno-40-18" href="#__codelineno-40-18"></a>            <span class="k">else</span><span class="p">:</span>
-<a id="__codelineno-40-19" name="__codelineno-40-19" href="#__codelineno-40-19"></a>                <span class="n">config</span> <span class="o">=</span> <span class="n">UltimaScraperAPIConfig</span><span class="p">()</span>
-<a id="__codelineno-40-20" name="__codelineno-40-20" href="#__codelineno-40-20"></a>                <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Trying direct connection&quot;</span><span class="p">)</span>
-<a id="__codelineno-40-21" name="__codelineno-40-21" href="#__codelineno-40-21"></a>
-<a id="__codelineno-40-22" name="__codelineno-40-22" href="#__codelineno-40-22"></a>            <span class="n">api</span> <span class="o">=</span> <span class="n">OnlyFansAPI</span><span class="p">(</span><span class="n">config</span><span class="p">)</span>
-<a id="__codelineno-40-23" name="__codelineno-40-23" href="#__codelineno-40-23"></a>            <span class="k">async</span> <span class="k">with</span> <span class="n">api</span><span class="o">.</span><span class="n">login_context</span><span class="p">(</span><span class="n">auth_json</span><span class="p">)</span> <span class="k">as</span> <span class="n">authed</span><span class="p">:</span>
-<a id="__codelineno-40-24" name="__codelineno-40-24" href="#__codelineno-40-24"></a>                <span class="n">user</span> <span class="o">=</span> <span class="k">await</span> <span class="n">authed</span><span class="o">.</span><span class="n">get_user</span><span class="p">(</span><span class="n">username</span><span class="p">)</span>
-<a id="__codelineno-40-25" name="__codelineno-40-25" href="#__codelineno-40-25"></a>                <span class="k">return</span> <span class="n">user</span>
-<a id="__codelineno-40-26" name="__codelineno-40-26" href="#__codelineno-40-26"></a>
-<a id="__codelineno-40-27" name="__codelineno-40-27" href="#__codelineno-40-27"></a>        <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
-<a id="__codelineno-40-28" name="__codelineno-40-28" href="#__codelineno-40-28"></a>            <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Failed: </span><span class="si">{</span><span class="n">e</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
-<a id="__codelineno-40-29" name="__codelineno-40-29" href="#__codelineno-40-29"></a>            <span class="k">continue</span>
-<a id="__codelineno-40-30" name="__codelineno-40-30" href="#__codelineno-40-30"></a>
-<a id="__codelineno-40-31" name="__codelineno-40-31" href="#__codelineno-40-31"></a>    <span class="k">raise</span> <span class="ne">Exception</span><span class="p">(</span><span class="s2">&quot;All connection methods failed&quot;</span><span class="p">)</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-39-1" name="__codelineno-39-1" href="#__codelineno-39-1"></a><span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">fetch_with_fallback</span><span class="p">(</span><span class="n">authed</span><span class="p">,</span> <span class="n">username</span><span class="p">):</span>
+<a id="__codelineno-39-2" name="__codelineno-39-2" href="#__codelineno-39-2"></a><span class="w">    </span><span class="sd">&quot;&quot;&quot;Try proxy first, fallback to direct connection&quot;&quot;&quot;</span>
+<a id="__codelineno-39-3" name="__codelineno-39-3" href="#__codelineno-39-3"></a>    <span class="n">proxies</span> <span class="o">=</span> <span class="p">[</span>
+<a id="__codelineno-39-4" name="__codelineno-39-4" href="#__codelineno-39-4"></a>        <span class="s2">&quot;socks5://proxy1.com:1080&quot;</span><span class="p">,</span>
+<a id="__codelineno-39-5" name="__codelineno-39-5" href="#__codelineno-39-5"></a>        <span class="s2">&quot;socks5://proxy2.com:1080&quot;</span><span class="p">,</span>
+<a id="__codelineno-39-6" name="__codelineno-39-6" href="#__codelineno-39-6"></a>        <span class="kc">None</span><span class="p">,</span>  <span class="c1"># Direct connection as last resort</span>
+<a id="__codelineno-39-7" name="__codelineno-39-7" href="#__codelineno-39-7"></a>    <span class="p">]</span>
+<a id="__codelineno-39-8" name="__codelineno-39-8" href="#__codelineno-39-8"></a>
+<a id="__codelineno-39-9" name="__codelineno-39-9" href="#__codelineno-39-9"></a>    <span class="k">for</span> <span class="n">proxy_url</span> <span class="ow">in</span> <span class="n">proxies</span><span class="p">:</span>
+<a id="__codelineno-39-10" name="__codelineno-39-10" href="#__codelineno-39-10"></a>        <span class="k">try</span><span class="p">:</span>
+<a id="__codelineno-39-11" name="__codelineno-39-11" href="#__codelineno-39-11"></a>            <span class="k">if</span> <span class="n">proxy_url</span><span class="p">:</span>
+<a id="__codelineno-39-12" name="__codelineno-39-12" href="#__codelineno-39-12"></a>                <span class="n">config</span> <span class="o">=</span> <span class="n">UltimaScraperAPIConfig</span><span class="p">()</span>
+<a id="__codelineno-39-13" name="__codelineno-39-13" href="#__codelineno-39-13"></a>                <span class="n">config</span><span class="o">.</span><span class="n">settings</span><span class="o">.</span><span class="n">network</span><span class="o">.</span><span class="n">proxies</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">Proxy</span><span class="p">(</span><span class="n">url</span><span class="o">=</span><span class="n">proxy_url</span><span class="p">))</span>
+<a id="__codelineno-39-14" name="__codelineno-39-14" href="#__codelineno-39-14"></a>                <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Trying proxy: </span><span class="si">{</span><span class="n">proxy_url</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+<a id="__codelineno-39-15" name="__codelineno-39-15" href="#__codelineno-39-15"></a>            <span class="k">else</span><span class="p">:</span>
+<a id="__codelineno-39-16" name="__codelineno-39-16" href="#__codelineno-39-16"></a>                <span class="n">config</span> <span class="o">=</span> <span class="n">UltimaScraperAPIConfig</span><span class="p">()</span>
+<a id="__codelineno-39-17" name="__codelineno-39-17" href="#__codelineno-39-17"></a>                <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Trying direct connection&quot;</span><span class="p">)</span>
+<a id="__codelineno-39-18" name="__codelineno-39-18" href="#__codelineno-39-18"></a>
+<a id="__codelineno-39-19" name="__codelineno-39-19" href="#__codelineno-39-19"></a>            <span class="n">api</span> <span class="o">=</span> <span class="n">OnlyFansAPI</span><span class="p">(</span><span class="n">config</span><span class="p">)</span>
+<a id="__codelineno-39-20" name="__codelineno-39-20" href="#__codelineno-39-20"></a>            <span class="k">async</span> <span class="k">with</span> <span class="n">api</span><span class="o">.</span><span class="n">login_context</span><span class="p">(</span><span class="n">auth_json</span><span class="p">)</span> <span class="k">as</span> <span class="n">authed</span><span class="p">:</span>
+<a id="__codelineno-39-21" name="__codelineno-39-21" href="#__codelineno-39-21"></a>                <span class="n">user</span> <span class="o">=</span> <span class="k">await</span> <span class="n">authed</span><span class="o">.</span><span class="n">get_user</span><span class="p">(</span><span class="n">username</span><span class="p">)</span>
+<a id="__codelineno-39-22" name="__codelineno-39-22" href="#__codelineno-39-22"></a>                <span class="k">return</span> <span class="n">user</span>
+<a id="__codelineno-39-23" name="__codelineno-39-23" href="#__codelineno-39-23"></a>
+<a id="__codelineno-39-24" name="__codelineno-39-24" href="#__codelineno-39-24"></a>        <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+<a id="__codelineno-39-25" name="__codelineno-39-25" href="#__codelineno-39-25"></a>            <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Failed: </span><span class="si">{</span><span class="n">e</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+<a id="__codelineno-39-26" name="__codelineno-39-26" href="#__codelineno-39-26"></a>            <span class="k">continue</span>
+<a id="__codelineno-39-27" name="__codelineno-39-27" href="#__codelineno-39-27"></a>
+<a id="__codelineno-39-28" name="__codelineno-39-28" href="#__codelineno-39-28"></a>    <span class="k">raise</span> <span class="ne">Exception</span><span class="p">(</span><span class="s2">&quot;All connection methods failed&quot;</span><span class="p">)</span>
 </code></pre></div>
 <h3 id="7-log-proxy-usage">7. Log Proxy Usage</h3>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-41-1" name="__codelineno-41-1" href="#__codelineno-41-1"></a><span class="kn">import</span><span class="w"> </span><span class="nn">logging</span>
-<a id="__codelineno-41-2" name="__codelineno-41-2" href="#__codelineno-41-2"></a>
-<a id="__codelineno-41-3" name="__codelineno-41-3" href="#__codelineno-41-3"></a><span class="n">logging</span><span class="o">.</span><span class="n">basicConfig</span><span class="p">(</span><span class="n">level</span><span class="o">=</span><span class="n">logging</span><span class="o">.</span><span class="n">INFO</span><span class="p">)</span>
-<a id="__codelineno-41-4" name="__codelineno-41-4" href="#__codelineno-41-4"></a><span class="n">logger</span> <span class="o">=</span> <span class="n">logging</span><span class="o">.</span><span class="n">getLogger</span><span class="p">(</span><span class="vm">__name__</span><span class="p">)</span>
-<a id="__codelineno-41-5" name="__codelineno-41-5" href="#__codelineno-41-5"></a>
-<a id="__codelineno-41-6" name="__codelineno-41-6" href="#__codelineno-41-6"></a><span class="c1"># Log proxy configuration</span>
-<a id="__codelineno-41-7" name="__codelineno-41-7" href="#__codelineno-41-7"></a><span class="n">proxy_url</span> <span class="o">=</span> <span class="s2">&quot;socks5://proxy.com:1080&quot;</span>
-<a id="__codelineno-41-8" name="__codelineno-41-8" href="#__codelineno-41-8"></a><span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Configuring proxy: </span><span class="si">{</span><span class="n">proxy_url</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
-<a id="__codelineno-41-9" name="__codelineno-41-9" href="#__codelineno-41-9"></a>
-<a id="__codelineno-41-10" name="__codelineno-41-10" href="#__codelineno-41-10"></a><span class="n">config</span> <span class="o">=</span> <span class="n">UltimaScraperAPIConfig</span><span class="p">(</span>
-<a id="__codelineno-41-11" name="__codelineno-41-11" href="#__codelineno-41-11"></a>    <span class="n">network</span><span class="o">=</span><span class="n">Network</span><span class="p">(</span>
-<a id="__codelineno-41-12" name="__codelineno-41-12" href="#__codelineno-41-12"></a>        <span class="n">proxy</span><span class="o">=</span><span class="n">Proxy</span><span class="p">(</span><span class="n">http</span><span class="o">=</span><span class="n">proxy_url</span><span class="p">,</span> <span class="n">https</span><span class="o">=</span><span class="n">proxy_url</span><span class="p">)</span>
-<a id="__codelineno-41-13" name="__codelineno-41-13" href="#__codelineno-41-13"></a>    <span class="p">)</span>
-<a id="__codelineno-41-14" name="__codelineno-41-14" href="#__codelineno-41-14"></a><span class="p">)</span>
-<a id="__codelineno-41-15" name="__codelineno-41-15" href="#__codelineno-41-15"></a>
-<a id="__codelineno-41-16" name="__codelineno-41-16" href="#__codelineno-41-16"></a><span class="c1"># Log requests</span>
-<a id="__codelineno-41-17" name="__codelineno-41-17" href="#__codelineno-41-17"></a><span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Making request through proxy&quot;</span><span class="p">)</span>
-<a id="__codelineno-41-18" name="__codelineno-41-18" href="#__codelineno-41-18"></a><span class="c1"># ... make request ...</span>
-<a id="__codelineno-41-19" name="__codelineno-41-19" href="#__codelineno-41-19"></a><span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Request completed successfully&quot;</span><span class="p">)</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-40-1" name="__codelineno-40-1" href="#__codelineno-40-1"></a><span class="kn">import</span><span class="w"> </span><span class="nn">logging</span>
+<a id="__codelineno-40-2" name="__codelineno-40-2" href="#__codelineno-40-2"></a>
+<a id="__codelineno-40-3" name="__codelineno-40-3" href="#__codelineno-40-3"></a><span class="n">logging</span><span class="o">.</span><span class="n">basicConfig</span><span class="p">(</span><span class="n">level</span><span class="o">=</span><span class="n">logging</span><span class="o">.</span><span class="n">INFO</span><span class="p">)</span>
+<a id="__codelineno-40-4" name="__codelineno-40-4" href="#__codelineno-40-4"></a><span class="n">logger</span> <span class="o">=</span> <span class="n">logging</span><span class="o">.</span><span class="n">getLogger</span><span class="p">(</span><span class="vm">__name__</span><span class="p">)</span>
+<a id="__codelineno-40-5" name="__codelineno-40-5" href="#__codelineno-40-5"></a>
+<a id="__codelineno-40-6" name="__codelineno-40-6" href="#__codelineno-40-6"></a><span class="c1"># Log proxy configuration</span>
+<a id="__codelineno-40-7" name="__codelineno-40-7" href="#__codelineno-40-7"></a><span class="n">proxy_url</span> <span class="o">=</span> <span class="s2">&quot;socks5://proxy.com:1080&quot;</span>
+<a id="__codelineno-40-8" name="__codelineno-40-8" href="#__codelineno-40-8"></a><span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Configuring proxy: </span><span class="si">{</span><span class="n">proxy_url</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+<a id="__codelineno-40-9" name="__codelineno-40-9" href="#__codelineno-40-9"></a>
+<a id="__codelineno-40-10" name="__codelineno-40-10" href="#__codelineno-40-10"></a><span class="n">config</span> <span class="o">=</span> <span class="n">UltimaScraperAPIConfig</span><span class="p">()</span>
+<a id="__codelineno-40-11" name="__codelineno-40-11" href="#__codelineno-40-11"></a><span class="n">config</span><span class="o">.</span><span class="n">settings</span><span class="o">.</span><span class="n">network</span><span class="o">.</span><span class="n">proxies</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">Proxy</span><span class="p">(</span><span class="n">url</span><span class="o">=</span><span class="n">proxy_url</span><span class="p">))</span>
+<a id="__codelineno-40-12" name="__codelineno-40-12" href="#__codelineno-40-12"></a>
+<a id="__codelineno-40-13" name="__codelineno-40-13" href="#__codelineno-40-13"></a><span class="c1"># Log requests</span>
+<a id="__codelineno-40-14" name="__codelineno-40-14" href="#__codelineno-40-14"></a><span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Making request through proxy&quot;</span><span class="p">)</span>
+<a id="__codelineno-40-15" name="__codelineno-40-15" href="#__codelineno-40-15"></a><span class="c1"># ... make request ...</span>
+<a id="__codelineno-40-16" name="__codelineno-40-16" href="#__codelineno-40-16"></a><span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Request completed successfully&quot;</span><span class="p">)</span>
 </code></pre></div>
 <h3 id="8-use-residential-proxies-for-better-success">8. Use Residential Proxies for Better Success</h3>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-42-1" name="__codelineno-42-1" href="#__codelineno-42-1"></a><span class="c1"># Datacenter proxy (may be detected)</span>
-<a id="__codelineno-42-2" name="__codelineno-42-2" href="#__codelineno-42-2"></a><span class="n">datacenter_proxy</span> <span class="o">=</span> <span class="s2">&quot;socks5://datacenter-proxy.com:1080&quot;</span>
-<a id="__codelineno-42-3" name="__codelineno-42-3" href="#__codelineno-42-3"></a>
-<a id="__codelineno-42-4" name="__codelineno-42-4" href="#__codelineno-42-4"></a><span class="c1"># Residential proxy (better success rate, more expensive)</span>
-<a id="__codelineno-42-5" name="__codelineno-42-5" href="#__codelineno-42-5"></a><span class="n">residential_proxy</span> <span class="o">=</span> <span class="s2">&quot;socks5://residential-proxy.com:1080&quot;</span>
-<a id="__codelineno-42-6" name="__codelineno-42-6" href="#__codelineno-42-6"></a>
-<a id="__codelineno-42-7" name="__codelineno-42-7" href="#__codelineno-42-7"></a><span class="c1"># Choose based on your needs</span>
-<a id="__codelineno-42-8" name="__codelineno-42-8" href="#__codelineno-42-8"></a><span class="n">proxy_url</span> <span class="o">=</span> <span class="n">residential_proxy</span>  <span class="c1"># For production</span>
-<a id="__codelineno-42-9" name="__codelineno-42-9" href="#__codelineno-42-9"></a><span class="n">config</span> <span class="o">=</span> <span class="n">UltimaScraperAPIConfig</span><span class="p">(</span>
-<a id="__codelineno-42-10" name="__codelineno-42-10" href="#__codelineno-42-10"></a>    <span class="n">network</span><span class="o">=</span><span class="n">Network</span><span class="p">(</span>
-<a id="__codelineno-42-11" name="__codelineno-42-11" href="#__codelineno-42-11"></a>        <span class="n">proxy</span><span class="o">=</span><span class="n">Proxy</span><span class="p">(</span><span class="n">http</span><span class="o">=</span><span class="n">proxy_url</span><span class="p">,</span> <span class="n">https</span><span class="o">=</span><span class="n">proxy_url</span><span class="p">)</span>
-<a id="__codelineno-42-12" name="__codelineno-42-12" href="#__codelineno-42-12"></a>    <span class="p">)</span>
-<a id="__codelineno-42-13" name="__codelineno-42-13" href="#__codelineno-42-13"></a><span class="p">)</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-41-1" name="__codelineno-41-1" href="#__codelineno-41-1"></a><span class="c1"># Datacenter proxy (may be detected)</span>
+<a id="__codelineno-41-2" name="__codelineno-41-2" href="#__codelineno-41-2"></a><span class="n">datacenter_proxy</span> <span class="o">=</span> <span class="s2">&quot;socks5://datacenter-proxy.com:1080&quot;</span>
+<a id="__codelineno-41-3" name="__codelineno-41-3" href="#__codelineno-41-3"></a>
+<a id="__codelineno-41-4" name="__codelineno-41-4" href="#__codelineno-41-4"></a><span class="c1"># Residential proxy (better success rate, more expensive)</span>
+<a id="__codelineno-41-5" name="__codelineno-41-5" href="#__codelineno-41-5"></a><span class="n">residential_proxy</span> <span class="o">=</span> <span class="s2">&quot;socks5://residential-proxy.com:1080&quot;</span>
+<a id="__codelineno-41-6" name="__codelineno-41-6" href="#__codelineno-41-6"></a>
+<a id="__codelineno-41-7" name="__codelineno-41-7" href="#__codelineno-41-7"></a><span class="c1"># Choose based on your needs</span>
+<a id="__codelineno-41-8" name="__codelineno-41-8" href="#__codelineno-41-8"></a><span class="n">proxy_url</span> <span class="o">=</span> <span class="n">residential_proxy</span>  <span class="c1"># For production</span>
+<a id="__codelineno-41-9" name="__codelineno-41-9" href="#__codelineno-41-9"></a><span class="n">config</span> <span class="o">=</span> <span class="n">UltimaScraperAPIConfig</span><span class="p">()</span>
+<a id="__codelineno-41-10" name="__codelineno-41-10" href="#__codelineno-41-10"></a><span class="n">config</span><span class="o">.</span><span class="n">settings</span><span class="o">.</span><span class="n">network</span><span class="o">.</span><span class="n">proxies</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">Proxy</span><span class="p">(</span><span class="n">url</span><span class="o">=</span><span class="n">proxy_url</span><span class="p">))</span>
 </code></pre></div>
 <hr />
 <h2 id="related-documentation">Related Documentation</h2>

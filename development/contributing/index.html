@@ -5053,18 +5053,18 @@ Screenshots, mockups, or references to similar features.</p>
 <a id="__codelineno-46-2" name="__codelineno-46-2" href="#__codelineno-46-2"></a>
 <a id="__codelineno-46-3" name="__codelineno-46-3" href="#__codelineno-46-3"></a>```bash
 <a id="__codelineno-46-4" name="__codelineno-46-4" href="#__codelineno-46-4"></a># Install documentation dependencies
-<a id="__codelineno-46-5" name="__codelineno-46-5" href="#__codelineno-46-5"></a>pip install mkdocs-material
+<a id="__codelineno-46-5" name="__codelineno-46-5" href="#__codelineno-46-5"></a>uv sync --group dev
 <a id="__codelineno-46-6" name="__codelineno-46-6" href="#__codelineno-46-6"></a>
 <a id="__codelineno-46-7" name="__codelineno-46-7" href="#__codelineno-46-7"></a># Serve documentation locally
-<a id="__codelineno-46-8" name="__codelineno-46-8" href="#__codelineno-46-8"></a>mkdocs serve
+<a id="__codelineno-46-8" name="__codelineno-46-8" href="#__codelineno-46-8"></a>uv run mkdocs serve
 <a id="__codelineno-46-9" name="__codelineno-46-9" href="#__codelineno-46-9"></a>
-<a id="__codelineno-46-10" name="__codelineno-46-10" href="#__codelineno-46-10"></a># Open in browser: http://localhost:8000
+<a id="__codelineno-46-10" name="__codelineno-46-10" href="#__codelineno-46-10"></a># Open in browser: http://localhost:2110
 <a id="__codelineno-46-11" name="__codelineno-46-11" href="#__codelineno-46-11"></a>
 <a id="__codelineno-46-12" name="__codelineno-46-12" href="#__codelineno-46-12"></a># Build static site
-<a id="__codelineno-46-13" name="__codelineno-46-13" href="#__codelineno-46-13"></a>mkdocs build
+<a id="__codelineno-46-13" name="__codelineno-46-13" href="#__codelineno-46-13"></a>uv run mkdocs build
 <a id="__codelineno-46-14" name="__codelineno-46-14" href="#__codelineno-46-14"></a>
 <a id="__codelineno-46-15" name="__codelineno-46-15" href="#__codelineno-46-15"></a># Deploy to GitHub Pages (maintainers only)
-<a id="__codelineno-46-16" name="__codelineno-46-16" href="#__codelineno-46-16"></a>mkdocs gh-deploy
+<a id="__codelineno-46-16" name="__codelineno-46-16" href="#__codelineno-46-16"></a>uv run mkdocs gh-deploy
 </code></pre></div></p>
 <hr />
 <h2 id="commit-guidelines">Commit Guidelines</h2>

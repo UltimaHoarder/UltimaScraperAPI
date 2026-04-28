@@ -1604,6 +1604,75 @@
   
 </li>
       
+        <li class="md-nav__item">
+  <a href="#url-diagnostics-ultima_scraper_apihelpersurl_diagnostics" class="md-nav__link">
+    <span class="md-ellipsis">
+      URL Diagnostics (ultima_scraper_api.helpers.url_diagnostics)
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="URL Diagnostics (ultima_scraper_api.helpers.url_diagnostics)">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#diagnose_urlurl-str-urldiagnostics" class="md-nav__link">
+    <span class="md-ellipsis">
+      diagnose_url(url: str) -&gt; UrlDiagnostics
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#diagnose_download_failureurl-http_statusnone-urldiagnostics" class="md-nav__link">
+    <span class="md-ellipsis">
+      diagnose_download_failure(url, http_status=None) -&gt; UrlDiagnostics
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#decode_cloudfront_policypolicy_b64-str-cloudfrontpolicy" class="md-nav__link">
+    <span class="md-ellipsis">
+      decode_cloudfront_policy(policy_b64: str) -&gt; CloudFrontPolicy
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#is_onlyfans_cdn_urlurl-bool-is_fansly_cdn_urlurl-bool" class="md-nav__link">
+    <span class="md-ellipsis">
+      is_onlyfans_cdn_url(url) -&gt; bool / is_fansly_cdn_url(url) -&gt; bool
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#media-types-ultima_scraper_apihelpersmedia_types" class="md-nav__link">
+    <span class="md-ellipsis">
+      Media Types (ultima_scraper_api.helpers.media_types)
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#job-events-ultima_scraper_apijob_events" class="md-nav__link">
+    <span class="md-ellipsis">
+      Job Events (ultima_scraper_api.job_events)
+    </span>
+  </a>
+  
+</li>
+      
     </ul>
   
 </nav>
@@ -2601,6 +2670,75 @@
   
 </li>
       
+        <li class="md-nav__item">
+  <a href="#url-diagnostics-ultima_scraper_apihelpersurl_diagnostics" class="md-nav__link">
+    <span class="md-ellipsis">
+      URL Diagnostics (ultima_scraper_api.helpers.url_diagnostics)
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="URL Diagnostics (ultima_scraper_api.helpers.url_diagnostics)">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#diagnose_urlurl-str-urldiagnostics" class="md-nav__link">
+    <span class="md-ellipsis">
+      diagnose_url(url: str) -&gt; UrlDiagnostics
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#diagnose_download_failureurl-http_statusnone-urldiagnostics" class="md-nav__link">
+    <span class="md-ellipsis">
+      diagnose_download_failure(url, http_status=None) -&gt; UrlDiagnostics
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#decode_cloudfront_policypolicy_b64-str-cloudfrontpolicy" class="md-nav__link">
+    <span class="md-ellipsis">
+      decode_cloudfront_policy(policy_b64: str) -&gt; CloudFrontPolicy
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#is_onlyfans_cdn_urlurl-bool-is_fansly_cdn_urlurl-bool" class="md-nav__link">
+    <span class="md-ellipsis">
+      is_onlyfans_cdn_url(url) -&gt; bool / is_fansly_cdn_url(url) -&gt; bool
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#media-types-ultima_scraper_apihelpersmedia_types" class="md-nav__link">
+    <span class="md-ellipsis">
+      Media Types (ultima_scraper_api.helpers.media_types)
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#job-events-ultima_scraper_apijob_events" class="md-nav__link">
+    <span class="md-ellipsis">
+      Job Events (ultima_scraper_api.job_events)
+    </span>
+  </a>
+  
+</li>
+      
     </ul>
   
 </nav>
@@ -2991,9 +3129,9 @@
 <div class="highlight"><pre><span></span><code><a id="__codelineno-22-1" name="__codelineno-22-1" href="#__codelineno-22-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">ultima_scraper_api</span><span class="w"> </span><span class="kn">import</span> <span class="n">UltimaScraperAPI</span><span class="p">,</span> <span class="n">UltimaScraperAPIConfig</span>
 <a id="__codelineno-22-2" name="__codelineno-22-2" href="#__codelineno-22-2"></a>
 <a id="__codelineno-22-3" name="__codelineno-22-3" href="#__codelineno-22-3"></a><span class="c1"># Initialize</span>
-<a id="__codelineno-22-4" name="__codelineno-22-4" href="#__codelineno-22-4"></a><span class="n">api</span> <span class="o">=</span> <span class="n">UltimaScraperAPI</span><span class="p">()</span>
-<a id="__codelineno-22-5" name="__codelineno-22-5" href="#__codelineno-22-5"></a><span class="n">onlyfans</span> <span class="o">=</span> <span class="n">api</span><span class="o">.</span><span class="n">get_site_api</span><span class="p">(</span><span class="s2">&quot;onlyfans&quot;</span><span class="p">)</span>
-<a id="__codelineno-22-6" name="__codelineno-22-6" href="#__codelineno-22-6"></a><span class="n">config</span> <span class="o">=</span> <span class="n">UltimaScraperAPIConfig</span><span class="p">()</span>
+<a id="__codelineno-22-4" name="__codelineno-22-4" href="#__codelineno-22-4"></a><span class="n">config</span> <span class="o">=</span> <span class="n">UltimaScraperAPIConfig</span><span class="p">()</span>
+<a id="__codelineno-22-5" name="__codelineno-22-5" href="#__codelineno-22-5"></a><span class="n">api</span> <span class="o">=</span> <span class="n">UltimaScraperAPI</span><span class="p">(</span><span class="n">config</span><span class="p">)</span>
+<a id="__codelineno-22-6" name="__codelineno-22-6" href="#__codelineno-22-6"></a><span class="n">onlyfans</span> <span class="o">=</span> <span class="n">api</span><span class="o">.</span><span class="n">api_instances</span><span class="o">.</span><span class="n">OnlyFans</span>
 <a id="__codelineno-22-7" name="__codelineno-22-7" href="#__codelineno-22-7"></a>
 <a id="__codelineno-22-8" name="__codelineno-22-8" href="#__codelineno-22-8"></a><span class="c1"># Create streamliner</span>
 <a id="__codelineno-22-9" name="__codelineno-22-9" href="#__codelineno-22-9"></a><span class="n">streamliner</span> <span class="o">=</span> <span class="n">StreamlinedAPI</span><span class="p">(</span><span class="n">api</span><span class="o">=</span><span class="n">onlyfans</span><span class="p">,</span> <span class="n">config</span><span class="o">=</span><span class="n">config</span><span class="p">)</span>
@@ -3152,27 +3290,28 @@
 <div class="highlight"><pre><span></span><code><a id="__codelineno-34-1" name="__codelineno-34-1" href="#__codelineno-34-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">ultima_scraper_api</span><span class="w"> </span><span class="kn">import</span> <span class="n">UltimaScraperAPI</span>
 <a id="__codelineno-34-2" name="__codelineno-34-2" href="#__codelineno-34-2"></a>
 <a id="__codelineno-34-3" name="__codelineno-34-3" href="#__codelineno-34-3"></a><span class="n">api</span> <span class="o">=</span> <span class="n">UltimaScraperAPI</span><span class="p">()</span>
-<a id="__codelineno-34-4" name="__codelineno-34-4" href="#__codelineno-34-4"></a><span class="n">onlyfans</span> <span class="o">=</span> <span class="n">api</span><span class="o">.</span><span class="n">get_site_api</span><span class="p">(</span><span class="s2">&quot;onlyfans&quot;</span><span class="p">)</span>
+<a id="__codelineno-34-4" name="__codelineno-34-4" href="#__codelineno-34-4"></a><span class="n">onlyfans</span> <span class="o">=</span> <span class="n">api</span><span class="o">.</span><span class="n">api_instances</span><span class="o">.</span><span class="n">OnlyFans</span>
 <a id="__codelineno-34-5" name="__codelineno-34-5" href="#__codelineno-34-5"></a>
 <a id="__codelineno-34-6" name="__codelineno-34-6" href="#__codelineno-34-6"></a><span class="n">auth_json</span> <span class="o">=</span> <span class="p">{</span>
-<a id="__codelineno-34-7" name="__codelineno-34-7" href="#__codelineno-34-7"></a>    <span class="s2">&quot;cookie&quot;</span><span class="p">:</span> <span class="s2">&quot;your_cookie&quot;</span><span class="p">,</span>
-<a id="__codelineno-34-8" name="__codelineno-34-8" href="#__codelineno-34-8"></a>    <span class="s2">&quot;user_agent&quot;</span><span class="p">:</span> <span class="s2">&quot;your_user_agent&quot;</span>
-<a id="__codelineno-34-9" name="__codelineno-34-9" href="#__codelineno-34-9"></a><span class="p">}</span>
-<a id="__codelineno-34-10" name="__codelineno-34-10" href="#__codelineno-34-10"></a>
-<a id="__codelineno-34-11" name="__codelineno-34-11" href="#__codelineno-34-11"></a><span class="k">async</span> <span class="k">with</span> <span class="n">onlyfans</span><span class="o">.</span><span class="n">login_context</span><span class="p">(</span><span class="n">auth_json</span><span class="p">)</span> <span class="k">as</span> <span class="n">authed</span><span class="p">:</span>
-<a id="__codelineno-34-12" name="__codelineno-34-12" href="#__codelineno-34-12"></a>    <span class="k">if</span> <span class="n">authed</span> <span class="ow">and</span> <span class="n">authed</span><span class="o">.</span><span class="n">is_authed</span><span class="p">():</span>
-<a id="__codelineno-34-13" name="__codelineno-34-13" href="#__codelineno-34-13"></a>        <span class="c1"># Check cache before fetching</span>
-<a id="__codelineno-34-14" name="__codelineno-34-14" href="#__codelineno-34-14"></a>        <span class="k">if</span> <span class="n">authed</span><span class="o">.</span><span class="n">cache</span><span class="o">.</span><span class="n">subscriptions</span><span class="o">.</span><span class="n">is_released</span><span class="p">():</span>
-<a id="__codelineno-34-15" name="__codelineno-34-15" href="#__codelineno-34-15"></a>            <span class="n">subs</span> <span class="o">=</span> <span class="k">await</span> <span class="n">authed</span><span class="o">.</span><span class="n">get_subscriptions</span><span class="p">()</span>
-<a id="__codelineno-34-16" name="__codelineno-34-16" href="#__codelineno-34-16"></a>            <span class="n">authed</span><span class="o">.</span><span class="n">cache</span><span class="o">.</span><span class="n">subscriptions</span><span class="o">.</span><span class="n">activate</span><span class="p">()</span>
-<a id="__codelineno-34-17" name="__codelineno-34-17" href="#__codelineno-34-17"></a>
-<a id="__codelineno-34-18" name="__codelineno-34-18" href="#__codelineno-34-18"></a>        <span class="c1"># Get API instance</span>
-<a id="__codelineno-34-19" name="__codelineno-34-19" href="#__codelineno-34-19"></a>        <span class="n">api</span> <span class="o">=</span> <span class="n">authed</span><span class="o">.</span><span class="n">get_api</span><span class="p">()</span>
-<a id="__codelineno-34-20" name="__codelineno-34-20" href="#__codelineno-34-20"></a>        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Using </span><span class="si">{</span><span class="n">api</span><span class="o">.</span><span class="n">site_name</span><span class="si">}</span><span class="s2"> API&quot;</span><span class="p">)</span>
-<a id="__codelineno-34-21" name="__codelineno-34-21" href="#__codelineno-34-21"></a>
-<a id="__codelineno-34-22" name="__codelineno-34-22" href="#__codelineno-34-22"></a>        <span class="c1"># Use requester for custom requests</span>
-<a id="__codelineno-34-23" name="__codelineno-34-23" href="#__codelineno-34-23"></a>        <span class="n">session</span> <span class="o">=</span> <span class="n">authed</span><span class="o">.</span><span class="n">get_requester</span><span class="p">()</span>
-<a id="__codelineno-34-24" name="__codelineno-34-24" href="#__codelineno-34-24"></a>        <span class="n">response</span> <span class="o">=</span> <span class="k">await</span> <span class="n">session</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;/api/endpoint&quot;</span><span class="p">)</span>
+<a id="__codelineno-34-7" name="__codelineno-34-7" href="#__codelineno-34-7"></a>    <span class="s2">&quot;id&quot;</span><span class="p">:</span> <span class="mi">123456</span><span class="p">,</span>
+<a id="__codelineno-34-8" name="__codelineno-34-8" href="#__codelineno-34-8"></a>    <span class="s2">&quot;cookie&quot;</span><span class="p">:</span> <span class="s2">&quot;your_cookie&quot;</span><span class="p">,</span>
+<a id="__codelineno-34-9" name="__codelineno-34-9" href="#__codelineno-34-9"></a>    <span class="s2">&quot;user_agent&quot;</span><span class="p">:</span> <span class="s2">&quot;your_user_agent&quot;</span>
+<a id="__codelineno-34-10" name="__codelineno-34-10" href="#__codelineno-34-10"></a><span class="p">}</span>
+<a id="__codelineno-34-11" name="__codelineno-34-11" href="#__codelineno-34-11"></a>
+<a id="__codelineno-34-12" name="__codelineno-34-12" href="#__codelineno-34-12"></a><span class="k">async</span> <span class="k">with</span> <span class="n">onlyfans</span><span class="o">.</span><span class="n">login_context</span><span class="p">(</span><span class="n">auth_json</span><span class="p">)</span> <span class="k">as</span> <span class="n">authed</span><span class="p">:</span>
+<a id="__codelineno-34-13" name="__codelineno-34-13" href="#__codelineno-34-13"></a>    <span class="k">if</span> <span class="n">authed</span> <span class="ow">and</span> <span class="n">authed</span><span class="o">.</span><span class="n">is_authed</span><span class="p">():</span>
+<a id="__codelineno-34-14" name="__codelineno-34-14" href="#__codelineno-34-14"></a>        <span class="c1"># Check cache before fetching</span>
+<a id="__codelineno-34-15" name="__codelineno-34-15" href="#__codelineno-34-15"></a>        <span class="k">if</span> <span class="n">authed</span><span class="o">.</span><span class="n">cache</span><span class="o">.</span><span class="n">subscriptions</span><span class="o">.</span><span class="n">is_released</span><span class="p">():</span>
+<a id="__codelineno-34-16" name="__codelineno-34-16" href="#__codelineno-34-16"></a>            <span class="n">subs</span> <span class="o">=</span> <span class="k">await</span> <span class="n">authed</span><span class="o">.</span><span class="n">get_subscriptions</span><span class="p">()</span>
+<a id="__codelineno-34-17" name="__codelineno-34-17" href="#__codelineno-34-17"></a>            <span class="n">authed</span><span class="o">.</span><span class="n">cache</span><span class="o">.</span><span class="n">subscriptions</span><span class="o">.</span><span class="n">activate</span><span class="p">()</span>
+<a id="__codelineno-34-18" name="__codelineno-34-18" href="#__codelineno-34-18"></a>
+<a id="__codelineno-34-19" name="__codelineno-34-19" href="#__codelineno-34-19"></a>        <span class="c1"># Get API instance</span>
+<a id="__codelineno-34-20" name="__codelineno-34-20" href="#__codelineno-34-20"></a>        <span class="n">api</span> <span class="o">=</span> <span class="n">authed</span><span class="o">.</span><span class="n">get_api</span><span class="p">()</span>
+<a id="__codelineno-34-21" name="__codelineno-34-21" href="#__codelineno-34-21"></a>        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Using </span><span class="si">{</span><span class="n">api</span><span class="o">.</span><span class="n">site_name</span><span class="si">}</span><span class="s2"> API&quot;</span><span class="p">)</span>
+<a id="__codelineno-34-22" name="__codelineno-34-22" href="#__codelineno-34-22"></a>
+<a id="__codelineno-34-23" name="__codelineno-34-23" href="#__codelineno-34-23"></a>        <span class="c1"># Use requester for custom requests</span>
+<a id="__codelineno-34-24" name="__codelineno-34-24" href="#__codelineno-34-24"></a>        <span class="n">session</span> <span class="o">=</span> <span class="n">authed</span><span class="o">.</span><span class="n">get_requester</span><span class="p">()</span>
+<a id="__codelineno-34-25" name="__codelineno-34-25" href="#__codelineno-34-25"></a>        <span class="n">response</span> <span class="o">=</span> <span class="k">await</span> <span class="n">session</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;/api/endpoint&quot;</span><span class="p">)</span>
 </code></pre></div>
 <hr />
 <h2 id="user-streamliner">User Streamliner</h2>
@@ -3407,7 +3546,7 @@
 <div class="highlight"><pre><span></span><code><a id="__codelineno-56-1" name="__codelineno-56-1" href="#__codelineno-56-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">ultima_scraper_api</span><span class="w"> </span><span class="kn">import</span> <span class="n">UltimaScraperAPI</span>
 <a id="__codelineno-56-2" name="__codelineno-56-2" href="#__codelineno-56-2"></a>
 <a id="__codelineno-56-3" name="__codelineno-56-3" href="#__codelineno-56-3"></a><span class="n">api</span> <span class="o">=</span> <span class="n">UltimaScraperAPI</span><span class="p">()</span>
-<a id="__codelineno-56-4" name="__codelineno-56-4" href="#__codelineno-56-4"></a><span class="n">onlyfans</span> <span class="o">=</span> <span class="n">api</span><span class="o">.</span><span class="n">get_site_api</span><span class="p">(</span><span class="s2">&quot;onlyfans&quot;</span><span class="p">)</span>
+<a id="__codelineno-56-4" name="__codelineno-56-4" href="#__codelineno-56-4"></a><span class="n">onlyfans</span> <span class="o">=</span> <span class="n">api</span><span class="o">.</span><span class="n">api_instances</span><span class="o">.</span><span class="n">OnlyFans</span>
 <a id="__codelineno-56-5" name="__codelineno-56-5" href="#__codelineno-56-5"></a>
 <a id="__codelineno-56-6" name="__codelineno-56-6" href="#__codelineno-56-6"></a><span class="k">async</span> <span class="k">with</span> <span class="n">onlyfans</span><span class="o">.</span><span class="n">login_context</span><span class="p">(</span><span class="n">auth_json</span><span class="p">)</span> <span class="k">as</span> <span class="n">authed</span><span class="p">:</span>
 <a id="__codelineno-56-7" name="__codelineno-56-7" href="#__codelineno-56-7"></a>    <span class="n">user</span> <span class="o">=</span> <span class="k">await</span> <span class="n">authed</span><span class="o">.</span><span class="n">get_user</span><span class="p">(</span><span class="s2">&quot;example_user&quot;</span><span class="p">)</span>
@@ -3488,7 +3627,7 @@
 <div class="highlight"><pre><span></span><code><a id="__codelineno-59-1" name="__codelineno-59-1" href="#__codelineno-59-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">ultima_scraper_api</span><span class="w"> </span><span class="kn">import</span> <span class="n">UltimaScraperAPI</span>
 <a id="__codelineno-59-2" name="__codelineno-59-2" href="#__codelineno-59-2"></a>
 <a id="__codelineno-59-3" name="__codelineno-59-3" href="#__codelineno-59-3"></a><span class="n">api</span> <span class="o">=</span> <span class="n">UltimaScraperAPI</span><span class="p">()</span>
-<a id="__codelineno-59-4" name="__codelineno-59-4" href="#__codelineno-59-4"></a><span class="n">onlyfans</span> <span class="o">=</span> <span class="n">api</span><span class="o">.</span><span class="n">get_site_api</span><span class="p">(</span><span class="s2">&quot;onlyfans&quot;</span><span class="p">)</span>
+<a id="__codelineno-59-4" name="__codelineno-59-4" href="#__codelineno-59-4"></a><span class="n">onlyfans</span> <span class="o">=</span> <span class="n">api</span><span class="o">.</span><span class="n">api_instances</span><span class="o">.</span><span class="n">OnlyFans</span>
 <a id="__codelineno-59-5" name="__codelineno-59-5" href="#__codelineno-59-5"></a>
 <a id="__codelineno-59-6" name="__codelineno-59-6" href="#__codelineno-59-6"></a><span class="k">async</span> <span class="k">with</span> <span class="n">onlyfans</span><span class="o">.</span><span class="n">login_context</span><span class="p">(</span><span class="n">auth_json</span><span class="p">)</span> <span class="k">as</span> <span class="n">authed</span><span class="p">:</span>
 <a id="__codelineno-59-7" name="__codelineno-59-7" href="#__codelineno-59-7"></a>    <span class="c1"># Check subscription cache</span>
@@ -3515,7 +3654,7 @@
 <a id="__codelineno-60-2" name="__codelineno-60-2" href="#__codelineno-60-2"></a><span class="kn">from</span><span class="w"> </span><span class="nn">ultima_scraper_api.apis.user_streamliner</span><span class="w"> </span><span class="kn">import</span> <span class="n">Job</span>
 <a id="__codelineno-60-3" name="__codelineno-60-3" href="#__codelineno-60-3"></a>
 <a id="__codelineno-60-4" name="__codelineno-60-4" href="#__codelineno-60-4"></a><span class="n">api</span> <span class="o">=</span> <span class="n">UltimaScraperAPI</span><span class="p">()</span>
-<a id="__codelineno-60-5" name="__codelineno-60-5" href="#__codelineno-60-5"></a><span class="n">onlyfans</span> <span class="o">=</span> <span class="n">api</span><span class="o">.</span><span class="n">get_site_api</span><span class="p">(</span><span class="s2">&quot;onlyfans&quot;</span><span class="p">)</span>
+<a id="__codelineno-60-5" name="__codelineno-60-5" href="#__codelineno-60-5"></a><span class="n">onlyfans</span> <span class="o">=</span> <span class="n">api</span><span class="o">.</span><span class="n">api_instances</span><span class="o">.</span><span class="n">OnlyFans</span>
 <a id="__codelineno-60-6" name="__codelineno-60-6" href="#__codelineno-60-6"></a>
 <a id="__codelineno-60-7" name="__codelineno-60-7" href="#__codelineno-60-7"></a><span class="k">async</span> <span class="k">with</span> <span class="n">onlyfans</span><span class="o">.</span><span class="n">login_context</span><span class="p">(</span><span class="n">auth_json</span><span class="p">)</span> <span class="k">as</span> <span class="n">authed</span><span class="p">:</span>
 <a id="__codelineno-60-8" name="__codelineno-60-8" href="#__codelineno-60-8"></a>    <span class="n">user</span> <span class="o">=</span> <span class="k">await</span> <span class="n">authed</span><span class="o">.</span><span class="n">get_user</span><span class="p">(</span><span class="s2">&quot;username&quot;</span><span class="p">)</span>
@@ -3582,7 +3721,7 @@
 <a id="__codelineno-62-5" name="__codelineno-62-5" href="#__codelineno-62-5"></a><span class="n">config</span> <span class="o">=</span> <span class="n">UltimaScraperAPIConfig</span><span class="p">()</span>
 <a id="__codelineno-62-6" name="__codelineno-62-6" href="#__codelineno-62-6"></a>
 <a id="__codelineno-62-7" name="__codelineno-62-7" href="#__codelineno-62-7"></a><span class="c1"># OnlyFans streamliner</span>
-<a id="__codelineno-62-8" name="__codelineno-62-8" href="#__codelineno-62-8"></a><span class="n">onlyfans</span> <span class="o">=</span> <span class="n">api</span><span class="o">.</span><span class="n">get_site_api</span><span class="p">(</span><span class="s2">&quot;onlyfans&quot;</span><span class="p">)</span>
+<a id="__codelineno-62-8" name="__codelineno-62-8" href="#__codelineno-62-8"></a><span class="n">onlyfans</span> <span class="o">=</span> <span class="n">api</span><span class="o">.</span><span class="n">api_instances</span><span class="o">.</span><span class="n">OnlyFans</span>
 <a id="__codelineno-62-9" name="__codelineno-62-9" href="#__codelineno-62-9"></a><span class="n">of_streamliner</span> <span class="o">=</span> <span class="n">StreamlinedAPI</span><span class="p">(</span><span class="n">api</span><span class="o">=</span><span class="n">onlyfans</span><span class="p">,</span> <span class="n">config</span><span class="o">=</span><span class="n">config</span><span class="p">)</span>
 <a id="__codelineno-62-10" name="__codelineno-62-10" href="#__codelineno-62-10"></a>
 <a id="__codelineno-62-11" name="__codelineno-62-11" href="#__codelineno-62-11"></a><span class="k">async</span> <span class="k">with</span> <span class="n">onlyfans</span><span class="o">.</span><span class="n">login_context</span><span class="p">(</span><span class="n">of_auth</span><span class="p">)</span> <span class="k">as</span> <span class="n">of_authed</span><span class="p">:</span>
@@ -3591,10 +3730,10 @@
 <a id="__codelineno-62-14" name="__codelineno-62-14" href="#__codelineno-62-14"></a>    <span class="k">if</span> <span class="n">of_streamliner</span><span class="o">.</span><span class="n">has_active_auths</span><span class="p">():</span>
 <a id="__codelineno-62-15" name="__codelineno-62-15" href="#__codelineno-62-15"></a>        <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;OnlyFans: Active&quot;</span><span class="p">)</span>
 <a id="__codelineno-62-16" name="__codelineno-62-16" href="#__codelineno-62-16"></a>        <span class="n">site_settings</span> <span class="o">=</span> <span class="n">of_streamliner</span><span class="o">.</span><span class="n">get_site_settings</span><span class="p">()</span>
-<a id="__codelineno-62-17" name="__codelineno-62-17" href="#__codelineno-62-17"></a>        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Browser: </span><span class="si">{</span><span class="n">site_settings</span><span class="o">.</span><span class="n">browser</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+<a id="__codelineno-62-17" name="__codelineno-62-17" href="#__codelineno-62-17"></a>        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Video quality: </span><span class="si">{</span><span class="n">site_settings</span><span class="o">.</span><span class="n">media_quality</span><span class="o">.</span><span class="n">video</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
 <a id="__codelineno-62-18" name="__codelineno-62-18" href="#__codelineno-62-18"></a>
 <a id="__codelineno-62-19" name="__codelineno-62-19" href="#__codelineno-62-19"></a><span class="c1"># Fansly streamliner</span>
-<a id="__codelineno-62-20" name="__codelineno-62-20" href="#__codelineno-62-20"></a><span class="n">fansly</span> <span class="o">=</span> <span class="n">api</span><span class="o">.</span><span class="n">get_site_api</span><span class="p">(</span><span class="s2">&quot;fansly&quot;</span><span class="p">)</span>
+<a id="__codelineno-62-20" name="__codelineno-62-20" href="#__codelineno-62-20"></a>    <span class="n">fansly</span> <span class="o">=</span> <span class="n">api</span><span class="o">.</span><span class="n">api_instances</span><span class="o">.</span><span class="n">Fansly</span>
 <a id="__codelineno-62-21" name="__codelineno-62-21" href="#__codelineno-62-21"></a><span class="n">fn_streamliner</span> <span class="o">=</span> <span class="n">StreamlinedAPI</span><span class="p">(</span><span class="n">api</span><span class="o">=</span><span class="n">fansly</span><span class="p">,</span> <span class="n">config</span><span class="o">=</span><span class="n">config</span><span class="p">)</span>
 <a id="__codelineno-62-22" name="__codelineno-62-22" href="#__codelineno-62-22"></a>
 <a id="__codelineno-62-23" name="__codelineno-62-23" href="#__codelineno-62-23"></a><span class="k">async</span> <span class="k">with</span> <span class="n">fansly</span><span class="o">.</span><span class="n">login_context</span><span class="p">(</span><span class="n">fn_auth</span><span class="p">)</span> <span class="k">as</span> <span class="n">fn_authed</span><span class="p">:</span>
@@ -3625,7 +3764,80 @@
 <li><strong><a href="https://github.com/clarketm/mergedeep">mergedeep</a></strong> - Dictionary merging</li>
 </ul>
 <hr />
-<p><strong>Last Updated</strong>: October 2024 | <strong>Version</strong>: 2.2.46</p>
+<h2 id="url-diagnostics-ultima_scraper_apihelpersurl_diagnostics">URL Diagnostics (<code>ultima_scraper_api.helpers.url_diagnostics</code>)</h2>
+<p>Added in 3.0.0b3. Tools for decoding and inspecting signed CDN URLs (CloudFront for OnlyFans, Fansly CDN URLs).</p>
+<h3 id="diagnose_urlurl-str-urldiagnostics"><code>diagnose_url(url: str) -&gt; UrlDiagnostics</code></h3>
+<p>Parse a CDN URL and return a <code>UrlDiagnostics</code> dataclass containing the decoded CloudFront policy, expiration time, IP-lock state, and a human-readable diagnosis string.</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-63-1" name="__codelineno-63-1" href="#__codelineno-63-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">ultima_scraper_api.helpers</span><span class="w"> </span><span class="kn">import</span> <span class="n">diagnose_url</span>
+<a id="__codelineno-63-2" name="__codelineno-63-2" href="#__codelineno-63-2"></a>
+<a id="__codelineno-63-3" name="__codelineno-63-3" href="#__codelineno-63-3"></a><span class="n">diag</span> <span class="o">=</span> <span class="n">diagnose_url</span><span class="p">(</span><span class="n">media</span><span class="o">.</span><span class="n">url</span><span class="p">)</span>
+<a id="__codelineno-63-4" name="__codelineno-63-4" href="#__codelineno-63-4"></a><span class="nb">print</span><span class="p">(</span><span class="n">diag</span><span class="o">.</span><span class="n">get_diagnosis</span><span class="p">())</span>  <span class="c1"># &quot;URL valid for ~5.2 hours&quot; / &quot;URL expired 2 hour(s) ago at ...&quot; / etc.</span>
+<a id="__codelineno-63-5" name="__codelineno-63-5" href="#__codelineno-63-5"></a><span class="nb">print</span><span class="p">(</span><span class="n">diag</span><span class="o">.</span><span class="n">to_dict</span><span class="p">())</span>
+</code></pre></div>
+<h3 id="diagnose_download_failureurl-http_statusnone-urldiagnostics"><code>diagnose_download_failure(url, http_status=None) -&gt; UrlDiagnostics</code></h3>
+<p>Same as <code>diagnose_url</code> but enriched with HTTP status context for failed downloads.</p>
+<h3 id="decode_cloudfront_policypolicy_b64-str-cloudfrontpolicy"><code>decode_cloudfront_policy(policy_b64: str) -&gt; CloudFrontPolicy</code></h3>
+<p>Low-level helper that returns the decoded <code>Resource</code>, <code>expires_at</code>, and <code>ip_address</code> constraints from a CloudFront <code>Policy</code> query parameter.</p>
+<h3 id="is_onlyfans_cdn_urlurl-bool-is_fansly_cdn_urlurl-bool"><code>is_onlyfans_cdn_url(url) -&gt; bool</code> / <code>is_fansly_cdn_url(url) -&gt; bool</code></h3>
+<p>Quick predicates used to route URLs to the right diagnostics path.</p>
+<hr />
+<h2 id="media-types-ultima_scraper_apihelpersmedia_types">Media Types (<code>ultima_scraper_api.helpers.media_types</code>)</h2>
+<p>Added in 3.0.0b3. Provides the <code>MediaTypes</code> enum and a <code>media_types</code> registry mapping API media kinds (<code>photo</code>, <code>video</code>, <code>audio</code>, <code>gif</code>, <code>stream</code>, <code>application</code>) to canonical buckets (<code>images</code>, <code>videos</code>, <code>audios</code>, <code>gifs</code>).</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-64-1" name="__codelineno-64-1" href="#__codelineno-64-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">ultima_scraper_api.helpers</span><span class="w"> </span><span class="kn">import</span> <span class="n">media_types</span><span class="p">,</span> <span class="n">MediaTypes</span>
+<a id="__codelineno-64-2" name="__codelineno-64-2" href="#__codelineno-64-2"></a>
+<a id="__codelineno-64-3" name="__codelineno-64-3" href="#__codelineno-64-3"></a><span class="n">bucket</span> <span class="o">=</span> <span class="n">MediaTypes</span><span class="o">.</span><span class="n">from_api_type</span><span class="p">(</span><span class="s2">&quot;photo&quot;</span><span class="p">)</span>  <span class="c1"># MediaTypes.IMAGES</span>
+</code></pre></div>
+<p>The same conversion is also exposed at the package level via <code>MediaType.from_api_type()</code> and <code>map_api_media_types()</code> in <code>ultima_scraper_api</code>.</p>
+<hr />
+<h2 id="job-events-ultima_scraper_apijob_events">Job Events (<code>ultima_scraper_api.job_events</code>)</h2>
+<p>Added in 3.0.0b3. Pydantic models that define the canonical schema for events published on Redis pub/sub channels (consumed by the TUI and worker processes).</p>
+<p>Key models:</p>
+<table>
+<thead>
+<tr>
+<th>Model</th>
+<th>Purpose</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>OperationProgressEvent</code></td>
+<td>Generic progress event for downloads/scrapes</td>
+</tr>
+<tr>
+<td><code>DownloadFailureReason</code></td>
+<td>Categorized enum (with <code>is_recoverable</code> and <code>human_readable</code>) for failed downloads</td>
+</tr>
+<tr>
+<td><code>ScrapeProgressEvent</code></td>
+<td>Per-page scraping progress (emitted by <code>UserModel.get_posts/get_messages/get_stories</code>)</td>
+</tr>
+<tr>
+<td><code>ApiCommandResult</code></td>
+<td>Standardized response envelope for API commands</td>
+</tr>
+</tbody>
+</table>
+<p>Helper:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-65-1" name="__codelineno-65-1" href="#__codelineno-65-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">ultima_scraper_api.job_events</span><span class="w"> </span><span class="kn">import</span> <span class="n">create_download_progress_event</span>
+<a id="__codelineno-65-2" name="__codelineno-65-2" href="#__codelineno-65-2"></a>
+<a id="__codelineno-65-3" name="__codelineno-65-3" href="#__codelineno-65-3"></a><span class="n">event</span> <span class="o">=</span> <span class="n">create_download_progress_event</span><span class="p">(</span>
+<a id="__codelineno-65-4" name="__codelineno-65-4" href="#__codelineno-65-4"></a>    <span class="n">job_id</span><span class="o">=</span><span class="s2">&quot;job-123&quot;</span><span class="p">,</span>
+<a id="__codelineno-65-5" name="__codelineno-65-5" href="#__codelineno-65-5"></a>    <span class="n">task_id</span><span class="o">=</span><span class="s2">&quot;task-1&quot;</span><span class="p">,</span>
+<a id="__codelineno-65-6" name="__codelineno-65-6" href="#__codelineno-65-6"></a>    <span class="n">download_id</span><span class="o">=</span><span class="s2">&quot;dl-1&quot;</span><span class="p">,</span>
+<a id="__codelineno-65-7" name="__codelineno-65-7" href="#__codelineno-65-7"></a>    <span class="n">username</span><span class="o">=</span><span class="s2">&quot;creator&quot;</span><span class="p">,</span>
+<a id="__codelineno-65-8" name="__codelineno-65-8" href="#__codelineno-65-8"></a>    <span class="n">user_id</span><span class="o">=</span><span class="mi">42</span><span class="p">,</span>
+<a id="__codelineno-65-9" name="__codelineno-65-9" href="#__codelineno-65-9"></a>    <span class="n">content_type</span><span class="o">=</span><span class="s2">&quot;Posts&quot;</span><span class="p">,</span>
+<a id="__codelineno-65-10" name="__codelineno-65-10" href="#__codelineno-65-10"></a>    <span class="n">worker_id</span><span class="o">=</span><span class="s2">&quot;worker-1&quot;</span><span class="p">,</span>
+<a id="__codelineno-65-11" name="__codelineno-65-11" href="#__codelineno-65-11"></a>    <span class="n">dm_event</span><span class="o">=</span><span class="n">dm_event</span><span class="p">,</span>
+<a id="__codelineno-65-12" name="__codelineno-65-12" href="#__codelineno-65-12"></a>    <span class="n">progress_state</span><span class="o">=</span><span class="n">state</span><span class="p">,</span>
+<a id="__codelineno-65-13" name="__codelineno-65-13" href="#__codelineno-65-13"></a>    <span class="n">progress_start</span><span class="o">=</span><span class="n">start</span><span class="p">,</span>
+<a id="__codelineno-65-14" name="__codelineno-65-14" href="#__codelineno-65-14"></a>    <span class="n">total_downloads</span><span class="o">=</span><span class="n">total</span><span class="p">,</span>
+<a id="__codelineno-65-15" name="__codelineno-65-15" href="#__codelineno-65-15"></a><span class="p">)</span>
+</code></pre></div>
+<p>Scrape progress events are emitted automatically when the new <code>on_progress</code> / <code>job_id</code> parameters are passed to <code>UserModel.get_posts</code>, <code>get_stories</code>, and <code>get_messages</code>.</p>
+<hr />
+<p><strong>Last Updated</strong>: April 2026 | <strong>Version</strong>: 3.0.0b4</p>
 
 
 
