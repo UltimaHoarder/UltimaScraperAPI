@@ -9,8 +9,8 @@ from typing import TYPE_CHECKING, Any
 
 import websockets
 
-from ultima_scraper_api.apis.onlyfans.urls import APIRoutes
 from ultima_scraper_api.apis.onlyfans.classes.extras import AuthDetails
+from ultima_scraper_api.apis.onlyfans.urls import APIRoutes
 from ultima_scraper_api.managers.websocket_manager.protocol import WebSocketProtocol
 
 if TYPE_CHECKING:
@@ -103,7 +103,6 @@ class OnlyFansWebSocket(WebSocketProtocol):
 
         logger.debug("OnlyFans WebSocket connected")
 
-        # Send initial connect frame with auth token if available
         assert isinstance(self.auth, OnlyFansAuthModel)
         token = self.auth.user.ws_auth_token
         if token:
@@ -224,7 +223,6 @@ class OnlyFansWebSocket(WebSocketProtocol):
             new_token = json_resp.get("wsAuthToken")
             new_url = json_resp.get("wsUrl")
             assert isinstance(self.auth, OnlyFansAuthModel)
-
             if new_token and new_token != self.auth.user.ws_auth_token:
                 self.auth.user.ws_auth_token = new_token
                 logger.info("Refreshed OnlyFans WS auth token")
