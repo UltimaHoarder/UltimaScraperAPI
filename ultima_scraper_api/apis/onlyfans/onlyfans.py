@@ -118,11 +118,33 @@ class OnlyFansAPI(StreamlinedAPI):
                 users.append(user)
         return users
 
+    def _create_auth_ignoring_errors(
+        self,
+        authenticator: Any,
+        auth_details: AuthDetails,
+        auth_json: dict[str, Any],
+    ):
+        auth_id = int(auth_json["id"])
+        username = str(auth_json.get("username") or f"u{auth_id}")
+        auth_details.id = auth_id
+        auth_details.username = username
+        auth_details.active = True
+        authenticator.__raw__ = {
+            "id": auth_id,
+            "username": username,
+            "name": username,
+            "isAuth": False,
+        }
+        authed = authenticator.create_auth()
+        self.add_auth(authed)
+        return authed
+
     async def login(
         self,
         auth_json: dict[str, Any] = {},
         curl_string: str | None = None,
         guest: bool = False,
+        ignore_auth_errors: bool = False,
     ):
 
         from ultima_scraper_api.apis.onlyfans.authenticator import (
@@ -141,12 +163,24 @@ class OnlyFansAPI(StreamlinedAPI):
 
             # Create authenticator only once
             authenticator = self.authenticator(self, temp_auth_details, guest)
-            authed = await authenticator.login(guest)
+            try:
+                authed = await authenticator.login(guest)
+            except Exception:
+                if not ignore_auth_errors or not auth_json:
+                    raise
+                authed = None
             if authed and authenticator.is_authed():
                 issues = await authed.get_login_issues()
                 if not guest:
                     authed.issues = issues if issues.get("data") else None
                 self.add_auth(authed)
+                # Don't close authenticator - auth model reuses its session!
+            elif ignore_auth_errors and auth_json:
+                authed = self._create_auth_ignoring_errors(
+                    authenticator,
+                    temp_auth_details,
+                    auth_json,
+                )
                 # Don't close authenticator - auth model reuses its session!
             else:
                 # Only close on failure (auth model wasn't created)
@@ -159,6 +193,7 @@ class OnlyFansAPI(StreamlinedAPI):
         auth_json: dict[str, Any] = {},
         curl_string: str | None = None,
         guest: bool = False,
+        ignore_auth_errors: bool = False,
     ):
 
         from ultima_scraper_api.apis.onlyfans.authenticator import (
@@ -174,6 +209,25 @@ class OnlyFansAPI(StreamlinedAPI):
             if curl_string:
                 temp_auth_details = extract_auth_details_from_curl(curl_string)
                 authenticator = self.authenticator(self, temp_auth_details)
+            if ignore_auth_errors and auth_json:
+                try:
+                    temp_authed = await authenticator.login(guest)
+                except Exception:
+                    temp_authed = None
+                if temp_authed and temp_authed.is_authed():
+                    authed = temp_authed
+                    issues = await authed.get_login_issues()
+                    if not guest:
+                        authed.issues = issues if issues.get("data") else None
+                    self.add_auth(authed)
+                else:
+                    authed = self._create_auth_ignoring_errors(
+                        authenticator,
+                        temp_auth_details,
+                        auth_json,
+                    )
+                yield authed
+                return
             async with authenticator as temp_authed:
                 if temp_authed and temp_authed.is_authed():
                     authed = temp_authed

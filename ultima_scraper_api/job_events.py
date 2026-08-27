@@ -3,8 +3,8 @@
 These Pydantic models define the canonical schema for events published on Redis
 pub/sub channels (e.g. hooks channels consumed by the TUI).
 
-This module intentionally lives in UltimaScraperAPI so that projects like
-UltimaScraperTheReturn and workers can share a single source of truth.
+This module intentionally lives in UltimaScraperAPI so that UltimaScraper and
+its workers can share a single source of truth.
 """
 
 from __future__ import annotations
