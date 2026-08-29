@@ -28,7 +28,6 @@ from pywidevine import Device, DeviceTypes
 from pywidevine.cdm import Cdm
 from pywidevine.pssh import PSSH
 
-from ultima_scraper_api.apis.onlyfans.classes.extras import endpoint_links
 from ultima_scraper_api.apis.onlyfans.urls import APIRoutes
 
 if TYPE_CHECKING:
@@ -365,7 +364,8 @@ class DRMMedia:
         self.os_name = os_name
 
     def extract_directory_from_url(self, manifest_url: str):
-        match = re.search(r"files/(.*?)/\w+\.mpd$", manifest_url)
+        path = urlparse(manifest_url).path
+        match = re.search(r"files/(.*?)/\w+\.mpd$", path)
         assert match
         directory = match.group(1)
         return directory
@@ -426,7 +426,7 @@ class DRMMedia:
             base_url = representation["BaseURL"]
         if isinstance(base_url, dict):
             base_url = base_url.get("#text", "")
-        media_url = endpoint_links().cdn_resolver(
+        media_url = APIRoutes().cdn_resolver(
             directory_url, base_url, drm=True, manifest_type=self.get_manifest_type()
         )
         return media_url
@@ -461,7 +461,7 @@ class DRMMedia:
             base_url: str = representation["BaseURL"]
         if isinstance(base_url, dict):
             base_url = base_url.get("#text", "")
-        media_url = endpoint_links().cdn_resolver(
+        media_url = APIRoutes().cdn_resolver(
             directory_url, base_url, drm=True, manifest_type=self.get_manifest_type()
         )
         return media_url
