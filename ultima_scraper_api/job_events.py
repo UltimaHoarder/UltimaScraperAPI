@@ -112,12 +112,30 @@ def create_download_progress_event(
         media_id = getattr(item_obj, "media_id", None)
         media_id_value = str(media_id) if media_id else None
 
-    # Update progress counters
-    bytes_delta = int(dm_event.get("bytes") or 0)
-    if status == "completed":
-        progress_state["total_bytes"] = int(progress_state["total_bytes"]) + max(
-            bytes_delta, 0
+    # Update progress counters. DownloadManager emits throttled byte deltas while
+    # transfers are in flight, so every event contributes to the cumulative
+    # network-byte count (not only whole-file completion events).
+    bytes_delta = max(int(dm_event.get("bytes") or 0), 0)
+    progress_state["total_bytes"] = int(progress_state["total_bytes"]) + bytes_delta
+    total_bytes = int(progress_state["total_bytes"])
+
+    processed_value = dm_event.get("processed_bytes")
+    if processed_value is None:
+        processed_bytes = max(
+            int(progress_state.get("processed_bytes", 0)),
+            total_bytes,
         )
+    else:
+        processed_bytes = max(int(processed_value), 0)
+    progress_state["processed_bytes"] = processed_bytes
+
+    expected_value = dm_event.get("expected_bytes")
+    if expected_value is None:
+        expected_bytes = int(progress_state.get("expected_bytes", 0))
+    else:
+        expected_bytes = max(int(expected_value), 0)
+    expected_bytes = max(expected_bytes, processed_bytes)
+    progress_state["expected_bytes"] = expected_bytes
 
     completed_count = int(dm_event.get("completed", progress_state["completed"]))
     failed_count = int(dm_event.get("failed", progress_state["failed"]))
@@ -131,8 +149,13 @@ def create_download_progress_event(
     delta = max(now - last_time, 1e-6)
     progress_state["last_time"] = now
 
-    speed_bps = bytes_delta / delta if bytes_delta else 0.0
-    total_bytes = int(progress_state["total_bytes"])
+    if bytes_delta:
+        speed_bps = bytes_delta / delta
+        progress_state["speed_bps"] = speed_bps
+    else:
+        # File-completion events can immediately follow a periodic byte update.
+        # Preserve that recent rate instead of flashing the UI back to zero.
+        speed_bps = max(float(progress_state.get("speed_bps", 0.0)), 0.0)
     avg_speed_bps = total_bytes / elapsed if total_bytes else 0.0
 
     return OperationProgressEvent(
@@ -150,6 +173,8 @@ def create_download_progress_event(
         path=dm_event.get("path"),
         bytes=bytes_delta,
         total_bytes=total_bytes,
+        processed_bytes=processed_bytes,
+        expected_bytes=expected_bytes,
         speed_bps=speed_bps,
         avg_speed_bps=avg_speed_bps,
         completed=completed_count,
@@ -275,6 +300,16 @@ class OperationProgressEvent(BaseJobEvent):
     )
     bytes: int = Field(default=0, ge=0, description="Bytes transferred in this update")
     total_bytes: int = Field(default=0, ge=0, description="Total bytes transferred")
+    processed_bytes: int = Field(
+        default=0,
+        ge=0,
+        description="Bytes completed toward the current download batch",
+    )
+    expected_bytes: int = Field(
+        default=0,
+        ge=0,
+        description="Expected byte size of the current download batch",
+    )
     speed_bps: float = Field(
         default=0.0, ge=0.0, description="Instantaneous speed (bytes/sec)"
     )
