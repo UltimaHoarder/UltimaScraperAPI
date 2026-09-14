@@ -157,10 +157,6 @@ class LoyalFansAPI(StreamlinedAPI):
             if not auth.is_authed():
                 await self.remove_auth(auth)
 
-    async def remove_auth(self, auth: "LoyalFansAuthModel"):
-        await auth.get_requester().active_session.close()
-        del self.auths[auth.id]
-
     def create_auth_details(self, auth_json: dict[str, Any] = {}):
         """Create auth details from JSON configuration.
 

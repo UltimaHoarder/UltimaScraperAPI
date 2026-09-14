@@ -3,6 +3,7 @@ from __future__ import annotations
 import copy
 import math
 import secrets
+from collections.abc import Iterator
 from datetime import datetime
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Literal, Optional, Union
@@ -197,7 +198,7 @@ class endpoint_links(object):
             f"https://onlyfans.com/api2/v2/messages/queue/{identifier}?format=scheduled"
         )
         self.stories_api = f"{full_url_path}/users/{identifier}/stories"
-        self.list_highlights = f"https://onlyfans.com/api2/v2/users/{identifier}/stories/highlights?limit=100&offset=0&order=desc"
+        self.list_highlights = f"https://onlyfans.com/api2/v2/users/{identifier}/stories/highlights?limit={global_limit}&offset={global_offset}&order=desc"
         self.highlight = f"https://onlyfans.com/api2/v2/stories/highlights/{identifier}"
         self.paid_api = f"https://onlyfans.com/api2/v2/posts/paid?limit={global_limit}&offset={global_offset}&format=infinite"
         self.pay = f"https://onlyfans.com/api2/v2/payments/pay"
@@ -314,28 +315,31 @@ class endpoint_links(object):
         url = f"{url}?{encoded_params}"
         return url
 
-    def create_links(
-        self, url: str, max_items: int, pagination_limit: int = 10, offset: int = 0
-    ):
-        """
-        This function will create a list of links depending on their content count.
+    def iter_links(
+        self, url: str, max_items: int, pagination_limit: int = 10, offset: int = 0,
+        *, exact_limit: bool = False,
+    ) -> Iterator[str]:
+        """Generate page URLs without retaining the total selection in RAM."""
+        if not max_items:
+            return
+        pages = math.ceil(max_items / pagination_limit)
+        if pages <= 0:
+            return
+        query_params = parse_qs(urlparse(url).query)
+        limit_value = query_params["limit"][0]
+        base_url = url.replace(f"limit={limit_value}", f"limit={pagination_limit}")
+        for page in range(pages):
+            page_url = base_url.replace(f"offset={offset}", f"offset={page * pagination_limit}")
+            if exact_limit:
+                size = min(pagination_limit, max_items - page * pagination_limit)
+                page_url = page_url.replace(f"limit={pagination_limit}", f"limit={size}")
+            yield page_url
 
-        Example:\n
-        create_links(link="base_link", limit=100) will return a list with 2 link(s) if pagination_limit=50.
-        """
-        final_links: list[str] = []
-        if max_items:
-            ceil = math.ceil(max_items / pagination_limit)
-            numbers = list(range(ceil))
-            for num in numbers:
-                num = num * pagination_limit
-                parsed_url = urlparse(url)
-                query_params = parse_qs(parsed_url.query)
-                limit_value = query_params["limit"][0]
-                url = url.replace(f"limit={limit_value}", f"limit={pagination_limit}")
-                new_link = url.replace(f"offset={offset}", f"offset={num}")
-                final_links.append(new_link)
-        return final_links
+    def create_links(
+        self, url: str, max_items: int, pagination_limit: int = 10, offset: int = 0,
+    ) -> list[str]:
+        """Collect page URLs for callers that explicitly need a complete list."""
+        return list(self.iter_links(url, max_items, pagination_limit, offset))
 
     def cdn_resolver(
         self,

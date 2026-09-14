@@ -5,6 +5,7 @@ from __future__ import annotations
 import asyncio
 import inspect
 import logging
+import os
 from collections import deque
 from datetime import datetime, timezone
 from typing import TYPE_CHECKING, Any, Callable
@@ -14,6 +15,21 @@ if TYPE_CHECKING:
     from ultima_scraper_api.managers.websocket_manager.protocol import WebSocketProtocol
 
 logger = logging.getLogger(__name__)
+
+
+def _env_history_limit(name: str, default: int) -> int:
+    try:
+        return max(0, int(os.getenv(name, str(default))))
+    except (TypeError, ValueError):
+        return default
+
+
+DEFAULT_MESSAGE_HISTORY_LIMIT = _env_history_limit(
+    "USR_WEBSOCKET_MESSAGE_HISTORY_LIMIT", 1000
+)
+DEFAULT_EVENT_HISTORY_LIMIT = _env_history_limit(
+    "USR_WEBSOCKET_EVENT_HISTORY_LIMIT", 1000
+)
 
 
 class WebSocketConnection:
@@ -37,6 +53,8 @@ class WebSocketConnection:
         initial_reconnect_delay: float = 1.0,
         max_reconnect_delay: float = 60.0,
         record_all_messages: bool = True,
+        max_message_history: int = DEFAULT_MESSAGE_HISTORY_LIMIT,
+        max_event_history: int = DEFAULT_EVENT_HISTORY_LIMIT,
     ) -> None:
         """Initialize WebSocket connection.
 
@@ -48,18 +66,22 @@ class WebSocketConnection:
             initial_reconnect_delay: Initial delay before reconnecting (seconds)
             max_reconnect_delay: Maximum reconnection delay (seconds)
             record_all_messages: Whether to record all messages in history
+            max_message_history: Maximum received messages retained in memory
+            max_event_history: Maximum connection events retained in memory
         """
         self.websocket_impl = websocket_impl
         self.redis_manager = redis_manager
         self.redis_channel = redis_channel
 
-        # Message history - NO LIMIT! Record everything
-        self._message_history: list[dict[str, Any]] = []
-        self._event_history: list[dict[str, Any]] = []
+        # Histories are diagnostic buffers, not authoritative storage. Redis-backed
+        # WebSocketStorage remains the durable history when it is configured.
+        self._message_history: deque[dict[str, Any]] = deque(
+            maxlen=max(0, max_message_history)
+        )
+        self._event_history: deque[dict[str, Any]] = deque(
+            maxlen=max(0, max_event_history)
+        )
         self.record_all_messages = record_all_messages
-
-        # For backwards compatibility, maintain recent buffer
-        self._recent: deque[Any] = deque(maxlen=100)
 
         # Subscribers
         self._subscribers: set[asyncio.Queue[Any]] = set()
@@ -124,10 +146,6 @@ class WebSocketConnection:
     async def stop(self) -> None:
         """Gracefully stop the WebSocket connection."""
         async with self._ws_lock:
-            if not self._listen_task or self._listen_task.done():
-                logger.debug("WebSocket connection not running")
-                return
-
             self._should_stop = True
 
             # Stop health monitor
@@ -153,12 +171,17 @@ class WebSocketConnection:
                     pass
 
             await self._publish_event({"type": "stopped"})
+            self._subscribers.clear()
+            self._message_history.clear()
+            self._event_history.clear()
+            for callbacks in self._callbacks.values():
+                callbacks.clear()
+            self._websocket_storage = None
+            self._storage_initialized = False
             logger.info("WebSocket connection stopped")
 
     async def _listen_loop(self) -> None:
         """Main listening loop with automatic reconnection."""
-        import time
-
         while not self._should_stop:
             try:
                 await self._connect_and_listen()
@@ -233,8 +256,6 @@ class WebSocketConnection:
                 # Store in history
                 if self.record_all_messages:
                     self._message_history.append(msg)
-
-                self._recent.append(msg)
 
                 # Publish to subscribers
                 await self._publish_to_subscribers(msg)
@@ -356,13 +377,13 @@ class WebSocketConnection:
         """Publish message to Redis and store in WebSocketStorage."""
         if not self.redis_manager:
             logger.warning(
-                f"WebSocketConnection: No redis_manager, cannot store messages"
+                "WebSocketConnection: No redis_manager, cannot store messages"
             )
             return
 
         if not self.redis_manager.is_connected:
             logger.warning(
-                f"WebSocketConnection: Redis not connected, cannot store messages"
+                "WebSocketConnection: Redis not connected, cannot store messages"
             )
             return
 
@@ -370,7 +391,6 @@ class WebSocketConnection:
             # Initialize WebSocketStorage on first use
             if not self._storage_initialized:
                 from ultima_scraper_api.managers.redis import create_websocket_storage
-                from ultima_scraper_api.managers.redis.connection import RedisManager
 
                 try:
                     self._websocket_storage = await create_websocket_storage(
@@ -500,7 +520,7 @@ class WebSocketConnection:
         Returns:
             List of all received messages
         """
-        return self._message_history.copy()
+        return list(self._message_history)
 
     @property
     def event_history(self) -> list[dict[str, Any]]:
@@ -509,16 +529,7 @@ class WebSocketConnection:
         Returns:
             List of all events
         """
-        return self._event_history.copy()
-
-    @property
-    def recent_messages(self) -> list[Any]:
-        """Get recent messages (last 100).
-
-        Returns:
-            List of recent messages
-        """
-        return list(self._recent)
+        return list(self._event_history)
 
     def get_statistics(self) -> dict[str, Any]:
         """Get connection statistics.
@@ -536,4 +547,8 @@ class WebSocketConnection:
             "last_message_time": self._last_message_time,
             "is_connected": self.is_connected,
             "reconnect_attempts": self._reconnect_attempts,
+            "message_history_size": len(self._message_history),
+            "message_history_limit": self._message_history.maxlen,
+            "event_history_size": len(self._event_history),
+            "event_history_limit": self._event_history.maxlen,
         }

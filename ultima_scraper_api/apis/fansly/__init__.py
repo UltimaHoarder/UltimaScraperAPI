@@ -9,6 +9,34 @@ if TYPE_CHECKING:
 SubscriptionType = Literal["all", "active", "expired"]
 
 
+def _pick_media_url(media: dict[Any, Any], target_quality: str) -> str | None:
+    if target_quality == "source":
+        try:
+            return media["locations"][0]["location"]
+        except (KeyError, IndexError):
+            pass
+
+    # Video variants can include image thumbnails; only compare matching media types.
+    target_type = media.get("mimetype")
+    qualities: list[tuple[int, str]] = []
+    for variant in media.get("variants", []) + [media]:
+        if variant.get("mimetype") != target_type:
+            continue
+        height = variant["height"]
+        try:
+            url = variant["locations"][0]["location"]
+        except (KeyError, IndexError):
+            continue
+        qualities.append((height, url))
+
+    if not qualities:
+        return None
+    for height, url in sorted(qualities, reverse=True):
+        if target_quality == "source" or height <= int(target_quality):
+            return url
+    return url
+
+
 class SiteContent:
     def __init__(self, option: dict[str, Any], user: UserModel) -> None:
         self.id: int = int(option["id"])
@@ -17,56 +45,15 @@ class SiteContent:
         self.__raw__ = option
 
     def url_picker(self, media_item: dict[str, Any], video_quality: str = ""):
-        # There are two media results at play here.
-        # The top-level `media` element itself represents the original source quality.
-        # It may also contain a `variants` list entry with alternate encoding qualities.
-        # Each variant has a similar structure to the main media element.
-        video_quality = (
+        quality = (
             video_quality
             or self.author.get_api().get_site_settings().media_quality.video
         )
-        media_url = ""
-        source_media = media_item
-        variants = media_item.get("variants", [])
-        quality_key = "source"
+        media_url = _pick_media_url(media_item, quality)
+        return urlparse(media_url) if media_url is not None else None
 
-        if quality_key == "source":
-            try:
-                url_string: str = source_media["locations"][0]["location"]
-                return urlparse(url_string)
-            except (KeyError, IndexError):
-                pass
-
-        # Track the target type as videos may also include thumbnail image variants.
-        target_type = source_media.get("mimetype")
-
-        qualities: list[tuple[int, str]] = []
-        for variant in variants + [source_media]:
-            if variant.get("mimetype") != target_type:
-                continue
-
-            media_quality = variant["height"]
-            try:
-                media_url = variant["locations"][0]["location"]
-            except (KeyError, IndexError):
-                continue
-            qualities.append((media_quality, media_url))
-
-        if not qualities:
-            return
-
-        # Iterate the media from highest to lowest quality.
-        for media_quality, media_url in sorted(qualities, reverse=True):
-            # If there was no "source" quality media, return the highest quality/first media.
-            if quality_key == "source":
-                return urlparse(media_url)
-
-            # Return the first media <= the target quality.
-            if media_quality <= int(quality_key):
-                return urlparse(media_url)
-
-        # If all media was > target quality, return the lowest quality/last media.
-        return urlparse(media_url)
+    async def link_picker(self, media: dict[Any, Any], target_quality: str):
+        return _pick_media_url(media, target_quality)
 
     def preview_url_picker(self, media_item: dict[str, Any]):
         return None

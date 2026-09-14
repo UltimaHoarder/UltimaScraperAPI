@@ -1,3 +1,4 @@
+import asyncio
 from contextlib import asynccontextmanager
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Literal
@@ -18,7 +19,6 @@ from ultima_scraper_api.apis.onlyfans.classes.post_model import PostModel
 from ultima_scraper_api.apis.onlyfans.classes.story_model import StoryModel
 from ultima_scraper_api.apis.onlyfans.classes.user_model import UserModel
 from ultima_scraper_api.config import UltimaScraperAPIConfig
-from ultima_scraper_api.helpers.main_helper import is_pascal_case
 from ultima_scraper_api.managers.websocket_manager import WebSocketManager
 
 if TYPE_CHECKING:
@@ -146,7 +146,6 @@ class OnlyFansAPI(StreamlinedAPI):
         guest: bool = False,
         ignore_auth_errors: bool = False,
     ):
-
         from ultima_scraper_api.apis.onlyfans.authenticator import (
             extract_auth_details_from_curl,
         )
@@ -195,7 +194,6 @@ class OnlyFansAPI(StreamlinedAPI):
         guest: bool = False,
         ignore_auth_errors: bool = False,
     ):
-
         from ultima_scraper_api.apis.onlyfans.authenticator import (
             extract_auth_details_from_curl,
         )
@@ -245,8 +243,11 @@ class OnlyFansAPI(StreamlinedAPI):
                 await self.remove_auth(auth)
 
     async def remove_auth(self, auth: "OnlyFansAuthModel"):
-        await auth.get_requester().active_session.close()
-        del self.auths[auth.id]
+        await asyncio.gather(
+            self.websocket_manager.close_connection(f"onlyfans_{auth.id}"),
+            super().remove_auth(auth),
+            return_exceptions=True,
+        )
 
     def create_auth_details(self, auth_json: dict[str, Any] = {}):
         """If you've got a auth.json file, you can load it into python and pass it through here.

@@ -8,14 +8,21 @@ from ultima_scraper_api.apis.onlyfans.classes.extras import endpoint_links
 from ultima_scraper_api.apis.onlyfans.classes.mass_message_model import MassMessageModel
 from ultima_scraper_api.apis.onlyfans.classes.media_model import MediaModel
 from ultima_scraper_api.apis.onlyfans.urls import APIRoutes
+from ultima_scraper_api.managers.session_manager import consume_response_json
 
 if TYPE_CHECKING:
     from ultima_scraper_api.apis.onlyfans.classes.user_model import UserModel
 
 
 class MessageModel(SiteContent):
-    def __init__(self, option: dict[str, Any], user: UserModel) -> None:
-        author = user.get_authed().resolve_user(option["fromUser"])
+    def __init__(
+        self, option: dict[str, Any], user: UserModel, *, cache: bool = True
+    ) -> None:
+        author = (
+            user
+            if option["fromUser"].get("id") == user.id
+            else user.get_authed().resolve_user(option["fromUser"], cache=cache)
+        )
         assert author, "Author not found"
         SiteContent.__init__(self, option, author)
         self.user = user
@@ -45,9 +52,12 @@ class MessageModel(SiteContent):
         self.expiredAt: Any = option.get("expiredAt")
         self.created_at: datetime = datetime.fromisoformat(option["createdAt"])
         self.changedAt: Optional[str] = option.get("changedAt")
-        author.scrape_manager.scraped.Messages[self.id] = self
+        if cache:
+            author.scrape_manager.scraped.Messages[self.id] = self
+        self.mass_message: MassMessageModel | None = None
         if self.is_mass_message():
-            MassMessageModel(option, self.author)
+            self.mass_message = MassMessageModel(option, self.author, cache=cache)
+            self.mass_message._source_message = self
 
     def get_author(self):
         return self.author
@@ -106,7 +116,7 @@ class MessageModel(SiteContent):
             await self.get_author().get_requester().request(link, method="POST", json=x)
         )
         assert response is not None, "No response from buy_message request"
-        result = await response.json()
+        result = await consume_response_json(response)
         return result
 
     def get_scrape_job_params(self) -> dict[str, Any]:
@@ -147,7 +157,7 @@ class MessageModel(SiteContent):
             .request(url, method=method, json={"withUserId": self.user.id})
         )
         assert response is not None, "No response from like_message request"
-        result = await response.json()
+        result = await consume_response_json(response)
         # Update local state based on toggle
         if "error" not in result:
             self.isLiked = not self.isLiked

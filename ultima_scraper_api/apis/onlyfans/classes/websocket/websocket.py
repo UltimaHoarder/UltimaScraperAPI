@@ -5,9 +5,10 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, cast
 
 import websockets
+from websockets.protocol import State
 
 from ultima_scraper_api.apis.onlyfans.classes.extras import AuthDetails
 from ultima_scraper_api.apis.onlyfans.urls import APIRoutes
@@ -46,7 +47,8 @@ class OnlyFansWebSocket(WebSocketProtocol):
         Returns:
             WebSocket URL
         """
-        url = getattr(self.auth.user, "ws_url", None)
+        auth = cast("OnlyFansAuthModel", self.auth)
+        url = auth.user.ws_url
         if not url:
             raise ValueError("WebSocket URL not available on user profile")
         return url
@@ -60,16 +62,7 @@ class OnlyFansWebSocket(WebSocketProtocol):
         """
         if self._websocket is None:
             return False
-        # Check if the websocket has a state attribute (websockets 11+)
-        if hasattr(self._websocket, "state"):
-            from websockets.protocol import State
-
-            return self._websocket.state == State.OPEN
-        # Fallback: check if closed attribute exists (older versions)
-        if hasattr(self._websocket, "closed"):
-            return not self._websocket.closed
-        # Last resort: assume it's connected if it exists
-        return True
+        return self._websocket.state == State.OPEN
 
     async def connect(self) -> None:
         """Establish OnlyFans WebSocket connection with auth headers.
@@ -77,13 +70,14 @@ class OnlyFansWebSocket(WebSocketProtocol):
         Refreshes WS credentials before each connection attempt so that
         reconnects use a fresh ``wsAuthToken`` and ``wsUrl``.
         """
+        auth = cast("OnlyFansAuthModel", self.auth)
         await self._refresh_ws_credentials()
 
         url = self.connection_url
         logger.info(f"Connecting to OnlyFans WebSocket: {url[:60]}...")
 
         # Get auth details for headers
-        auth_details = self.auth.get_auth_details()
+        auth_details = auth.get_auth_details()
         user_agent = auth_details.user_agent
         assert isinstance(auth_details, AuthDetails)
         cookie_header: str = auth_details.cookie.convert()
@@ -103,8 +97,7 @@ class OnlyFansWebSocket(WebSocketProtocol):
 
         logger.debug("OnlyFans WebSocket connected")
 
-        assert isinstance(self.auth, OnlyFansAuthModel)
-        token = self.auth.user.ws_auth_token
+        token = auth.user.ws_auth_token
         if token:
             try:
                 await self._websocket.send(
@@ -214,20 +207,18 @@ class OnlyFansWebSocket(WebSocketProtocol):
         routing content events.  Calling this before every ``connect()``
         ensures reconnects always use a valid token.
         """
-        from ultima_scraper_api.apis.onlyfans.classes.extras import endpoint_links
-
         try:
             link = APIRoutes().me()
-            json_resp = await self.auth.auth_session.json_request(link)
+            auth = cast("OnlyFansAuthModel", self.auth)
+            json_resp = await auth.auth_session.json_request(link)
 
             new_token = json_resp.get("wsAuthToken")
             new_url = json_resp.get("wsUrl")
-            assert isinstance(self.auth, OnlyFansAuthModel)
-            if new_token and new_token != self.auth.user.ws_auth_token:
-                self.auth.user.ws_auth_token = new_token
+            if new_token and new_token != auth.user.ws_auth_token:
+                auth.user.ws_auth_token = new_token
                 logger.info("Refreshed OnlyFans WS auth token")
-            if new_url and new_url != self.auth.user.ws_url:
-                self.auth.user.ws_url = new_url
+            if new_url and new_url != auth.user.ws_url:
+                auth.user.ws_url = new_url
                 logger.info("Refreshed OnlyFans WS URL")
         except Exception as exc:
             logger.warning(f"Failed to refresh WS credentials: {exc}")

@@ -1,8 +1,17 @@
-import asyncio
-from collections.abc import Awaitable, Callable
+from collections.abc import (
+    AsyncIterable,
+    AsyncGenerator,
+    Awaitable,
+    Callable,
+    Iterable,
+    Sized,
+)
+from contextlib import aclosing
 from typing import TYPE_CHECKING, Any, Generic, TypeVar
 
 from ultima_scraper_api.apis.api_helper import handle_error_details
+from ultima_scraper_api.managers.session_manager import consume_response_json
+from ultima_scraper_core.concurrency import map_unordered
 
 if TYPE_CHECKING:
     from ultima_scraper_api.managers.session_manager import AuthedSession
@@ -21,54 +30,73 @@ class ScrapeManager(Generic[TAPI, TCC]):
         self.scraped: TCC = authed.api.CategorizedContent()  # type: ignore
         self.handle_errors = True
 
+    async def iter_scrape(
+        self,
+        urls: Iterable[str] | AsyncIterable[str],
+        on_progress: ScrapeProgressCallback | None = None,
+        *,
+        concurrency: int | None = None,
+        total_pages: int | None = None,
+    ) -> AsyncGenerator[Any, None]:
+        """Stream flattened page results with bounded request admission.
+
+        Unset admission concurrency follows the existing session request budget.
+        A lazy URL source may supply its total for progress; zero denotes an
+        unknown total. Callers stopping early must close this iterator.
+        """
+        limit = (
+            self.auth_session.session_manager.max_threads
+            if concurrency is None
+            else concurrency
+        )
+        total = (
+            total_pages
+            if total_pages is not None
+            else len(urls)
+            if isinstance(urls, Sized)
+            else 0
+        )
+        completed = 0
+        items_count = 0
+
+        async def scrape_page(url: str) -> Any:
+            try:
+                return await self.scrape(url)
+            except Exception:
+                # Preserve bulk_scrape's page-failure behavior. Cancellation
+                # still propagates and drains all admitted requests.
+                return None
+
+        async with aclosing(map_unordered(scrape_page, urls, limit=limit)) as pages:
+            async for page in pages:
+                values = (
+                    (page if isinstance(page, list) else [page])
+                    if page and not isinstance(page, BaseException)
+                    else []
+                )
+                completed += 1
+                items_count += len(values)
+                if on_progress:
+                    await on_progress(completed, total, items_count)
+                for value in values:
+                    yield value
+
     async def bulk_scrape(
         self,
         urls: list[str],
         on_progress: ScrapeProgressCallback | None = None,
+        *,
+        concurrency: int | None = None,
     ) -> list[Any]:
-        """Scrape multiple URLs in parallel with optional progress callback.
+        """Collect page results for callers that explicitly need a complete list.
 
-        Args:
-            urls: List of URLs to scrape.
-            on_progress: Optional async callback called after each page completes.
-                         Signature: (completed_pages, total_pages, items_so_far) -> Awaitable[None]
-
-        Returns:
-            Flattened list of all scraped items.
+        Runtime pipelines can consume iter_scrape instead to release each page
+        incrementally. Both entry points bound admitted requests.
         """
-        total = len(urls)
-        if total == 0:
-            return []
-
-        # Create tasks for all URLs
-        tasks = [asyncio.create_task(self.scrape(url)) for url in urls]
-
-        results: list[Any] = []
-        completed = 0
-        items_count = 0
-
-        # Process as each task completes (maintains parallelism)
-        for coro in asyncio.as_completed(tasks):
-            try:
-                page_result = await coro
-                if page_result and not isinstance(page_result, BaseException):
-                    if isinstance(page_result, list):
-                        results.extend(page_result)
-                        items_count += len(page_result)
-                    else:
-                        results.append(page_result)
-                        items_count += 1
-            except Exception:
-                # Silently skip failed requests (matches original behavior)
-                pass
-
-            completed += 1
-
-            # Call progress callback if provided (caller handles event publishing)
-            if on_progress:
-                await on_progress(completed, total, items_count)
-
-        return results
+        async with aclosing(
+            self.iter_scrape(urls, on_progress, concurrency=concurrency)
+        ) as values:
+            return [value async for value in values]
 
     async def scrape(self, url: str):
         auth_session = self.auth_session
@@ -77,7 +105,7 @@ class ScrapeManager(Generic[TAPI, TCC]):
             assert result
             async with result as response:
                 if result.status != 404:
-                    json_res = await response.json()
+                    json_res = await consume_response_json(response)
                     final_result = await self.handle_error(url, json_res)
                 else:
                     final_result = []

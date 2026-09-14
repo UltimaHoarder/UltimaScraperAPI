@@ -14,7 +14,6 @@ from ultima_scraper_api.apis.user_streamliner import StreamlinedUser
 from ultima_scraper_api.managers.scrape_manager import ScrapeManager
 
 if TYPE_CHECKING:
-    from ultima_scraper_api import FanslyAPI
     from ultima_scraper_api.apis.fansly.classes.auth_model import FanslyAuthModel
     from ultima_scraper_api.apis.fansly.classes.post_model import PostModel
 
@@ -276,7 +275,7 @@ class UserModel(StreamlinedUser["FanslyAuthModel", "FanslyAPI"]):
                 identifier=identifier, global_limit=limit, global_offset=offset
             ).list_highlights
             results = await self.get_requester().json_request(link)
-            results = await remove_errors(results)
+            results = await api_helper.remove_errors(results)
             results = [HighlightModel(x) for x in results]
         else:
             link = endpoint_links(

@@ -43,6 +43,8 @@ class MassMessageModel(SiteContent):
         options: dict[str, Any],
         user: "UserModel",
         mass_message_stat: MassMessageStatModel | None = None,
+        *,
+        cache: bool = True,
     ) -> None:
         SiteContent.__init__(self, options, user)
         if not user.is_authed_user():
@@ -63,7 +65,9 @@ class MassMessageModel(SiteContent):
             if self.mass_message_stat
             else self.created_at + timedelta(0, self.unsend_seconds)
         )
-        self.get_author().scrape_manager.scraped.MassMessages[self.id] = self
+        self._source_message = None
+        if cache:
+            self.get_author().scrape_manager.scraped.MassMessages[self.id] = self
 
     def is_bought(self) -> bool:
         if self.mass_message_stat:
@@ -71,6 +75,8 @@ class MassMessageModel(SiteContent):
                 return True
             else:
                 return False
+        elif self._source_message is not None:
+            return all(media.canView for media in self._source_message.media)
         else:
             message = [
                 x

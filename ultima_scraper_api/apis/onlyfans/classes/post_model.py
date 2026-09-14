@@ -29,7 +29,7 @@ class PromotionContentModel:
 
 
 class PostModel(SiteContent):
-    def __init__(self, option: dict[str, Any], user: UserModel) -> None:
+    def __init__(self, option: dict[str, Any], user: UserModel, *, cache: bool = True) -> None:
         SiteContent.__init__(self, option, user)
         self.responseType: str = option["responseType"]
         text: str = option.get("text", "")
@@ -63,12 +63,12 @@ class PostModel(SiteContent):
         self.commentsCount: int = option.get("commentsCount", 0)
         self.mentionedUsers: list[dict[str, Any]] = option.get("mentionedUsers", [])
         self.linkedUsers: list[UserModel] = [
-            self.get_author().get_authed().resolve_user(x)
+            self.get_author().get_authed().resolve_user(x, cache=cache)
             for x in option.get("linkedUsers", [])
         ]
 
         self.linkedPosts: list[PostModel] = [
-            PostModel(p, self.get_author().get_authed().resolve_user(p["author"]))
+            PostModel(p, self.get_author().get_authed().resolve_user(p["author"], cache=cache), cache=cache)
             for p in option.get("linkedPosts", [])
         ]
         self.promotionContent: list[PromotionContentModel] = [
@@ -89,7 +89,8 @@ class PostModel(SiteContent):
         self.created_at: datetime = datetime.fromisoformat(option["postedAt"])
         self.postedAtPrecise: str = option["postedAtPrecise"]
         self.expiredAt: Any = option.get("expiredAt")
-        user.scrape_manager.scraped.Posts[self.id] = self
+        if cache:
+            user.scrape_manager.scraped.Posts[self.id] = self
 
     def get_author(self):
         return self.author

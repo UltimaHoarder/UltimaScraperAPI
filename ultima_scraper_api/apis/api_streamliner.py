@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 import platform
 from typing import TYPE_CHECKING, TypeVar
 
@@ -86,6 +87,16 @@ class StreamlinedAPI:
     def get_global_settings(self):
         return self.config.settings
 
-    async def close_pools(self):
-        for _identifier, auth in self.api.auths.items():
-            await auth.auth_session.active_session.close()  # type: ignore
+    async def remove_auth(self, auth: auth_types) -> None:
+        """Close and remove one auth through the shared site lifecycle."""
+        try:
+            await auth.get_requester().active_session.close()
+        finally:
+            self.api.auths.pop(auth.id, None)  # type: ignore[attr-defined]
+
+    async def close_pools(self) -> None:
+        await self.session_manager.stop_rate_limit_checker()
+        await asyncio.gather(
+            *(self.remove_auth(auth) for auth in list(self.api.auths.values())),  # type: ignore[attr-defined]
+            return_exceptions=True,
+        )

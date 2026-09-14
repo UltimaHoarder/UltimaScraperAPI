@@ -5,7 +5,9 @@ from .redis import (
     RedisLogHandler,
     RedisManager,
     WebSocketStorage,
+    attach_redis,
     create_websocket_storage,
+    detach_redis,
     get_redis,
     initialize_redis,
     publish_custom_event,
@@ -18,6 +20,8 @@ from .redis import (
 __all__ = [
     # Redis connection management
     "RedisManager",
+    "attach_redis",
+    "detach_redis",
     "get_redis",
     "initialize_redis",
     "shutdown_redis",

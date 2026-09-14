@@ -53,7 +53,7 @@ class WebSocketManager:
         Args:
             redis_manager: Redis manager instance
         """
-        logger.info(f"🔄 Updating WebSocket manager with Redis manager")
+        logger.info("🔄 Updating WebSocket manager with Redis manager")
         self.redis_manager = redis_manager
 
         # Update all existing connections
@@ -190,6 +190,8 @@ class WebSocketManager:
         total_published = 0
         total_redis_published = 0
         total_redis_failed = 0
+        total_message_history = 0
+        total_event_history = 0
         connected_count = 0
 
         for conn in self._connections.values():
@@ -198,6 +200,8 @@ class WebSocketManager:
             total_published += stats["messages_published"]
             total_redis_published += stats["redis_published"]
             total_redis_failed += stats["redis_failed"]
+            total_message_history += stats["message_history_size"]
+            total_event_history += stats["event_history_size"]
             if stats["is_connected"]:
                 connected_count += 1
 
@@ -208,5 +212,7 @@ class WebSocketManager:
             "total_messages_published": total_published,
             "total_redis_published": total_redis_published,
             "total_redis_failed": total_redis_failed,
+            "total_message_history": total_message_history,
+            "total_event_history": total_event_history,
             "connection_ids": self.get_connection_ids(),
         }

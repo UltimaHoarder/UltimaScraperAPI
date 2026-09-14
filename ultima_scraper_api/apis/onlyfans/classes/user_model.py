@@ -1,6 +1,7 @@
 from __future__ import annotations
 
-import sys
+from collections.abc import AsyncGenerator
+from contextlib import aclosing
 from datetime import datetime
 from typing import TYPE_CHECKING, Any, Literal
 from urllib import parse
@@ -26,7 +27,92 @@ if TYPE_CHECKING:
     from ultima_scraper_api.apis.onlyfans.classes.post_model import PostModel
     from ultima_scraper_api.managers.session_manager import AuthedSession
 
-DEFAULT_RECURSION_LIMIT = sys.getrecursionlimit()
+async def iter_items(
+    category: Literal[
+        "list_posts",
+        "list_vault_media",
+        "list_subscriptions",
+        "list_paid_content",
+        "list_blocked_users",
+        "list_restricted_users",
+        "list_transactions",
+        "search_chats",
+        "list_chats",
+    ],
+    requester: AuthedSession,
+    max_items: int | None,
+    identifier: int | str | None = None,
+    query_type: str | None = None,
+    limit: int = 10,
+    offset: int = 0,
+    before_date: datetime | float | None = None,
+    after_date: datetime | float | None = None,
+    item_count: int = 0,
+) -> AsyncGenerator[dict[str, Any], None]:
+    """Iterate cursor/offset pages without retaining the previous pages."""
+    if limit <= 0:
+        raise ValueError("Pagination limit must be positive")
+    if max_items is not None and max_items < 0:
+        raise ValueError("max_items must be nonnegative or None")
+    while max_items is None or item_count < max_items:
+        match category:
+            case "list_posts":
+                assert identifier
+                link = endpoint_links().list_posts(
+                    identifier=identifier,
+                    limit=limit,
+                    before_date=before_date,
+                    after_date=after_date,
+                )
+            case "list_vault_media":
+                assert identifier
+                link = endpoint_links().list_vault_media(
+                    list_id=identifier, limit=limit, offset=offset
+                )
+            case "list_subscriptions":
+                link = endpoint_links().list_subscriptions(
+                    limit=limit,
+                    offset=offset,
+                    sub_type=SubscriptionTypeEnum(query_type),
+                )
+            case "list_paid_content":
+                link = APIRoutes().list_paid_content(
+                    limit=limit, offset=offset, performer_id=identifier
+                )
+            case "list_blocked_users":
+                link = APIRoutes().blocked_users(limit=limit, offset=offset)
+            case "list_restricted_users":
+                link = APIRoutes().restricted_users(limit=limit, offset=offset)
+            case "list_transactions":
+                link = APIRoutes().transaction_history(limit=limit, offset=offset)
+            case "list_chats":
+                link = endpoint_links(global_limit=limit, global_offset=offset).list_chats
+            case "search_chats":
+                assert isinstance(identifier, str)
+                link = APIRoutes().search_chats(
+                    query=identifier, limit=limit, offset=offset
+                )
+        result = await requester.json_request(link)
+        if isinstance(result, dict) and "error" in result:
+            raise RuntimeError(f"{category} page request failed")
+        items = result if isinstance(result, list) else result.get("list", [])
+        if not items:
+            return
+        remaining = None if max_items is None else max_items - item_count
+        for item in items if remaining is None else items[:remaining]:
+            yield item
+            item_count += 1
+        if max_items is not None and item_count >= max_items:
+            return
+        if isinstance(result, list) or not result.get("hasMore"):
+            return
+        next_marker = result.get("tailMarker")
+        if category == "list_posts" and (
+            next_marker is None or next_marker == after_date
+        ):
+            raise RuntimeError("Posts pagination did not advance its tail marker")
+        after_date = next_marker
+        offset += limit
 
 
 async def recursion(
@@ -39,6 +125,7 @@ async def recursion(
         "list_restricted_users",
         "list_transactions",
         "search_chats",
+        "list_chats",
     ],
     requester: AuthedSession,
     max_items: int | None,
@@ -50,71 +137,22 @@ async def recursion(
     after_date: datetime | float | None = None,
     item_count: int = 0,
 ) -> list[dict[str, Any]]:
-    if max_items is None:
-        max_items = sys.maxsize
-    if item_count >= max_items:
-        return []
-    sys.setrecursionlimit(1500)
-    match category:
-        case "list_posts":
-            assert identifier
-            link = endpoint_links().list_posts(
-                identifier=identifier,
-                limit=limit,
-                before_date=before_date,
-                after_date=after_date,
-            )
-        case "list_vault_media":
-            assert identifier
-            link = endpoint_links().list_vault_media(
-                list_id=identifier, limit=limit, offset=offset
-            )
-        case "list_subscriptions":
-            link = endpoint_links().list_subscriptions(
-                limit=limit, offset=offset, sub_type=SubscriptionTypeEnum(query_type)
-            )
-        case "list_paid_content":
-            link = APIRoutes().list_paid_content(
-                limit=limit, offset=offset, performer_id=identifier
-            )
-        case "list_blocked_users":
-            link = APIRoutes().blocked_users(limit=limit, offset=offset)
-        case "list_restricted_users":
-            link = APIRoutes().restricted_users(limit=limit, offset=offset)
-        case "list_transactions":
-            link = APIRoutes().transaction_history(limit=limit, offset=offset)
-        case "search_chats":
-            assert isinstance(identifier, str)
-            link = APIRoutes().search_chats(
-                query=identifier, limit=limit, offset=offset
-            )
-
-    results = await requester.json_request(link)
-    if isinstance(results, list):
-        if not results:
-            sys.setrecursionlimit(DEFAULT_RECURSION_LIMIT)
-            return results
-    items: list[dict[str, Any]] = results.get("list", [])
-    after_date = results.get("tailMarker")
-    if len(items) + item_count >= max_items:
-        items = items[:max_items]
-        sys.setrecursionlimit(DEFAULT_RECURSION_LIMIT)
-        return items
-    if results["hasMore"]:
-        results2 = await recursion(
+    """Compatibility collector; streaming callers use iter_items."""
+    async with aclosing(
+        iter_items(
             category,
             requester,
-            max_items=max_items,
-            identifier=identifier,
-            query_type=query_type,
-            limit=limit,
-            offset=offset + limit,
-            before_date=before_date,
-            after_date=after_date,
-            item_count=item_count + len(items),
+            max_items,
+            identifier,
+            query_type,
+            limit,
+            offset,
+            before_date,
+            after_date,
+            item_count,
         )
-        items.extend(results2)
-    return items
+    ) as items:
+        return [item async for item in items]
 
 
 class UserModel(StreamlinedUser["OnlyFansAuthModel", "OnlyFansAPI"]):
@@ -125,7 +163,7 @@ class UserModel(StreamlinedUser["OnlyFansAuthModel", "OnlyFansAPI"]):
     When a user subscribes to a performer, 'subscribed_by' refers to the user, and 'subscribed_on' refers to the performer.
     """
 
-    def __init__(self, option: dict[str, Any], authed: OnlyFansAuthModel) -> None:
+    def __init__(self, option: dict[str, Any], authed: OnlyFansAuthModel, *, cache: bool = True) -> None:
         self.avatar: str | None = option.get("avatar")
         self.avatar_thumbs: list[str] | None = option.get("avatarThumbs")
         self.header: str | None = option.get("header")
@@ -382,7 +420,7 @@ class UserModel(StreamlinedUser["OnlyFansAuthModel", "OnlyFansAPI"]):
         self.ws_auth_token: str | None = option.get("wsAuthToken")
         # Custom
         found_user = authed.find_user(self.id)
-        if not found_user:
+        if cache and not found_user:
             authed.add_user(self)
         self.username = self.get_username()
         self.download_info: dict[str, Any] = {}
@@ -441,8 +479,35 @@ class UserModel(StreamlinedUser["OnlyFansAuthModel", "OnlyFansAPI"]):
         on_progress: ScrapeProgressCallback | None = None,
         job_id: str | None = None,
     ) -> list[StoryModel]:
+        """Collect stories for callers requiring the public list/cache contract."""
+        async with aclosing(
+            self.iter_stories(
+                limit=limit,
+                offset=offset,
+                on_progress=on_progress,
+                job_id=job_id,
+                cache=True,
+            )
+        ) as stories:
+            return [story async for story in stories]
+
+    async def iter_stories(
+        self,
+        limit: int = 100,
+        offset: int = 0,
+        on_progress: ScrapeProgressCallback | None = None,
+        job_id: str | None = None,
+        *,
+        max_items: int | None = None,
+        cache: bool = False,
+    ) -> AsyncGenerator[StoryModel, None]:
+        """Build stories only as consumed, without retaining profile models."""
         from ultima_scraper_api.managers.redis import publish_custom_event
 
+        if max_items is not None and max_items < 0:
+            raise ValueError("max_items must be nonnegative or None")
+        if max_items == 0:
+            return
         # Use provided job_id or fall back to "api" for standalone usage
         effective_job_id = job_id or "api"
 
@@ -456,6 +521,8 @@ class UserModel(StreamlinedUser["OnlyFansAuthModel", "OnlyFansAPI"]):
         async def _emit_progress(
             completed_pages: int, total_pages: int, items_so_far: int
         ) -> None:
+            if max_items is not None:
+                items_so_far = min(items_so_far, max_items)
             await publish_custom_event(
                 {
                     "event": "scrape_progress",
@@ -475,11 +542,18 @@ class UserModel(StreamlinedUser["OnlyFansAuthModel", "OnlyFansAPI"]):
             if on_progress:
                 await on_progress(completed_pages, total_pages, items_so_far)
 
-        results = await self.scrape_manager.bulk_scrape(
-            links, on_progress=_emit_progress
-        )
-        final_results = [StoryModel(x, self) for x in results]
-        return final_results
+        count = 0
+        async with aclosing(
+            self.scrape_manager.iter_scrape(
+                links,
+                on_progress=_emit_progress,
+            )
+        ) as values:
+            async for value in values:
+                yield StoryModel(value, self, cache=cache)
+                count += 1
+                if max_items is not None and count >= max_items:
+                    return
 
     async def get_highlights(
         self,
@@ -511,6 +585,88 @@ class UserModel(StreamlinedUser["OnlyFansAuthModel", "OnlyFansAPI"]):
                     ]
         return final_results
 
+    async def iter_highlight_stories(
+        self,
+        limit: int = 100,
+        offset: int = 0,
+        on_progress: ScrapeProgressCallback | None = None,
+        job_id: str | None = None,
+        *,
+        max_items: int | None = None,
+        highlight_id: int | str = "",
+        cache: bool = False,
+    ) -> AsyncGenerator[StoryModel, None]:
+        """Page album IDs and consume each album without a profile-wide list.
+
+        ``limit`` bounds the requested album page, while ``max_items`` is the
+        total story selection. The upstream response for one album is retained
+        only while its stories are being consumed.
+        """
+        if isinstance(limit, bool) or not isinstance(limit, int) or limit <= 0:
+            raise ValueError("Highlight page size must be a positive integer")
+        if max_items is not None and max_items < 0:
+            raise ValueError("max_items must be nonnegative or None")
+        if self.is_deleted or max_items == 0:
+            return
+
+        async def albums():
+            if highlight_id:
+                yield highlight_id
+                return
+            current_offset = offset
+            previous_page = None
+            while True:
+                link = endpoint_links(
+                    identifier=self.id,
+                    global_limit=limit,
+                    global_offset=current_offset,
+                ).list_highlights
+                result = await self.get_requester().json_request(link)
+                if not isinstance(result, dict) or "error" in result:
+                    raise RuntimeError("Highlights page request failed")
+                values = result.get("list", [])
+                if not values:
+                    return
+                page_ids = tuple(value["id"] for value in values)
+                if page_ids == previous_page:
+                    raise RuntimeError(
+                        "Highlights pagination repeated its previous page"
+                    )
+                previous_page = page_ids
+                for value in values:
+                    if cache:
+                        HighlightModel(value, self)
+                    yield value["id"]
+                if not result.get("hasMore", len(values) >= limit):
+                    return
+                current_offset += len(values)
+
+        count = completed_albums = 0
+        async with aclosing(albums()) as identifiers:
+            async for identifier in identifiers:
+                result = await self.get_requester().json_request(
+                    endpoint_links(identifier=identifier).highlight
+                )
+                if not isinstance(result, dict) or "error" in result:
+                    raise RuntimeError(f"Highlight {identifier} request failed")
+                stories = result["stories"]
+                selected = len(stories)
+                if max_items is not None:
+                    selected = min(selected, max_items - count)
+                completed_albums += 1
+                count += selected
+                if on_progress:
+                    more = max_items is None or count < max_items
+                    await on_progress(
+                        completed_albums, completed_albums + int(more), count
+                    )
+                for index in range(selected):
+                    yield StoryModel(stories[index], self, highlight=True, cache=cache)
+                if max_items is not None and count >= max_items:
+                    return
+        if on_progress:
+            await on_progress(completed_albums, completed_albums, count)
+
     @with_hooks
     async def get_posts(
         self,
@@ -521,20 +677,31 @@ class UserModel(StreamlinedUser["OnlyFansAuthModel", "OnlyFansAPI"]):
         on_progress: ScrapeProgressCallback | None = None,
         job_id: str | None = None,
     ) -> list[PostModel]:
-        """
-        Retrieves posts from the user's profile.
+        """Collect posts for callers requiring the historical list/cache contract."""
+        async with aclosing(
+            self.iter_posts(
+                label=label,
+                limit=limit,
+                before_date=before_date,
+                after_date=after_date,
+                on_progress=on_progress,
+                job_id=job_id,
+                cache=True,
+            )
+        ) as items:
+            return [item async for item in items]
 
-        Args:
-            label (Literal["archived", "private_archived"] | str, optional): Label for filtering posts. Defaults to "".
-            limit (int, optional): Maximum number of posts to retrieve. Defaults to 50.
-            offset (int, optional): Offset for pagination. Defaults to 0.
-            after_date (datetime | float | None, optional): Retrieve posts after this date. Defaults to None.
-            on_progress: Optional callback for progress updates (completed_pages, total_pages, items_so_far).
-            job_id: Optional job ID to use for progress events. If not provided, uses "api".
-
-        Returns:
-            list[create_post]: List of scraped posts.
-        """
+    async def iter_posts(
+        self,
+        label: Literal["archived", "private_archived"] | str = "",
+        limit: int | None = None,
+        before_date: datetime | float | None = None,
+        after_date: datetime | float | None = None,
+        on_progress: ScrapeProgressCallback | None = None,
+        job_id: str | None = None,
+        *,
+        cache: bool = False,
+    ) -> AsyncGenerator[PostModel, None]:
         from ultima_scraper_api.managers.redis import publish_custom_event
 
         # Use provided job_id or fall back to "api" for standalone usage
@@ -547,9 +714,13 @@ class UserModel(StreamlinedUser["OnlyFansAuthModel", "OnlyFansAPI"]):
             api_count = self.archived_posts_count
         elif label == "private_archived":
             if not self.is_authed_user():
-                return []
+                return
             api_count = self.private_archived_posts_count
-        limit = limit if limit else api_count
+        limit = api_count if limit is None else limit
+        if limit < 0:
+            raise ValueError("Post limit must be nonnegative or None")
+        if limit == 0:
+            return
 
         # Create internal progress callback that publishes events with user context
         async def _emit_progress(
@@ -577,16 +748,15 @@ class UserModel(StreamlinedUser["OnlyFansAuthModel", "OnlyFansAPI"]):
 
         if after_date is None and before_date is None:
             link = epl.list_posts(self.id, label=label)
-            links = epl.create_links(
-                link,
-                limit,
-                pagination_limit=max_pagination_limit,
-            )
-            results = await self.scrape_manager.bulk_scrape(
-                links, on_progress=_emit_progress
+            source = self.scrape_manager.iter_scrape(
+                epl.iter_links(
+                    link, limit, pagination_limit=max_pagination_limit, exact_limit=True
+                ),
+                on_progress=_emit_progress,
+                total_pages=(limit + max_pagination_limit - 1) // max_pagination_limit,
             )
         else:
-            results = await recursion(
+            source = iter_items(
                 category="list_posts",
                 requester=self.get_requester(),
                 max_items=limit,
@@ -595,8 +765,15 @@ class UserModel(StreamlinedUser["OnlyFansAuthModel", "OnlyFansAPI"]):
                 before_date=before_date,
                 after_date=after_date,
             )
-        final_results = self.finalize_content_set(results)
-        return final_results
+        count = 0
+        async with aclosing(source) as values:
+            async for value in values:
+                if not isinstance(value, dict) or value.get("responseType") != "post":
+                    continue
+                yield post_model.PostModel(value, self, cache=cache)
+                count += 1
+                if count >= limit:
+                    break
 
     async def get_post(
         self, identifier: int | str | None = None, limit: int = 10, offset: int = 0
@@ -624,84 +801,90 @@ class UserModel(StreamlinedUser["OnlyFansAuthModel", "OnlyFansAPI"]):
         on_progress: ScrapeProgressCallback | None = None,
         job_id: str | None = None,
     ):
-        """
-        Retrieves messages for the user.
-
-        Args:
-            limit (int, optional): The maximum number of messages to retrieve. Defaults to 10.
-            offset_id (int | None, optional): The ID of the message to start retrieving from. Defaults to None.
-            cutoff_id (int | None, optional): The ID of the message to stop retrieving at. Defaults to None.
-            on_progress: Optional callback for progress updates (completed_pages, total_pages, items_so_far).
-                         Note: total_pages is estimated and may increase as more pages are discovered.
-            job_id: Optional job ID to use for progress events. If not provided, uses "api".
-
-        Returns:
-            list[message_model.create_message]: A list of message objects.
-        """
-        from ultima_scraper_api.managers.redis import publish_custom_event
-
-        # Use provided job_id or fall back to "api" for standalone usage
-        effective_job_id = job_id or "api"
-
+        """Collect messages while preserving the public cache/list contract."""
         if not self.cache.messages.is_released() or self.is_deleted:
             return list(self.scrape_manager.scraped.Messages.values())
-        final_results: list[message_model.MessageModel] = []
-        if self.is_authed_user() or self.is_deleted:
-            return final_results
+        async with aclosing(
+            self.iter_messages(
+                limit=limit,
+                offset_id=offset_id,
+                cutoff_id=cutoff_id,
+                on_progress=on_progress,
+                job_id=job_id,
+                cache=True,
+            )
+        ) as items:
+            result = [item async for item in items]
+        if result:
+            self.cache.messages.activate()
+        return result
 
+    async def iter_messages(
+        self,
+        limit: int = 20,
+        offset_id: int | None = None,
+        cutoff_id: int | None = None,
+        on_progress: ScrapeProgressCallback | None = None,
+        job_id: str | None = None,
+        *,
+        max_items: int | None = None,
+        cache: bool = False,
+    ) -> AsyncGenerator[message_model.MessageModel, None]:
+        """Fetch one message page at a time; limit controls page size only."""
+        from ultima_scraper_api.managers.redis import publish_custom_event
+
+        if limit <= 0:
+            raise ValueError("Message page size must be positive")
+        if max_items is not None and max_items < 0:
+            raise ValueError("max_items must be nonnegative or None")
+        if self.is_authed_user() or self.is_deleted or max_items == 0:
+            return
         pages_completed = 0
         total_items = 0
-
-        async def recursive(
-            limit: int = limit, offset_id: int | str | None = offset_id
-        ):
-            nonlocal pages_completed, total_items
+        while max_items is None or total_items < max_items:
             link = endpoint_links().list_messages(
                 self.id, global_limit=limit, global_offset=offset_id
             )
-            results = await self.get_requester().json_request(link)
-
-            items: list[dict[str, Any]] = results.get("list", [])
+            result = await self.get_requester().json_request(link)
+            items = result.get("list", [])
+            if not items:
+                return
+            remaining = None if max_items is None else max_items - total_items
+            selected = items if remaining is None else items[:remaining]
             pages_completed += 1
-            total_items += len(items)
-
-            # Emit progress after each page via Redis
-            estimated_total = pages_completed + (1 if results.get("hasMore") else 0)
+            total_items += len(selected)
+            has_more = bool(result.get("hasMore")) and (
+                max_items is None or total_items < max_items
+            )
+            if cutoff_id is not None and any(item["id"] == cutoff_id for item in items):
+                has_more = False  # Preserve the historical inclusive cutoff page.
+            estimated_total = pages_completed + int(has_more)
             await publish_custom_event(
                 {
                     "event": "scrape_progress",
-                    "job_id": effective_job_id,
+                    "job_id": job_id or "api",
                     "username": self.username,
                     "user_id": self.id,
                     "content_type": "Messages",
                     "status": "progress",
                     "items_scraped": total_items,
                     "items_saved": 0,
-                    "total_items": None,  # Messages count unknown with recursive pagination
+                    "total_items": max_items,
                     "page": pages_completed,
                     "total_pages": estimated_total,
-                    "has_more": results.get("hasMore", False),
+                    "has_more": has_more,
                 }
             )
-            # Also call external callback if provided
             if on_progress:
                 await on_progress(pages_completed, estimated_total, total_items)
-
-            if cutoff_id:
-                for item in items:
-                    if item["id"] == cutoff_id:
-                        return items
-            if results.get("hasMore"):
-                results2 = await recursive(limit=limit, offset_id=items[-1]["id"])
-                items.extend(results2)
-            return items
-
-        results = await recursive()
-
-        final_results = [message_model.MessageModel(x, self) for x in results]
-        if final_results:
-            self.cache.messages.activate()
-        return final_results
+            for item in selected:
+                yield message_model.MessageModel(item, self, cache=cache)
+            if not has_more:
+                return
+            next_id = items[-1]["id"]
+            if offset_id is not None and int(next_id) >= int(offset_id):
+                raise RuntimeError("Messages pagination did not advance its cursor")
+            offset_id = next_id
 
     async def get_mass_messages(self, message_cutoff_id: int | None = None):
         messages = await self.get_messages(cutoff_id=message_cutoff_id)

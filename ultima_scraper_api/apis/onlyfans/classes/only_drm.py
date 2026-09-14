@@ -4,19 +4,20 @@ OnlyFans DRM Resolution and Media Formatting Module
 This module provides functionality for:
 1. DRM content resolution and decryption using Widevine
 2. Async media merging workflow using ffmpeg
-3. Thread-based execution of blocking ffmpeg operations
+3. Bounded subprocess output and owned cancellation cleanup
 
 Compatible with Python 3.14+
 """
 
 import asyncio
 import logging
+import io
 import os
 import platform
 import re
 import shutil
-import subprocess
-from concurrent.futures import Future, ThreadPoolExecutor
+from concurrent.futures import Future
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 from urllib.parse import urlparse
@@ -24,10 +25,9 @@ from urllib.parse import urlparse
 import ffmpeg  # type: ignore
 import orjson
 import xmltodict
-from pywidevine import Device, DeviceTypes
-from pywidevine.cdm import Cdm
-from pywidevine.pssh import PSSH
 
+from ultima_scraper_core.environment import runtime_env_value
+from ultima_scraper_core.processes import ProcessResult, finish_owned, run_blocking, run_process, run_process_sync
 from ultima_scraper_api.apis.onlyfans.urls import APIRoutes
 
 if TYPE_CHECKING:
@@ -45,293 +45,282 @@ os_name = platform.system()
 # If the content is from mass messages, omit the response_type and content_id, the end result will look like "https://onlyfans.com/api2/v2/users/media/{MEDIA_ID}/drm/?type=widevine"
 
 
+def _resource_limit(name: str, value: int | None, fallback: int) -> int:
+    raw = value if value is not None else runtime_env_value(name)
+    if raw is None or (isinstance(raw, str) and not raw.strip()):
+        return fallback
+    if isinstance(raw, bool) or not isinstance(raw, (int, str)):
+        raise ValueError(f"{name} must be a positive integer")
+    try:
+        parsed = int(raw)
+    except ValueError as exc:
+        raise ValueError(f"{name} must be a positive integer") from exc
+    if parsed <= 0:
+        raise ValueError(f"{name} must be a positive integer")
+    return parsed
+
+
+@dataclass
+class _MergeRequest:
+    output_filepath: Path
+    media_paths: list[Path]
+    future: Future[bool] = field(default_factory=Future)
+    settled: asyncio.Event = field(default_factory=asyncio.Event)
+    operation: asyncio.Task[bool] | None = None
+
+
 class MediaFormatter:
-    """
-    Handles async media merging using ffmpeg-python.
+    """Bounded media merge admission and owned asynchronous subprocesses."""
 
-    This class manages:
-    - Async queue for media merge tasks
-    - ThreadPoolExecutor for blocking ffmpeg calls
-    - Format detection and media merging workflow
-    - Worker threads that consume and process merge tasks
-
-    Attributes:
-        merge_queue: Asyncio queue holding pending merge tasks
-        executor: ThreadPoolExecutor for running blocking ffmpeg operations
-        workers: List of active worker coroutines
-    """
-
-    def __init__(self, max_workers: int = 5) -> None:
-        """
-        Initialize MediaFormatter with async queue and thread pool.
-
-        Args:
-            max_workers: Maximum number of threads for ffmpeg operations
-        """
-        # Initialize async queue for merge tasks
-        # Each task is a tuple: (output_filepath, media_paths, result_future)
-        self.merge_queue: asyncio.Queue[tuple[Path, list[Path], Future[bool]]] = (
-            asyncio.Queue()
+    def __init__(
+        self,
+        max_workers: int | None = None,
+        *,
+        queue_entries: int | None = None,
+        output_bytes: int | None = None,
+    ) -> None:
+        self.max_workers = _resource_limit(
+            "ULTIMA_MEDIA_PROCESS_CONCURRENCY", max_workers, 5
         )
-
-        # ThreadPoolExecutor for blocking ffmpeg calls
-        self.executor = ThreadPoolExecutor(
-            max_workers=max_workers, thread_name_prefix="ffmpeg_worker"
+        self.queue_entries = _resource_limit(
+            "ULTIMA_MEDIA_PROCESS_QUEUE_ENTRIES", queue_entries, self.max_workers
         )
-
-        # Track active worker coroutines
+        self.output_bytes = _resource_limit(
+            "ULTIMA_MEDIA_PROCESS_OUTPUT_BYTES", output_bytes, io.DEFAULT_BUFFER_SIZE
+        )
+        self.merge_queue: asyncio.Queue[_MergeRequest] = asyncio.Queue(
+            self.queue_entries
+        )
         self.workers: list[asyncio.Task[None]] = []
+        self._process_slots = asyncio.Semaphore(self.max_workers)
+        self._closing = False
+        self._closed = False
+        self._process_tasks: set[asyncio.Task[ProcessResult]] = set()
 
-        logger.info(f"MediaFormatter initialized with {max_workers} worker threads")
+    async def run_process(self, args: list[str], *, stdout_consumer=None):
+        if self._closed:
+            raise RuntimeError("Media formatter is closed")
+
+        async def admitted():
+            async with self._process_slots:
+                return await run_process(
+                    args,
+                    output_bytes=self.output_bytes,
+                    stdout_consumer=stdout_consumer,
+                )
+
+        task = asyncio.create_task(admitted())
+        self._process_tasks.add(task)
+        try:
+            return await task
+        finally:
+            self._process_tasks.discard(task)
+
+    @staticmethod
+    def _probe_args(filepath: Path) -> list[str]:
+        return [
+            "ffprobe",
+            "-v",
+            "error",
+            "-show_entries",
+            "format=format_name",
+            "-of",
+            "default=noprint_wrappers=1:nokey=1",
+            filepath.as_posix(),
+        ]
+
+    @staticmethod
+    def _preferred_format(filepath: Path, result: ProcessResult) -> str:
+        if result.returncode:
+            error = result.stderr.decode(errors="replace")
+            if "moov atom not found" in error or "Invalid data found" in error:
+                extension = filepath.suffix.lower().lstrip(".")
+                return (
+                    extension
+                    if extension in {"mp4", "mov", "avi", "mkv", "webm", "flv"}
+                    else "mp4"
+                )
+            raise RuntimeError(f"Error probing file {filepath}: {error}")
+        if result.stdout_truncated:
+            raise RuntimeError(
+                "Media format response exceeds configured diagnostic buffer"
+            )
+        formats = result.stdout.decode(errors="strict").strip().split(",")
+        if not formats[0]:
+            raise RuntimeError(f"No media format returned for {filepath}")
+        return "mp4" if "mp4" in formats else formats[0]
 
     def get_preferred_format(self, filepath: Path) -> str:
-        """
-        Extract the preferred container format from the file.
-
-        Prioritizes 'mp4' if available in format list, otherwise uses first format.
-
-        Args:
-            filepath: Path to media file
-
-        Returns:
-            Preferred format name (e.g., 'mp4', 'mov')
-
-        Raises:
-            Exception: If ffprobe fails with unexpected error
-        """
-        try:
-            # Use ffmpeg-python to probe file formats
-            probe = ffmpeg.probe(filepath.as_posix())  # type: ignore
-            format_names = probe["format"][
-                "format_name"
-            ]  # E.g., "mov,mp4,m4a,3gp,3g2,mj2"
-            formats = format_names.split(",")  # Split into a list
-
-            # Prioritize 'mp4' if available, otherwise take the first format
-            preferred = "mp4" if "mp4" in formats else formats[0]
-            logger.debug(f"Preferred format for {filepath.name}: {preferred}")
-            return preferred
-        except Exception as e:
-            error_msg = str(e)
-
-            # Handle corrupted files gracefully
-            if "moov atom not found" in error_msg or "Invalid data found" in error_msg:
-                # File is corrupted, try to infer from extension
-                extension = filepath.suffix.lower().lstrip(".")
-                if extension in ["mp4", "mov", "m4v", "avi", "mkv", "webm", "flv"]:
-                    inferred_format = extension if extension != "m4v" else "mp4"
-                    logger.warning(
-                        f"File {filepath.name} is corrupted, inferred format: {inferred_format}"
-                    )
-                    return inferred_format
-                # Default fallback for video files
-                logger.warning(f"File {filepath.name} is corrupted, defaulting to mp4")
-                return "mp4"
-            else:
-                # For other ffmpeg errors, re-raise
-                logger.error(f"Error probing file {filepath}: {error_msg}")
-                raise Exception(f"Error probing file {filepath}: {error_msg}")
+        """Synchronous compatibility method; async paths use the owned runner."""
+        return self._preferred_format(
+            filepath,
+            run_process_sync(
+                self._probe_args(filepath), output_bytes=self.output_bytes
+            ),
+        )
 
     async def format_media(
         self, output_filepath: Path, media_paths: list[Path]
     ) -> bool:
-        """
-        Merge video and audio files using ffmpeg with codec copying.
-
-        This method handles:
-        - Multiple input files (typically video + audio from DASH)
-        - Codec copying (no re-encoding) for fast merging
-        - Temporary file handling to prevent corruption
-        - Error handling and cleanup
-
-        Args:
-            output_filepath: Desired path for merged output file
-            media_paths: List of media files to merge (video, audio, etc.)
-
-        Returns:
-            True if merge successful, False otherwise
-        """
-        # Skip merge if only one file (nothing to merge)
-        if len(media_paths) == 1:
-            logger.info(
-                f"Single file provided, no merge needed: {media_paths[0].name}. Copying to {output_filepath.name}"
-            )
-            shutil.copy(media_paths[0], output_filepath)
+        if not media_paths:
             return True
-        elif len(media_paths) == 0:
-            return True
-
+        temporary = output_filepath.with_suffix(".part")
         try:
-            # Extract video and audio paths
-            dec_video_path, dec_audio_path = media_paths[0], media_paths[1]
-            logger.info(
-                f"Merging {dec_video_path.name} + {dec_audio_path.name} -> {output_filepath.name}"
-            )
-
-            # Create ffmpeg input streams
-            video_input = ffmpeg.input(dec_video_path.as_posix())  # type: ignore
-            audio_input = ffmpeg.input(dec_audio_path.as_posix())  # type: ignore
-
-            # Dynamically determine the preferred output format
-            output_format = self.get_preferred_format(dec_video_path)
-
-            # Use temporary file during merge to prevent corruption
-            temp_output_filepath = output_filepath.with_suffix(".part")
-
-            # Run ffmpeg merge in thread pool (blocking operation)
-            loop = asyncio.get_running_loop()
-            await loop.run_in_executor(
-                self.executor,
-                lambda: ffmpeg.output(  # type: ignore
-                    video_input,  # type: ignore
-                    audio_input,  # type: ignore
-                    temp_output_filepath.as_posix(),
-                    vcodec="copy",  # Copy video codec (no re-encoding)
-                    acodec="copy",  # Copy audio codec (no re-encoding)
-                    f=output_format,  # Dynamically set the format
-                ).run(capture_stdout=True, capture_stderr=True, overwrite_output=True),
-            )
-
-            # Rename temp file to final output
-            temp_output_filepath.rename(output_filepath)
-            logger.info(f"Successfully merged media: {output_filepath.name}")
+            if len(media_paths) == 1:
+                async with self._process_slots:
+                    await run_blocking(shutil.copy, media_paths[0], temporary)
+            else:
+                video, audio = media_paths[:2]
+                output_format = self._preferred_format(
+                    video, await self.run_process(self._probe_args(video))
+                )
+                command = ffmpeg.output(
+                    ffmpeg.input(video.as_posix()),
+                    ffmpeg.input(audio.as_posix()),
+                    temporary.as_posix(),
+                    vcodec="copy",
+                    acodec="copy",
+                    f=output_format,
+                ).compile(overwrite_output=True)
+                result = await self.run_process(command)
+                if result.returncode:
+                    logger.error(
+                        "FFmpeg error merging %s: %s",
+                        output_filepath.name,
+                        result.stderr.decode(errors="replace"),
+                    )
+                    return False
+            temporary.replace(output_filepath)
             return True
-
-        except ffmpeg.Error as e:
-            # Log ffmpeg errors with stderr output
-            stderr = e.stderr.decode() if e.stderr else "No error details"  # type: ignore
-            logger.error(f"FFmpeg error merging {output_filepath.name}: {stderr}")
+        except asyncio.CancelledError:
+            raise
+        except Exception as exc:
+            logger.error("Error merging %s: %s", output_filepath.name, exc)
             return False
-        except Exception as e:
-            # Log unexpected errors
-            logger.error(f"Unexpected error merging {output_filepath.name}: {str(e)}")
-            return False
+        finally:
+            # run_process/run_blocking finish their owned work before this runs.
+            temporary.unlink(missing_ok=True)
 
     async def ffmpeg_worker(self) -> None:
-        """
-        Worker coroutine that consumes merge tasks from the queue.
-
-        This worker:
-        - Continuously polls the merge queue
-        - Processes each merge task using format_media()
-        - Sets the result future when complete
-        - Cleans up temporary decrypted files after merge
-        - Handles exceptions and sets future exceptions
-        """
-        logger.info("FFmpeg worker started")
-
         while True:
             try:
-                # Wait for next task from queue
-                output_filepath, media_paths, future = await self.merge_queue.get()
-                logger.debug(f"Worker picked up merge task: {output_filepath.name}")
+                request = await self.merge_queue.get()
+            except asyncio.QueueShutDown:
+                return
+            try:
+                if request.future.cancelled():
+                    continue
+                request.operation = asyncio.create_task(
+                    self.format_media(request.output_filepath, request.media_paths)
+                )
+                loop = asyncio.get_running_loop()
+                operation = request.operation
 
+                def cancel_operation(future, *, operation=operation, loop=loop):
+                    if future.cancelled() and not operation.done():
+                        try:
+                            loop.call_soon_threadsafe(operation.cancel)
+                        except RuntimeError:
+                            pass
+
+                request.future.add_done_callback(cancel_operation)
                 try:
-                    # Perform the media merge
-                    result = await self.format_media(output_filepath, media_paths)
-
-                    # Set the future result
-                    future.set_result(result)
-
-                    # Clean up decrypted temporary files
-                    for path in media_paths:
-                        if path.exists():
-                            path.unlink()
-                            logger.debug(f"Cleaned up temporary file: {path.name}")
-
-                    logger.info(f"Worker completed merge task: {output_filepath.name}")
-
-                except Exception as e:
-                    # Set exception on future if merge fails
-                    logger.error(
-                        f"Worker error processing {output_filepath.name}: {str(e)}"
-                    )
-                    future.set_exception(e)
-
-            except Exception as worker_error:
-                # Log worker-level errors but continue processing
-                logger.error(f"Worker encountered error: {str(worker_error)}")
-                continue
+                    result = await request.operation
+                except asyncio.CancelledError:
+                    request.future.cancel()
+                    current = asyncio.current_task()
+                    if current is not None and current.cancelling():
+                        raise
+                    continue
+                except Exception as exc:
+                    if not request.future.done():
+                        request.future.set_exception(exc)
+                    continue
+                if not request.future.done():
+                    request.future.set_result(result)
+                    # Failed/cancelled merges preserve their source streams.
+                    if result:
+                        for path in request.media_paths:
+                            if path != request.output_filepath:
+                                try:
+                                    path.unlink(missing_ok=True)
+                                except OSError as exc:
+                                    logger.warning(
+                                        "Merged file is ready, but source cleanup failed for %s: %s",
+                                        path,
+                                        exc,
+                                    )
             finally:
-                # Mark task as done
+                request.settled.set()
                 self.merge_queue.task_done()
 
+    def _request(self, output_filepath: Path, media_paths: list[Path]) -> _MergeRequest:
+        if self._closing:
+            raise RuntimeError("Media formatter is shutting down")
+        return _MergeRequest(output_filepath, media_paths)
+
     def add_task(self, output_filepath: Path, media_paths: list[Path]) -> Future[bool]:
-        """
-        Add a media merge task to the queue.
+        """Nonblocking compatibility entry point; QueueFull reports backpressure."""
+        request = self._request(output_filepath, media_paths)
+        self.merge_queue.put_nowait(request)
+        return request.future
 
-        This method:
-        - Creates a Future for tracking task completion
-        - Enqueues the task for worker processing
-        - Returns the Future for async result tracking
-
-        Args:
-            output_filepath: Desired path for merged output file
-            media_paths: List of media files to merge
-
-        Returns:
-            Future that will resolve to merge success status
-        """
-        # Create a Future to track task completion
-        result_future: Future[bool] = Future()
-
-        # Enqueue task (non-blocking)
-        self.merge_queue.put_nowait((output_filepath, media_paths, result_future))
-
-        logger.debug(
-            f"Added merge task to queue: {output_filepath.name} (queue size: {self.merge_queue.qsize()})"
-        )
-        return result_future
+    async def merge(self, output_filepath: Path, media_paths: list[Path]) -> bool:
+        """Wait for queue capacity and keep cancellation cleanup owned."""
+        request = self._request(output_filepath, media_paths)
+        if not self.workers:
+            raise RuntimeError("Start media formatter workers before awaiting a merge")
+        await self.merge_queue.put(request)
+        try:
+            return await asyncio.wrap_future(request.future)
+        except asyncio.CancelledError:
+            request.future.cancel()
+            if request.operation is not None:
+                await finish_owned(asyncio.create_task(request.settled.wait()))
+            raise
 
     def start_workers(self, n: int = 1) -> None:
-        """
-        Start n worker coroutines to process merge tasks.
+        if self._closing:
+            raise RuntimeError("Media formatter is shutting down")
+        if isinstance(n, bool) or not isinstance(n, int) or n <= 0:
+            raise ValueError("n must be a positive integer")
+        self.workers.extend(
+            asyncio.create_task(self.ffmpeg_worker(), name="ffmpeg_worker")
+            for _ in range(n)
+        )
 
-        Workers run concurrently and consume tasks from the merge queue.
-        Each worker processes tasks until explicitly stopped.
-
-        Args:
-            n: Number of worker coroutines to start (default: 1)
-        """
-        logger.info(f"Starting {n} ffmpeg worker(s)")
-
-        for i in range(n):
-            # Create and schedule worker task
-            worker_task = asyncio.create_task(
-                self.ffmpeg_worker(), name=f"ffmpeg_worker_{i}"
-            )
-            self.workers.append(worker_task)
-            logger.debug(f"Started worker {i+1}/{n}")
-
-        logger.info(f"All {n} workers started and ready")
+    def _cancel_queued(self):
+        while True:
+            try:
+                request = self.merge_queue.get_nowait()
+            except (asyncio.QueueEmpty, asyncio.QueueShutDown):
+                return
+            request.future.cancel()
+            request.settled.set()
+            self.merge_queue.task_done()
 
     async def shutdown(self) -> None:
-        """
-        Gracefully shutdown workers and cleanup resources.
-
-        This method:
-        - Waits for queue to be fully processed
-        - Cancels all worker tasks
-        - Shuts down the thread pool executor
-        """
-        logger.info("Shutting down MediaFormatter...")
-
-        # Wait for all queued tasks to complete
-        await self.merge_queue.join()
-        logger.info("All merge tasks completed")
-
-        # Cancel all worker tasks
-        for worker in self.workers:
-            worker.cancel()
-
-        # Wait for workers to finish cancellation
-        await asyncio.gather(*self.workers, return_exceptions=True)
-        logger.info("All workers stopped")
-
-        # Shutdown thread pool
-        self.executor.shutdown(wait=True)
-        logger.info("MediaFormatter shutdown complete")
-
+        self._closing = True
+        self.merge_queue.shutdown()
+        if not self.workers:
+            self._cancel_queued()
+        try:
+            await self.merge_queue.join()
+            await asyncio.gather(*self.workers)
+            self._closed = True
+            # Include directly awaited probes/decryption as well as merges.
+            await asyncio.gather(*self._process_tasks, return_exceptions=True)
+        except asyncio.CancelledError:
+            self._closed = True
+            self._cancel_queued()
+            owned = [*self.workers, *self._process_tasks]
+            for task in owned:
+                task.cancel()
+            await finish_owned(asyncio.gather(*owned, return_exceptions=True))
+            raise
+        finally:
+            self._closed = True
+            self.workers.clear()
 
 class DRMMedia:
     def __init__(
@@ -505,7 +494,7 @@ class OnlyDRM:
         mp4dump_path: Path | None = None,
         media_formatter: MediaFormatter | None = None,
         auto_start_workers: bool = True,
-        max_workers: int = 5,
+        max_workers: int | None = None,
     ) -> None:
         """
         Initialize OnlyDRM with Widevine credentials and media formatter.
@@ -518,7 +507,7 @@ class OnlyDRM:
             mp4dump_path: Optional path to mp4dump binary (auto-detected if None)
             media_formatter: MediaFormatter instance (creates new one if None)
             auto_start_workers: Whether to automatically start workers (default: True)
-            max_workers: Maximum number of worker threads for MediaFormatter
+            max_workers: Maximum concurrent media subprocesses per formatter
         """
         # Load Widevine credentials
         self.client_key = client_key_path.read_bytes()
@@ -547,6 +536,11 @@ class OnlyDRM:
             )
 
         # Initialize Widevine device and CDM
+        # Plain media models/formatters also import this module. Load the
+        # license machinery only when an authenticated DRM session needs it.
+        from pywidevine import Device, DeviceTypes
+        from pywidevine.cdm import Cdm
+
         self.device = Device(
             type_=DeviceTypes.ANDROID,
             security_level=3,
@@ -568,7 +562,7 @@ class OnlyDRM:
 
         # Auto-start workers if requested
         if auto_start_workers and not self.media_formatter.workers:
-            worker_count = self.media_formatter.executor._max_workers
+            worker_count = self.media_formatter.max_workers
             self.media_formatter.start_workers(worker_count)
             logger.info(f"Auto-started {worker_count} MediaFormatter workers")
 
@@ -661,6 +655,8 @@ class OnlyDRM:
             AssertionError: If license request fails
         """
         # Parse PSSH and generate license challenge
+        from pywidevine.pssh import PSSH
+
         pssh = PSSH(raw_pssh)
         challenge = self.cdm.get_license_challenge(self.session_id, pssh)
 
@@ -734,94 +730,112 @@ class OnlyDRM:
         logger.info(f"DRM resolution complete for media {drm_media.media_id}")
         return drm_media.video_url, drm_media.audio_url, key
 
+    @staticmethod
+    def _decryption_paths(filepath: Path, directory: Path | None):
+        output = filepath.with_name(filepath.name.replace(".enc", ".dec"))
+        if directory is not None:
+            output = directory / output.name
+        return output, output.with_suffix(".part" + output.suffix)
+
+    @staticmethod
+    def _encryption_probe():
+        # Retain only enough overlap to recognize a marker spanning pipe reads.
+        state = {"encrypted": False, "overlap": b""}
+
+        def consume(chunk):
+            if not state["encrypted"]:
+                chunk = state["overlap"] + chunk
+                state["encrypted"] = b"encv" in chunk or b"enca" in chunk
+                state["overlap"] = chunk[-3:]
+
+        return state, consume
+
+    def _is_file_encrypted(self, filepath: Path) -> bool:
+        state, consume = self._encryption_probe()
+        result = run_process_sync(
+            [str(self.mp4dump_filepath), str(filepath)],
+            output_bytes=self.media_formatter.output_bytes,
+            stdout_consumer=consume,
+        )
+        if result.returncode:
+            raise RuntimeError(
+                f"mp4dump failed: {result.stderr.decode(errors='replace')}"
+            )
+        return state["encrypted"]
+
+    async def _is_file_encrypted_async(self, filepath: Path) -> bool:
+        state, consume = self._encryption_probe()
+        result = await self.media_formatter.run_process(
+            [str(self.mp4dump_filepath), str(filepath)],
+            stdout_consumer=consume,
+        )
+        if result.returncode:
+            raise RuntimeError(
+                f"mp4dump failed: {result.stderr.decode(errors='replace')}"
+            )
+        return state["encrypted"]
+
+    @staticmethod
+    def _commit_decryption(filepath: Path, temporary: Path, output: Path) -> Path:
+        # Publish successfully before removing the retryable encrypted input.
+        temporary.replace(output)
+        if filepath != output:
+            filepath.unlink()
+        return output
+
     def decrypt_file(
         self, filepath: Path, key: str, temp_output_path: Path | None = None
     ) -> Path:
-        """
-        Decrypt a DRM-protected media file using mp4decrypt.
+        """Synchronous compatibility entry point with bounded diagnostics."""
+        output, temporary = self._decryption_paths(filepath, temp_output_path)
+        if not self._is_file_encrypted(filepath):
+            return output if output.exists() else filepath
+        try:
+            result = run_process_sync(
+                [
+                    str(self.mp4decrypt_filepath),
+                    str(filepath),
+                    str(temporary),
+                    "--key",
+                    key,
+                ],
+                output_bytes=self.media_formatter.output_bytes,
+            )
+            if result.returncode:
+                raise RuntimeError(
+                    f"mp4decrypt failed: {result.stderr.decode(errors='replace')}"
+                )
+            return self._commit_decryption(filepath, temporary, output)
+        finally:
+            temporary.unlink(missing_ok=True)
 
-        Args:
-            filepath: Path to encrypted file
-            key: Decryption key in format "KID:KEY" (hex)
-            temp_output_path: Optional directory for decrypted output
+    async def decrypt_file_async(
+        self, filepath: Path, key: str, temp_output_path: Path | None = None
+    ) -> Path:
+        """Decrypt with bounded output and reap the process on cancellation."""
+        output, temporary = self._decryption_paths(filepath, temp_output_path)
+        if not await self._is_file_encrypted_async(filepath):
+            return output if output.exists() else filepath
+        try:
+            result = await self.media_formatter.run_process(
+                [
+                    str(self.mp4decrypt_filepath),
+                    str(filepath),
+                    str(temporary),
+                    "--key",
+                    key,
+                ],
+            )
+            if result.returncode:
+                raise RuntimeError(
+                    f"mp4decrypt failed: {result.stderr.decode(errors='replace')}"
+                )
+            return self._commit_decryption(filepath, temporary, output)
+        finally:
+            temporary.unlink(missing_ok=True)
 
-        Returns:
-            Path to decrypted file
-
-        Raises:
-            FileNotFoundError: If mp4decrypt tool not found
-            RuntimeError: If decryption fails
-        """
-        # Determine output path (replace .enc with .dec)
-        output_filepath = Path(filepath.as_posix().replace(".enc", ".dec"))
-        if temp_output_path:
-            output_filepath = temp_output_path.joinpath(output_filepath.name)
-
-        # Check if file is encrypted using mp4dump
-        is_encrypted = self._is_file_encrypted(filepath)
-
-        # Early return if already decrypted
-        if output_filepath.exists() and not is_encrypted:
-            logger.debug(f"Decrypted file already exists: {output_filepath}")
-            return output_filepath
-
-        # Skip decryption if file is not encrypted
-        if not is_encrypted:
-            logger.debug(f"File is not encrypted, returning as-is: {filepath.name}")
-            return filepath
-
-        # Use temporary file during decryption
-        temp_output_filepath = output_filepath.with_suffix(
-            ".part" + output_filepath.suffix
-        )
-
-        # Execute mp4decrypt subprocess
-        logger.info(f"Decrypting {filepath.name} with key {key[:16]}...")
-        result = subprocess.run(
-            [
-                str(self.mp4decrypt_filepath),
-                str(filepath),
-                str(temp_output_filepath),
-                "--key",
-                key,
-            ],
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-            text=True,
-        )
-
-        # Check for errors
-        if result.returncode != 0:
-            error_msg = result.stderr or "Unknown error"
-            logger.error(f"Decryption failed: {error_msg}")
-            # Clean up partial file
-            if temp_output_filepath.exists():
-                temp_output_filepath.unlink()
-            raise RuntimeError(f"mp4decrypt failed: {error_msg}")
-
-        # Success: remove encrypted file and rename temp file
-        filepath.unlink()
-        temp_output_filepath.rename(output_filepath)
-        logger.info(f"Successfully decrypted: {output_filepath}")
-        return output_filepath
-
-    def _is_file_encrypted(self, filepath: Path) -> bool:
-        """
-        Check if a media file is encrypted using mp4dump.
-
-        Args:
-            filepath: Path to media file to check
-
-        Returns:
-            True if file contains encrypted tracks (encv/enca), False otherwise
-        """
-        result = subprocess.run(
-            [str(self.mp4dump_filepath), str(filepath)],
-            capture_output=True,
-            text=True,
-        )
-        # Check for encrypted video (encv) or audio (enca) tracks
-        return "encv" in result.stdout or "enca" in result.stdout
+    async def merge_media(self, output_filepath: Path, media_paths: list[Path]) -> bool:
+        return await self.media_formatter.merge(output_filepath, media_paths)
 
     def enqueue_merge_task(
         self, output_filepath: Path, media_paths: list[Path]
@@ -847,7 +861,7 @@ class OnlyDRM:
 
         This method:
         - Closes the Widevine CDM session
-        - Shuts down the MediaFormatter workers and thread pool
+        - Shuts down the MediaFormatter queue and workers
         """
         logger.info("Shutting down OnlyDRM...")
 

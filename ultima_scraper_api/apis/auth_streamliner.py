@@ -68,6 +68,28 @@ class StreamlinedAuth(Generic[T, TAPI, TAuthDetails]):
     def get_requester(self):
         return self.auth_session
 
+    def release_user(self, user_id: int | str) -> bool:
+        """Evict one transient user object and its scrape working set."""
+        try:
+            normalized_id = int(user_id)
+        except (TypeError, ValueError):
+            return False
+
+        primary_user_id = int(self.user.id)  # type: ignore[attr-defined]
+        if primary_user_id == normalized_id:
+            return False
+
+        user = self.users.pop(normalized_id, None)  # type: ignore[attr-defined]
+        if user is None:
+            return False
+
+        user.release_cached_objects()
+
+        user_cache = self.cache.data.get("users", {})
+        user_cache.pop(normalized_id, None)
+        user_cache.pop(str(normalized_id), None)
+        return True
+
     def webhook(self):
         # Unfinished
         site_config = self.authenticator.api.get_site_settings()  # type:ignore

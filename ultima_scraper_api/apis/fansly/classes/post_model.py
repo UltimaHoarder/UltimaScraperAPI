@@ -91,9 +91,6 @@ class PostModel(SiteContent):
         self.preview: list[int] = option.get("preview", [])
         self.canPurchase: bool = option.get("canPurchase")
 
-    def get_author(self):
-        return self.author
-
     async def get_comments(self):
         if not self.commentsCount:
             return
@@ -123,52 +120,6 @@ class PostModel(SiteContent):
         results = await self.user.get_requester().json_request(link, method="POST")
         self.isFavorite = True
         return results
-
-    async def link_picker(self, media: dict[Any, Any], target_quality: str):
-        # There are two media results at play here.
-        # The top-level `media` element itself represents the original source quality.
-        # It may also contain a `variants` list entry with alternate encoding qualities.
-        # Each variant has a similar structure to the main media element.
-        media_url = ""
-        source_media = media
-        variants = media.get("variants", [])
-
-        if target_quality == "source":
-            try:
-                return source_media["locations"][0]["location"]
-            except (KeyError, IndexError):
-                pass
-
-        # Track the target type as videos may also include thumbnail image variants.
-        target_type = source_media.get("mimetype")
-
-        qualities: list[tuple[int, str]] = []
-        for variant in variants + [source_media]:
-            if variant.get("mimetype") != target_type:
-                continue
-
-            media_quality = variant["height"]
-            try:
-                media_url = variant["locations"][0]["location"]
-            except (KeyError, IndexError):
-                continue
-            qualities.append((media_quality, media_url))
-
-        if not qualities:
-            return
-
-        # Iterate the media from highest to lowest quality.
-        for media_quality, media_url in sorted(qualities, reverse=True):
-            # If there was no "source" quality media, return the highest quality/first media.
-            if target_quality == "source":
-                return media_url
-
-            # Return the first media <= the target quality.
-            if media_quality <= int(target_quality):
-                return media_url
-
-        # If all media was > target quality, return the lowest quality/last media.
-        return media_url
 
     def get_previews(self):
         return [x for x in self.media if x["id"] in self.previews]

@@ -1,7 +1,8 @@
 from __future__ import annotations
 
-import asyncio
-from itertools import chain, product
+from collections.abc import AsyncGenerator
+from contextlib import aclosing
+from itertools import chain
 from typing import TYPE_CHECKING, Any, cast
 
 from pydantic import BaseModel, ConfigDict, Field
@@ -25,10 +26,15 @@ from ultima_scraper_api.apis.onlyfans.classes.subscription_count_model import (
 from ultima_scraper_api.apis.onlyfans.classes.subscription_model import (
     SubscriptionModel,
 )
-from ultima_scraper_api.apis.onlyfans.classes.user_model import UserModel, recursion
+from ultima_scraper_api.apis.onlyfans.classes.user_model import (
+    UserModel,
+    iter_items,
+    recursion,
+)
 from ultima_scraper_api.apis.onlyfans.classes.vault import VaultListModel
 from ultima_scraper_api.apis.onlyfans.urls import APIRoutes
 from ultima_scraper_api.managers.redis import with_hooks
+from ultima_scraper_api.managers.session_manager import consume_response_json
 
 if TYPE_CHECKING:
     from ultima_scraper_api.apis.onlyfans.authenticator import OnlyFansAuthenticator
@@ -218,12 +224,12 @@ class OnlyFansAuthModel(
                 user = None
         return user
 
-    def resolve_user(self, user_dict: dict[str, Any]):
+    def resolve_user(self, user_dict: dict[str, Any], *, cache: bool = True):
         user = None
         if "id" in user_dict:
             user = self.find_user(user_dict["id"])
         if not user:
-            user = UserModel(user_dict, self)
+            user = UserModel(user_dict, self, cache=cache)
         return user
 
     def add_user(self, user: UserModel):
@@ -358,7 +364,9 @@ class OnlyFansAuthModel(
             return False
 
     @with_hooks
-    async def get_user(self, identifier: int | str, refresh: bool = False):
+    async def get_user(
+        self, identifier: int | str, refresh: bool = False, *, cache: bool = True
+    ):
         """
         Retrieves a user from the OnlyFans API based on the provided identifier.
 
@@ -370,17 +378,21 @@ class OnlyFansAuthModel(
             UserModel | None: The user data if found, None otherwise.
         """
 
+        if not cache:
+            response = await self.auth_session.json_request(
+                endpoint_links(identifier).users
+            )
+            if "error" in response:
+                return None
+            return UserModel(response, self, cache=False)
+
         # Important: We need to preserve existing scraped data tied to the user in the cache.
         # When refreshing, we attach old cached data to the new user instance to maintain
         # continuity and prevent data loss or duplication.
         # So for now, we use this method to get the user data until we implemented the comments above
         cached_user = self.find_user(identifier)
 
-        if (
-            cached_user
-            and not refresh
-            and not self.cache.users(identifier).is_released()
-        ):
+        if cached_user and not refresh and not self.cache.users(identifier).is_released():
             return cached_user
 
         # Fetch fresh data from API
@@ -434,6 +446,137 @@ class OnlyFansAuthModel(
         result = await self.auth_session.json_request(url)
         return SubscriptionCountModel(result)
 
+    async def iter_subscriptions(
+        self,
+        identifiers: list[int | str] | None = None,
+        limit: int | None = None,
+        sub_type: SubscriptionType = SubscriptionTypeEnum.ALL,
+        filter_by: str = "",
+        job_id: str | None = None,
+        *,
+        cache: bool = False,
+        concurrency: int | None = None,
+    ):
+        """Yield page-owned subscriptions with bounded profile hydration.
+
+        Streaming consumers own the returned objects. With cache=False no users,
+        cache timers or subscription lists are added to the authenticated client.
+        """
+        from contextlib import aclosing
+        from datetime import datetime, timezone
+
+        from ultima_scraper_core import runtime_env_value
+        from ultima_scraper_core.concurrency import map_unordered
+        from ultima_scraper_api.managers.redis import get_redis
+
+        if limit is not None and (
+            isinstance(limit, bool) or not isinstance(limit, int) or limit < 0
+        ):
+            raise ValueError("Subscription limit must be nonnegative or None")
+        if limit == 0:
+            return
+        if concurrency is None:
+            raw_concurrency = runtime_env_value("ULTIMA_SUBSCRIPTION_HYDRATION_CONCURRENCY")
+            concurrency = (
+                int(raw_concurrency)
+                if raw_concurrency is not None and raw_concurrency.strip()
+                else self.auth_session.get_session_manager().max_threads
+            )
+        if (
+            isinstance(concurrency, bool)
+            or not isinstance(concurrency, int)
+            or concurrency <= 0
+        ):
+            raise ValueError(
+                "Subscription hydration concurrency must be a positive integer"
+            )
+        selected_type = SubscriptionTypeEnum(sub_type)
+        counts = (await self.get_subscription_count()).subscriptions
+        total = int(getattr(counts, selected_type.value)) if limit is None else limit
+        if total <= 0:
+            return
+        identifiers_set = set(identifiers or ())
+        await self.auth_session.json_request(
+            "https://onlyfans.com/api2/v2/lists/following/sort",
+            method="POST",
+            payload={"order": "expire_date", "direction": "desc", "type": "all"},
+        )
+        redis = get_redis()
+        processed = 0
+
+        async def progress(event_type, *, username=None):
+            if redis and redis.is_connected:
+                await redis.publish_hook(
+                    {
+                        "event": "subscription_processing",
+                        "event_type": event_type,
+                        "job_id": job_id or "api",
+                        "auth_id": self.id,
+                        "username": self.username,
+                        "total": processed if event_type == "finished" else total,
+                        "current": processed,
+                        "current_username": username,
+                        "timestamp": datetime.now(timezone.utc).isoformat(),
+                    }
+                )
+
+        async def hydrate(indexed):
+            index, raw = indexed
+            user = self.resolve_user(raw) if cache else UserModel(raw, self, cache=False)
+            subscription = SubscriptionModel(raw, user, self)
+            refreshed = await self.get_user(user.id, refresh=True, cache=cache)
+            if refreshed is not None:
+                subscription.user = refreshed
+                subscription.profile_refreshed = True
+            else:
+                subscription.profile_refreshed = False
+            subscription.transient_profile = not cache
+            return index, subscription
+
+        await progress("started")
+        offset = 0
+        while offset < total:
+            # This is the existing upstream per-request limit, independent of
+            # worker/write budgets and of the total subscription count.
+            request_limit = min(100, total - offset)
+            response = await self.auth_session.json_request(
+                endpoint_links().list_subscriptions(
+                    limit=request_limit,
+                    offset=offset,
+                    sub_type=selected_type,
+                    filter=filter_by,
+                )
+            )
+            if isinstance(response, dict) and "error" in response:
+                raise RuntimeError("Subscription page request failed")
+            page = response if isinstance(response, list) else response.get("list", [])
+            if not page:
+                break
+            page = page[:request_limit]
+            selected = [
+                raw
+                for raw in page
+                if not identifiers_set
+                or raw.get("id") in identifiers_set
+                or raw.get("username") in identifiers_set
+            ]
+            ordered = [None] * len(selected)
+            async with aclosing(
+                map_unordered(hydrate, enumerate(selected), limit=concurrency)
+            ) as hydrated:
+                async for index, subscription in hydrated:
+                    ordered[index] = subscription
+            for subscription in ordered:
+                assert subscription is not None
+                processed += 1
+                if processed % 10 == 0:
+                    await progress("progress", username=subscription.user.username)
+                yield subscription
+            offset += request_limit
+            if isinstance(response, list) or not response.get("hasMore"):
+                break
+        await progress("finished")
+
     @with_hooks
     async def get_subscriptions(
         self,
@@ -443,169 +586,59 @@ class OnlyFansAuthModel(
         filter_by: str = "",
         job_id: str | None = None,
     ):
-        """
-        Retrieves the subscriptions based on the given parameters.
-        5000 offset is the maximum allowed by the API, which means anything above that will be ignored.
-
-        Args:
-            identifiers (list[int | str], optional): List of subscription identifiers. Defaults to [].
-            limit (int, optional): Maximum number of subscriptions to retrieve. Defaults to 100.
-           sub_type (SubscriptionType, optional): Type of subscriptions to retrieve. Defaults to "all".
-             filter_by (str, optional): Filter subscriptions by a specific value. Defaults to "".
-            job_id (str, optional): Job ID for progress event publishing. Defaults to None.
-
-        Returns:
-            list[SubscriptionModel]: List of SubscriptionModel objects representing the subscriptions.
-        """
+        """Compatibility collector; archive workers use iter_subscriptions."""
+        from contextlib import aclosing
 
         if not self.cache.subscriptions.is_released():
             return self.subscriptions
-        max_pagination_limit = 100  # maximum number of results per request
-
-        subscriptions_count = await self.get_subscription_count()
-        subscriptions_info = subscriptions_count.subscriptions
-        match sub_type:
-            case "all":
-                subscription_type_count = subscriptions_info.all
-            case "active":
-                subscription_type_count = subscriptions_info.active
-            case "expired":
-                subscription_type_count = subscriptions_info.expired
-            case _:
-                raise ValueError(f"Invalid subscription type: {sub_type}")
-        limit = limit if limit else subscription_type_count
-        url = endpoint_links().list_subscriptions(
-            sub_type=SubscriptionTypeEnum(sub_type), filter=filter_by
-        )
-        urls = endpoint_links().create_links(
-            url,
-            limit,
-            pagination_limit=max_pagination_limit,
-        )
-        sort_url = "https://onlyfans.com/api2/v2/lists/following/sort"
-        _sort_response = await self.auth_session.json_request(
-            sort_url,
-            method="POST",
-            payload={"order": "expire_date", "direction": "desc", "type": "all"},
-        )
-
-        raw_subscriptions: list[Any] = []
-        subscription_responses = await self.auth_session.bulk_json_requests(urls)
-        raw_subscriptions = [
-            raw_subscription
-            for temp_raw_subscriptions in subscription_responses
-            if temp_raw_subscriptions
-            for raw_subscription in temp_raw_subscriptions["list"]
-        ]
-
-        # If we want find more subscriptions than the paginated requests returned, use recursion to get the rest
-
-        raw_recursion = await recursion(
-            "list_subscriptions",
-            self.get_requester(),
-            max_items=limit,
-            query_type=sub_type,
-            limit=max_pagination_limit,
-            offset=len(raw_subscriptions),
-            item_count=len(raw_subscriptions),
-        )
-        raw_subscriptions += raw_recursion
-        raw_subscriptions = raw_subscriptions[:limit]
-
-        subscriptions: list[SubscriptionModel] = []
+        async with aclosing(
+            self.iter_subscriptions(
+                identifiers=identifiers,
+                limit=limit,
+                sub_type=sub_type,
+                filter_by=filter_by,
+                job_id=job_id,
+                cache=True,
+            )
+        ) as stream:
+            subscriptions = [subscription async for subscription in stream]
         if identifiers:
-            found_raw_subscriptions: list[dict[str, Any]] = []
-            for identifier in identifiers:
-                for raw_subscription in raw_subscriptions:
-                    if (
-                        identifier == raw_subscription["id"]
-                        or identifier == raw_subscription["username"]
-                    ):
-                        found_raw_subscriptions.append(raw_subscription)
-                        break
-            raw_subscriptions = found_raw_subscriptions
-
-        # Publish subscription processing progress to Redis
-        total_subs = len(raw_subscriptions)
-
-        # Import Redis manager for progress publishing
-        from datetime import datetime, timezone
-
-        from ultima_scraper_api.managers.redis import get_redis
-
-        redis = get_redis()
-
-        # Use provided job_id or fall back to "api" for standalone usage
-        effective_job_id = job_id or "api"
-
-        # Publish initial progress event
-        if redis and redis.is_connected:
-            await redis.publish_hook(
-                {
-                    "event": "subscription_processing",
-                    "event_type": "started",
-                    "job_id": effective_job_id,
-                    "auth_id": self.id,
-                    "username": self.username,
-                    "total": total_subs,
-                    "current": 0,
-                    "timestamp": datetime.now(timezone.utc).isoformat(),
-                }
-            )
-
-        subscriptions = [
-            SubscriptionModel(x, self.resolve_user(x), self) for x in raw_subscriptions
-        ]
-        with self.get_pool() as pool:
-            tasks = pool.starmap(self.assign_user_to_sub, product(subscriptions))
-
-            # Process with progress updates
-            processed = 0
-            for completed_task in asyncio.as_completed(tasks):
-                subscription = await completed_task
-                processed += 1
-
-                # Publish progress every 10 subscriptions or at completion
-                if (
-                    redis
-                    and redis.is_connected
-                    and (processed % 10 == 0 or processed == total_subs)
-                ):
-                    await redis.publish_hook(
-                        {
-                            "event": "subscription_processing",
-                            "event_type": "progress",
-                            "job_id": effective_job_id,
-                            "auth_id": self.id,
-                            "username": self.username,
-                            "total": total_subs,
-                            "current": processed,
-                            "current_username": (
-                                subscription.user.username
-                                if subscription.user
-                                else "Unknown"
-                            ),
-                            "timestamp": datetime.now(timezone.utc).isoformat(),
-                        }
-                    )
-
-        # Publish completion event
-        if redis and redis.is_connected:
-            await redis.publish_hook(
-                {
-                    "event": "subscription_processing",
-                    "event_type": "finished",
-                    "job_id": effective_job_id,
-                    "auth_id": self.id,
-                    "username": self.username,
-                    "total": total_subs,
-                    "current": total_subs,
-                    "timestamp": datetime.now(timezone.utc).isoformat(),
-                }
-            )
+            # Preserve requested identifier order and first-match semantics.
+            matches = {}
+            for subscription in subscriptions:
+                matches.setdefault(subscription.id, subscription)
+                matches.setdefault(subscription.username, subscription)
+            subscriptions = [
+                matches[identifier] for identifier in identifiers if identifier in matches
+            ]
+        known_ids = {subscription.user.id for subscription in self.subscriptions}
         for subscription in subscriptions:
-            self.add_subscription(subscription)
+            if subscription.user.id not in known_ids:
+                self.subscriptions.append(subscription)
+                known_ids.add(subscription.user.id)
         return subscriptions
+
+    async def iter_chats(
+        self,
+        limit: int | None = None,
+        offset: int = 0,
+        *,
+        query: str | None = None,
+        cache: bool = False,
+    ) -> AsyncGenerator[ChatModel, None]:
+        """Yield chats page by page without retaining users or last messages."""
+        async with aclosing(
+            iter_items(
+                category="list_chats" if query is None else "search_chats",
+                requester=self.get_requester(),
+                max_items=limit,
+                identifier=query,
+                limit=100 if limit is None else max(1, min(100, limit)),
+                offset=offset,
+            )
+        ) as items:
+            async for item in items:
+                yield ChatModel(item, self, cache=cache)
 
     async def get_chats(
         self,
@@ -708,42 +741,89 @@ class OnlyFansAuthModel(
         self.mass_message_stats = [MassMessageStatModel(x, self.user) for x in items]
         return self.mass_message_stats
 
+    async def iter_paid_content(
+        self,
+        performer_id: int | str | None = None,
+        limit: int | None = None,
+        offset: int = 0,
+        *,
+        cache: bool = False,
+    ):
+        """Yield paid posts/messages without retaining the feed or its authors."""
+        from contextlib import aclosing
+
+        from ultima_scraper_api.apis.onlyfans.classes.user_model import iter_items
+
+        if limit is not None and (
+            isinstance(limit, bool) or not isinstance(limit, int) or limit < 0
+        ):
+            raise ValueError("Paid content limit must be nonnegative or None")
+        # The existing upstream request size; this is not a deployment budget.
+        page_size = 50
+        authors = {}
+        hydrated_authors = set()
+        seen = 0
+        async with aclosing(
+            iter_items(
+                "list_paid_content",
+                self.auth_session,
+                max_items=limit,
+                identifier=performer_id,
+                limit=page_size,
+                offset=offset,
+            )
+        ) as items:
+            async for item in items:
+                if seen % page_size == 0:
+                    authors.clear()
+                    hydrated_authors.clear()
+                seen += 1
+                response_type = item.get("responseType")
+                if response_type not in {"post", "message"}:
+                    continue
+                raw_user = item["fromUser" if response_type == "message" else "author"]
+                author_id = int(raw_user["id"])
+                user = authors.get(author_id)
+                if response_type == "message" and author_id not in hydrated_authors:
+                    user = await self.get_user(author_id, cache=cache) or user
+                    hydrated_authors.add(author_id)
+                if user is None:
+                    user = (
+                        self.resolve_user(raw_user)
+                        if cache
+                        else UserModel(raw_user, self, cache=False)
+                    )
+                authors[author_id] = user
+                if performer_id is not None and performer_id not in {
+                    user.id,
+                    user.username,
+                }:
+                    continue
+                model = MessageModel if response_type == "message" else PostModel
+                yield model(item, user, cache=cache)
+
     async def get_paid_content(
         self,
         performer_id: int | None = None,
         limit: int | None = None,
         offset: int = 0,
     ):
-        max_pagination_limit = 50  # maximum number of results per request
+        """Compatibility collector; workers consume iter_paid_content directly."""
+        from contextlib import aclosing
+
         if not self.cache.paid_content.is_released():
             return self.paid_content
-
-        items = await recursion(
-            category="list_paid_content",
-            requester=self.auth_session,
-            max_items=limit,
-            identifier=performer_id,
-            limit=max_pagination_limit,
-            offset=offset,
-        )
-        for item in items:
-            content = None
-            if item["responseType"] == "message":
-                user = await self.get_user(item["fromUser"]["id"])
-                if not user:
-                    user = self.resolve_user(item["fromUser"])
-                content = MessageModel(item, user)
-            elif item["responseType"] == "post":
-                user = self.resolve_user(item["author"])
-                content = PostModel(item, user)
-            if content:
-                author = content.get_author()
-                if performer_id:
-                    if performer_id == author.id:
-                        self.paid_content.append(content)
-                else:
-                    self.paid_content.append(content)
-                if not performer_id:
+        async with aclosing(
+            self.iter_paid_content(
+                performer_id=performer_id,
+                limit=limit,
+                offset=offset,
+                cache=True,
+            )
+        ) as items:
+            async for item in items:
+                self.paid_content.append(item)
+                if performer_id is None:
                     self.cache.paid_content.activate()
         return self.paid_content
 
@@ -891,4 +971,4 @@ class OnlyFansAuthModel(
                 important_subscription_notifications
             )
         assert response, "Failed to update notification settings"
-        return await response.json()
+        return await consume_response_json(response)

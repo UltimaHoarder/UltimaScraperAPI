@@ -7,15 +7,20 @@ if TYPE_CHECKING:
 
 
 class ChatModel:
-    def __init__(self, options: dict[str, Any], authed: "OnlyFansAuthModel") -> None:
+    def __init__(
+        self, options: dict[str, Any], authed: "OnlyFansAuthModel", *, cache: bool = True
+    ) -> None:
         self.__raw__ = options
-        self.user = authed.resolve_user(options["withUser"])
+        self.user = authed.resolve_user(options["withUser"], cache=cache)
         last_message = options.get("lastMessage")
         if last_message:
-            last_message_user = authed.resolve_user(options["lastMessage"]["fromUser"])
+            last_message_user = authed.resolve_user(
+                options["lastMessage"]["fromUser"], cache=cache
+            )
             self.last_message = MessageModel(
                 options["lastMessage"],
                 last_message_user,
+                cache=cache,
             )
         else:
             self.last_message = None

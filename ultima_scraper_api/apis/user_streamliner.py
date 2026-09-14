@@ -78,6 +78,32 @@ class StreamlinedUser(Generic[T, TAPI]):
     def get_authed(self):
         return self.__authed
 
+    def release_cached_content(self, *names: str) -> int:
+        """Release scraped API objects after their durable consumer is finished.
+
+        The scrape cache is a working set. It must not become a second, process-
+        lifetime copy of content that has already been written to PostgreSQL.
+        """
+        scraped = self.scrape_manager.scraped  # type: ignore[attr-defined]
+        selected_names = names or tuple(vars(scraped))
+        released = 0
+        for name in selected_names:
+            cached = vars(scraped).get(name)
+            if not isinstance(cached, dict):
+                continue
+            released += len(cached)
+            cached.clear()
+        return released
+
+    def release_cached_objects(self) -> int:
+        """Release all transient state held by a user model."""
+        released = self.release_cached_content()
+        self.cache.flush()
+        self.jobs.clear()
+        self.job_whitelist.clear()
+        self.scrape_whitelist.clear()
+        return released
+
     def get_job(self, value: str):
         found_jobs = [x for x in self.jobs if x.title == value]
         found_job = None
@@ -86,10 +112,10 @@ class StreamlinedUser(Generic[T, TAPI]):
         return found_job
 
     def get_complete_jobs(self):
-        return [x for x in self.jobs if x.done == True]
+        return [x for x in self.jobs if x.done]
 
     def get_incomplete_jobs(self):
-        return [x for x in self.jobs if x.done == False]
+        return [x for x in self.jobs if not x.done]
 
     def get_current_job(self):
         incomplete_jobs = self.get_incomplete_jobs()

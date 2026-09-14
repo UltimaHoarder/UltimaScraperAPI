@@ -1,6 +1,6 @@
 from pathlib import Path
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 
 class Webhook(BaseModel):
@@ -21,16 +21,19 @@ class MediaQuality(BaseModel):
 
 
 class DownloadSettings(BaseModel):
-    max_concurrency: int = 64
-    per_domain_concurrency: int = 8
-    head_concurrency: int = 64
-    buffer_size_bytes: int = 10 * 1024 * 1024
+    max_concurrency: int = Field(default=64, gt=0, strict=True)
+    # When omitted, file admission follows the configured part-request budget.
+    max_file_concurrency: int | None = Field(default=None, gt=0, strict=True)
+    per_domain_concurrency: int = Field(default=8, gt=0, strict=True)
+    head_concurrency: int = Field(default=64, gt=0, strict=True)
+    buffer_size_bytes: int = Field(default=10 * 1024 * 1024, gt=0, strict=True)
 
 
 class Proxy(BaseModel):
     url: str
     username: str | None = None
     password: str | None = None
+    enabled: bool = True
     max_connections: int = -1
     downloads: DownloadSettings = DownloadSettings()
 

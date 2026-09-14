@@ -9,6 +9,8 @@ This package contains all Redis-related functionality:
 
 from .connection import (
     RedisManager,
+    attach_redis,
+    detach_redis,
     get_redis,
     initialize_redis,
     shutdown_redis,
@@ -31,6 +33,8 @@ from .websocket_storage import (
 __all__ = [
     # Connection management
     "RedisManager",
+    "attach_redis",
+    "detach_redis",
     "get_redis",
     "initialize_redis",
     "shutdown_redis",

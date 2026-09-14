@@ -1,3 +1,4 @@
+import asyncio
 import logging
 from dataclasses import dataclass
 from enum import Enum
@@ -242,3 +243,11 @@ class UltimaScraperAPI:
                 site.lower() for site in (ignore_sites or [])
             ]:
                 await api.login(guest=True)
+
+    async def close(self) -> None:
+        """Close site sessions/WebSockets and release process-local API caches."""
+        await self.websocket_manager.close_all_connections()
+        await asyncio.gather(
+            *(api.close_pools() for api in vars(self.api_instances).values()),
+            return_exceptions=True,
+        )

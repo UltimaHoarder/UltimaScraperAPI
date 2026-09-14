@@ -120,7 +120,7 @@ class OnlyFansAuthenticator:
 
     async def login(self, guest: bool = False) -> OnlyFansAuthModel | None:
         """Authenticate with OnlyFans API, optionally as guest."""
-        asyncio.create_task(self.auth_session.session_manager.check_rate_limit())
+        self.auth_session.session_manager.start_rate_limit_checker()
 
         # Setup authentication headers
         url = APIRoutes().me()

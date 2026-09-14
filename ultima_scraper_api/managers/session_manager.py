@@ -1,17 +1,12 @@
 from __future__ import annotations
 
 import asyncio
-import hashlib
 import logging
-import random
 import ssl
-import string
-import time
+from contextlib import aclosing
+from itertools import repeat
 from random import randint
 from typing import TYPE_CHECKING, Any, Literal
-from urllib.parse import urlparse
-
-logger = logging.getLogger(__name__)
 
 import aiohttp
 import python_socks
@@ -30,6 +25,9 @@ from aiohttp_socks import ProxyConnectionError, ProxyConnector, ProxyInfo
 import ultima_scraper_api
 import ultima_scraper_api.apis.api_helper as api_helper
 from ultima_scraper_api.config import Proxy
+from ultima_scraper_core.concurrency import map_unordered
+
+logger = logging.getLogger(__name__)
 
 if TYPE_CHECKING:
     auth_types = ultima_scraper_api.auth_types
@@ -49,6 +47,19 @@ def _format_exception_message(error: BaseException) -> str:
     if detail:
         return f"{type(error).__name__}: {detail}"
     return type(error).__name__
+
+
+_JSON_UNSET = object()
+
+
+async def consume_response_json(response: ClientResponse) -> Any:
+    """Transfer JSON already validated by request(), or decode an external response.
+
+    The response owns this value only until its consumer takes it. No process-wide
+    cache or altered ClientResponse.json contract is involved.
+    """
+    value = vars(response).pop("_ultima_validated_json", _JSON_UNSET)
+    return await response.json() if value is _JSON_UNSET else value
 
 
 class ProxyManager:
@@ -128,7 +139,7 @@ class AuthedSession:
         limit = 0
         session_manager = self.get_session_manager()
         proxy_manager = self.get_proxy_manager()
-        raw_proxies = session_manager.proxies
+        raw_proxies = session_manager.get_enabled_proxies()
         if test_proxies and raw_proxies:
             proxies = proxy_manager.test_proxies(raw_proxies)
             if not proxies:
@@ -320,6 +331,7 @@ class AuthedSession:
                 await asyncio.sleep(backoff_seconds)
                 backoff_seconds = min(backoff_seconds * 2, max_backoff_seconds)
                 continue
+            returning_response = False
             try:
                 assert result
                 if (
@@ -327,8 +339,9 @@ class AuthedSession:
                     and result.content_type
                     and "application/json" in result.content_type
                 ):
-                    await result.json()
+                    vars(result)["_ultima_validated_json"] = await result.json()
                 result.raise_for_status()
+                returning_response = True
                 return result
             except EXCEPTION_TEMPLATE as _e:
                 retries += 1
@@ -358,6 +371,7 @@ class AuthedSession:
                 match _e.status:
                     case 400 | 401 | 403 | 404:
                         assert result
+                        returning_response = True
                         return result
                     case 416:
                         return None
@@ -423,8 +437,30 @@ class AuthedSession:
                 backoff_seconds = min(backoff_seconds * 2, max_backoff_seconds)
                 continue
 
+            finally:
+                if not returning_response and result is not None:
+                    # Failed/retried requests must release their connection even
+                    # when validation, a timeout or cancellation interrupts them.
+                    vars(result).pop("_ultima_validated_json", None)
+                    result.release()
+
     async def bulk_requests(self, urls: list[str]) -> list[ClientResponse | None]:
-        return await asyncio.gather(*[self.request(url) for url in urls])
+        # This compatibility method returns a complete ordered list; only its
+        # admitted requests, not the required result list, can be bounded.
+        results: list[ClientResponse | None] = [None] * len(urls)
+
+        async def request_indexed(item):
+            index, url = item
+            return index, await self.request(url)
+
+        async with aclosing(
+            map_unordered(
+                request_indexed, enumerate(urls), limit=self.session_manager.max_threads
+            )
+        ) as completed:
+            async for index, response in completed:
+                results[index] = response
+        return results
 
     async def json_request(
         self,
@@ -446,7 +482,7 @@ class AuthedSession:
 
         if response.status == 200:
             try:
-                return await response.json()
+                return await consume_response_json(response)
             except EXCEPTION_TEMPLATE:
                 return {}
         return {
@@ -462,14 +498,22 @@ class AuthedSession:
         payloads: list[dict[str, Any]] = [],
         method: Literal["GET", "POST", "PATCH", "DELETE"] = "GET",
     ) -> list[dict[Any, Any]]:
-        if not payloads:
-            payloads = [{} for _ in urls]
-        return await asyncio.gather(
-            *[
-                self.json_request(url, payload=payload, method=method)
-                for url, payload in zip(urls, payloads)
-            ]
-        )
+        count = min(len(urls), len(payloads)) if payloads else len(urls)
+        results: list[Any] = [None] * count
+
+        async def request_indexed(item):
+            index, (url, payload) = item
+            return index, await self.json_request(url, payload=payload, method=method)
+
+        arguments = enumerate(zip(urls, payloads if payloads else repeat({})))
+        async with aclosing(
+            map_unordered(
+                request_indexed, arguments, limit=self.session_manager.max_threads
+            )
+        ) as completed:
+            async for index, value in completed:
+                results[index] = value
+        return results
 
 
 class SessionManager:
@@ -480,8 +524,6 @@ class SessionManager:
         max_threads: int = -1,
         use_cookies: bool = True,
     ) -> None:
-        from ultima_scraper_api.apis.onlyfans.onlyfans import OnlyFansAPI
-
         max_threads = api_helper.calculate_max_threads(max_threads)
         self.semaphore = asyncio.BoundedSemaphore(max_threads)
         self.max_threads = max_threads
@@ -498,6 +540,7 @@ class SessionManager:
         self.is_rate_limited = None
         self.time2sleep = 0
         self.rate_limit_checker_active = False
+        self._rate_limit_task: asyncio.Task[None] | None = None
 
     def created_authed_session(
         self, authenticator: ultima_scraper_api.authenticator_types
@@ -505,57 +548,72 @@ class SessionManager:
         return AuthedSession(authenticator, self)
 
     def get_proxy(self):
-        proxies = self.proxies
-        proxy = self.proxies[randint(0, len(proxies) - 1)] if proxies else ""
+        proxies = self.get_enabled_proxies()
+        proxy = proxies[randint(0, len(proxies) - 1)] if proxies else ""
         return proxy
+
+    def get_enabled_proxies(self) -> list[Proxy]:
+        return [proxy for proxy in self.proxies if proxy.enabled]
+
+    def start_rate_limit_checker(self) -> asyncio.Task[None]:
+        if self._rate_limit_task is None or self._rate_limit_task.done():
+            self._rate_limit_task = asyncio.create_task(self.check_rate_limit())
+        return self._rate_limit_task
+
+    async def stop_rate_limit_checker(self) -> None:
+        task = self._rate_limit_task
+        if task is not None and task is not asyncio.current_task():
+            task.cancel()
+            await asyncio.gather(task, return_exceptions=True)
+        self._rate_limit_task = None
 
     async def check_rate_limit(self):
         if self.rate_limit_checker_active:
             return
         self.rate_limit_checker_active = True
+        owner = asyncio.current_task()
+        self._rate_limit_task = owner
         logger.info("Rate limit checker started")
-        while True:
-            rate_limit_count = 1
-            async with self.lock:
-                while self.rate_limit_check:
-                    import requests
-
-                    try:
-                        url = "https://onlyfans.com/api2/v2/init"
-                        result = requests.get(url)
-                        if result.status_code == 429:
-                            result.raise_for_status()
-                        logger.info(
-                            "Rate limit check passed (status=%d, after %d checks) — resuming requests",
-                            result.status_code,
-                            rate_limit_count,
-                        )
-                        self.rate_limit_check = False
-                        self.is_rate_limited = None
-                        break
-                    except EXCEPTION_TEMPLATE as _e:
-                        logger.warning(
-                            "Rate limit checker transient error (check %d): %s: %s",
-                            rate_limit_count,
-                            type(_e).__name__,
-                            _e,
-                        )
-                        continue
-                    except requests.HTTPError as _e:
-                        if _e.response and _e.response.status_code == 429:
-                            self.is_rate_limited = True
-                            rate_limit_count += 1
-                            logger.warning(
-                                "Rate limit checker: still rate-limited (429), check %d, sleeping %ds",
-                                rate_limit_count,
-                                self.time2sleep,
-                            )
-                    except Exception as _e:
-                        logger.warning(
-                            "Rate limit checker unexpected error (check %d): %s: %s",
-                            rate_limit_count,
-                            type(_e).__name__,
-                            _e,
-                        )
-                    await asyncio.sleep(self.time2sleep)
-                await asyncio.sleep(5)
+        # Match the authenticated transport's existing connect/read deadlines.
+        timeout = aiohttp.ClientTimeout(
+            total=None, connect=10, sock_connect=10, sock_read=60
+        )
+        try:
+            async with ClientSession(timeout=timeout) as probe:
+                while True:
+                    rate_limit_count = 1
+                    async with self.lock:
+                        while self.rate_limit_check:
+                            try:
+                                async with probe.get(
+                                    "https://onlyfans.com/api2/v2/init"
+                                ) as response:
+                                    status = response.status
+                                if status != 429:
+                                    logger.info(
+                                        "Rate limit check passed (status=%d, after %d checks) — resuming requests",
+                                        status,
+                                        rate_limit_count,
+                                    )
+                                    self.rate_limit_check = False
+                                    self.is_rate_limited = None
+                                    break
+                                self.is_rate_limited = True
+                                rate_limit_count += 1
+                                logger.warning(
+                                    "Rate limit checker: still rate-limited (429), check %d, sleeping %ds",
+                                    rate_limit_count,
+                                    self.time2sleep,
+                                )
+                            except Exception as exc:
+                                logger.warning(
+                                    "Rate limit checker error (check %d): %s",
+                                    rate_limit_count,
+                                    _format_exception_message(exc),
+                                )
+                            await asyncio.sleep(self.time2sleep)
+                    await asyncio.sleep(5)
+        finally:
+            self.rate_limit_checker_active = False
+            if self._rate_limit_task is owner:
+                self._rate_limit_task = None

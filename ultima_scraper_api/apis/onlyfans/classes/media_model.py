@@ -2,13 +2,14 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any
 
-from inflection import singularize
-
 from ultima_scraper_api.apis.onlyfans.classes.only_drm import DRMMedia
 from ultima_scraper_api.helpers import media_types
 
 if TYPE_CHECKING:
     from ultima_scraper_api.apis.onlyfans.classes import content_types
+
+
+_MEDIA_SINGULAR = {"images": "image", "videos": "video", "audios": "audio", "gifs": "gif"}
 
 
 class MediaFileSource:
@@ -105,7 +106,7 @@ class MediaModel:
         self.content: content_types = content
         if (media_type_value := MediaType.from_api_type(option["type"])) is None:
             raise ValueError(f"Unknown media type: {option['type']}")
-        self.type: str = singularize(media_type_value)
+        self.type: str = _MEDIA_SINGULAR[media_type_value]
         self.convertedToVideo: bool = option.get("convertedToVideo", False)
         self.canView: bool = option.get("canView", False)
         self.hasError: bool = option.get("hasError", False)

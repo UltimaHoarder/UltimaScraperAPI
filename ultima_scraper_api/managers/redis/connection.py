@@ -11,7 +11,7 @@ import logging
 from typing import TYPE_CHECKING, Any
 
 import redis.asyncio as redis
-from redis.asyncio import ConnectionPool
+from redis.asyncio import BlockingConnectionPool, ConnectionPool
 from redis.asyncio.client import PubSub
 
 if TYPE_CHECKING:
@@ -48,6 +48,7 @@ class RedisManager:
         socket_keepalive: bool = True,
         socket_keepalive_options: dict[int, int] | None = None,
         retry_on_timeout: bool = True,
+        pool_wait_timeout: float = 30.0,
         **pool_kwargs: Any,
     ) -> None:
         """Initialize Redis manager with connection pooling.
@@ -60,6 +61,8 @@ class RedisManager:
             socket_keepalive: Enable TCP keepalive (default: True)
             socket_keepalive_options: TCP keepalive options
             retry_on_timeout: Whether to retry on timeout (default: True)
+            pool_wait_timeout: How long saturated callers wait for a pooled
+                connection before failing.
             **pool_kwargs: Additional ConnectionPool arguments
         """
         self.config = config
@@ -67,6 +70,7 @@ class RedisManager:
         self._pubsub: PubSub | None = None
         self._connected = False
         self._pool: ConnectionPool
+        self.pool_wait_timeout = max(0.1, float(pool_wait_timeout))
 
         # Store pool configuration
         self.pool_config: dict[str, Any] = {
@@ -96,7 +100,14 @@ class RedisManager:
 
         try:
             # Create connection pool
-            self._pool = ConnectionPool(**self.pool_config)
+            # A saturated fixed-size pool must apply backpressure rather than
+            # raising ``Too many connections`` immediately. This keeps the
+            # same concurrency ceiling while allowing a leased connection to
+            # return before queued API/worker operations proceed.
+            self._pool = BlockingConnectionPool(
+                timeout=self.pool_wait_timeout,
+                **self.pool_config,
+            )
 
             # Create Redis client with pool
             self.client = redis.Redis(connection_pool=self._pool)
@@ -312,17 +323,28 @@ class RedisManager:
     # High-level convenience methods
 
     async def publish_log(self, log_data: dict[str, Any]) -> bool:
-        """Publish log message to logs channel.
+        """Serialize once for live publication and retained log history."""
+        try:
+            payload = json.dumps(log_data, default=str)
+        except (TypeError, ValueError):
+            return False
+        return await self.publish_log_payload(payload)
 
-        Args:
-            log_data: Log data to publish
-
-        Returns:
-            bool: True if published successfully
-        """
-        published = await self.publish_json(self.LOGS_CHANNEL, log_data)
-        await self._store_log_history(log_data)
-        return published
+    async def publish_log_payload(self, payload: str, *, channel: str | None = None) -> bool:
+        """Publish an already encoded event with an atomic history append/trim."""
+        if not self.is_connected:
+            return False
+        try:
+            async with self.client.pipeline(transaction=True) as pipeline:
+                pipeline.publish(channel or self.LOGS_CHANNEL, payload)
+                if self.LOGS_HISTORY_MAX > 0:
+                    pipeline.lpush(self.LOGS_HISTORY_KEY, payload)
+                    pipeline.ltrim(self.LOGS_HISTORY_KEY, 0, self.LOGS_HISTORY_MAX - 1)
+                await pipeline.execute()
+            return True
+        except Exception as exc:
+            logger.debug("Failed to publish log event: %s", exc)
+            return False
 
     async def _store_log_history(self, log_data: dict[str, Any]) -> None:
         """Store log event in Redis history list.
@@ -361,6 +383,32 @@ class RedisManager:
 
 # Global Redis manager instance
 _redis_manager: RedisManager | None = None
+
+
+def attach_redis(redis_manager: RedisManager) -> RedisManager:
+    """Use an already-connected process-local Redis manager.
+
+    USR owns the richer manager implementation. Sharing it here prevents the
+    USAPI hooks/WebSocket layer from creating a second pool in every worker.
+    """
+
+    global _redis_manager
+    if (
+        _redis_manager is not None
+        and _redis_manager is not redis_manager
+        and _redis_manager.is_connected
+    ):
+        raise RuntimeError("A different connected Redis manager is already attached")
+    _redis_manager = redis_manager
+    return redis_manager
+
+
+def detach_redis(redis_manager: RedisManager) -> None:
+    """Clear a shared manager reference without closing its owner-managed pool."""
+
+    global _redis_manager
+    if _redis_manager is redis_manager:
+        _redis_manager = None
 
 
 def initialize_redis(config: RedisConfig) -> RedisManager:

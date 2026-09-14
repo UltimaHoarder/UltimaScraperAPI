@@ -10,7 +10,12 @@ if TYPE_CHECKING:
 
 class StoryModel(SiteContent):
     def __init__(
-        self, option: dict[str, Any], user: "UserModel", highlight: bool = False
+        self,
+        option: dict[str, Any],
+        user: "UserModel",
+        highlight: bool = False,
+        *,
+        cache: bool = True,
     ) -> None:
         SiteContent.__init__(self, option, user)
         self.user_id: int = option.get("userId", user.id)
@@ -34,4 +39,5 @@ class StoryModel(SiteContent):
             self.created_at + timedelta(hours=24) if not highlight else None
         )
 
-        user.scrape_manager.scraped.Stories[self.id] = self
+        if cache:
+            user.scrape_manager.scraped.Stories[self.id] = self
