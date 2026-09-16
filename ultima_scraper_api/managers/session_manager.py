@@ -110,6 +110,7 @@ class AuthedSession:
         self.semaphore = session_manager.semaphore
         self.auth = auth
         self.headers = headers
+        self.current_proxy: ProxyInfo | None = None
         self.active_session = self.create_client_session()
 
     def get_session_manager(self):
@@ -133,6 +134,47 @@ class AuthedSession:
             final_cookies = self.auth.auth_details.cookie.format()
         return final_cookies
 
+    def get_current_proxy_info(self) -> ProxyInfo | None:
+        if self.current_proxy is not None:
+            return self.current_proxy
+        raw_proxy_url = getattr(
+            getattr(self.auth, "auth_details", None), "proxy_url", None
+        )
+        if raw_proxy_url:
+            try:
+                self.current_proxy = ProxyInfo(
+                    *python_socks.parse_proxy_url(str(raw_proxy_url).strip())
+                )
+                return self.current_proxy
+            except Exception:
+                return None
+        return None
+
+    def get_route_key(self) -> str:
+        proxy_info = self.get_current_proxy_info()
+        if proxy_info is not None:
+            auth_part = (
+                f"{proxy_info.username}:{proxy_info.password}@"
+                if getattr(proxy_info, "username", None)
+                else ""
+            )
+            proto = "http"
+            if hasattr(proxy_info, "proxy_type"):
+                ptype = str(proxy_info.proxy_type).lower()
+                if "socks5" in ptype:
+                    proto = "socks5"
+                elif "socks4" in ptype:
+                    proto = "socks4"
+                elif "https" in ptype:
+                    proto = "https"
+            return f"{proto}://{auth_part}{proxy_info.host}:{proxy_info.port}"
+        raw_proxy_url = getattr(
+            getattr(self.auth, "auth_details", None), "proxy_url", None
+        )
+        if raw_proxy_url:
+            return str(raw_proxy_url).strip()
+        return "__direct__"
+
     def create_client_session(
         self, test_proxies: bool = False, proxy: ProxyInfo | None = None
     ) -> ClientSession:
@@ -146,6 +188,7 @@ class AuthedSession:
                 raise Exception("Unable to create session due to invalid proxies")
             proxy_manager.add_proxies(proxies)
             proxy = proxy_manager.get_current_proxy()
+        self.current_proxy = proxy
         ssl_context = ssl.create_default_context()
         ssl_context.post_handshake_auth = True
         connector = (
@@ -193,14 +236,25 @@ class AuthedSession:
         subsequent requests.
         """
         session_manager = self.get_session_manager()
+        route_key = self.get_route_key()
         retries = 0
         max_attempts = max(1, int(getattr(session_manager, "max_attempts", 10) or 1))
         backoff_seconds = 1.0
         max_backoff_seconds = 30.0
         while True:
-            if session_manager.rate_limit_check:
+            is_limited = (
+                session_manager.is_route_rate_limited(route_key)
+                if hasattr(session_manager, "is_route_rate_limited")
+                else getattr(session_manager, "rate_limit_check", False)
+            )
+            if is_limited:
                 if retries == 0:
-                    logger.debug("Request paused by rate limiter: %s %s", method, url)
+                    logger.debug(
+                        "Request paused by rate limiter on route %s: %s %s",
+                        route_key,
+                        method,
+                        url,
+                    )
                 await asyncio.sleep(5)
                 continue
             headers = {}
@@ -377,11 +431,16 @@ class AuthedSession:
                         return None
                     case 429:
                         logger.warning(
-                            "HTTP 429 rate-limited: %s %s",
+                            "HTTP 429 rate-limited on route %s: %s %s",
+                            route_key,
                             method,
                             url,
                         )
-                        if session_manager.is_rate_limited is None:
+                        if hasattr(session_manager, "mark_route_rate_limited"):
+                            session_manager.mark_route_rate_limited(
+                                route_key, proxy=self.get_current_proxy_info()
+                            )
+                        elif getattr(session_manager, "is_rate_limited", None) is None:
                             session_manager.rate_limit_check = True
                         continue
                     case 500 | 502 | 503 | 504:
@@ -532,15 +591,54 @@ class SessionManager:
         self.authed_sessions: list[AuthedSession] = []
         self.proxy_manager = ProxyManager()
 
+        self.api = api
         self.use_cookies: bool = use_cookies
         self.request_count = 0
         self.proxies = proxies
-        self.lock = self.lock = asyncio.Lock()
-        self.rate_limit_check = False
-        self.is_rate_limited = None
-        self.time2sleep = 0
+        self.lock = asyncio.Lock()
+        self._route_rate_limited: dict[str, bool] = {}
+        self._route_rate_limit_tasks: dict[str, asyncio.Task[None]] = {}
+        self._route_proxies: dict[str, ProxyInfo | None] = {}
+        self.time2sleep = 5
         self.rate_limit_checker_active = False
         self._rate_limit_task: asyncio.Task[None] | None = None
+
+    @property
+    def rate_limit_check(self) -> bool:
+        return any(self._route_rate_limited.values())
+
+    @rate_limit_check.setter
+    def rate_limit_check(self, value: bool) -> None:
+        if value:
+            self.mark_route_rate_limited("__direct__")
+        else:
+            for route_key in list(self._route_rate_limited.keys()):
+                self._route_rate_limited[route_key] = False
+
+    @property
+    def is_rate_limited(self) -> bool | None:
+        if any(self._route_rate_limited.values()):
+            return True
+        return None
+
+    @is_rate_limited.setter
+    def is_rate_limited(self, value: bool | None) -> None:
+        if value is True:
+            self.mark_route_rate_limited("__direct__")
+        elif value is None or value is False:
+            for route_key in list(self._route_rate_limited.keys()):
+                self._route_rate_limited[route_key] = False
+
+    def is_route_rate_limited(self, route_key: str) -> bool:
+        return bool(self._route_rate_limited.get(route_key, False))
+
+    def mark_route_rate_limited(
+        self, route_key: str, proxy: ProxyInfo | None = None
+    ) -> None:
+        self._route_rate_limited[route_key] = True
+        if proxy is not None:
+            self._route_proxies[route_key] = proxy
+        self.start_route_rate_limit_checker(route_key, proxy=proxy)
 
     def created_authed_session(
         self, authenticator: ultima_scraper_api.authenticator_types
@@ -555,6 +653,18 @@ class SessionManager:
     def get_enabled_proxies(self) -> list[Proxy]:
         return [proxy for proxy in self.proxies if proxy.enabled]
 
+    def start_route_rate_limit_checker(
+        self, route_key: str = "__direct__", proxy: ProxyInfo | None = None
+    ) -> asyncio.Task[None]:
+        task = self._route_rate_limit_tasks.get(route_key)
+        if task is None or task.done():
+            resolved_proxy = proxy or self._route_proxies.get(route_key)
+            task = asyncio.create_task(
+                self.check_route_rate_limit(route_key, proxy=resolved_proxy)
+            )
+            self._route_rate_limit_tasks[route_key] = task
+        return task
+
     def start_rate_limit_checker(self) -> asyncio.Task[None]:
         if self._rate_limit_task is None or self._rate_limit_task.done():
             self._rate_limit_task = asyncio.create_task(self.check_rate_limit())
@@ -566,6 +676,75 @@ class SessionManager:
             task.cancel()
             await asyncio.gather(task, return_exceptions=True)
         self._rate_limit_task = None
+        route_tasks = [
+            t
+            for t in self._route_rate_limit_tasks.values()
+            if t is not None and not t.done() and t is not asyncio.current_task()
+        ]
+        for t in route_tasks:
+            t.cancel()
+        if route_tasks:
+            await asyncio.gather(*route_tasks, return_exceptions=True)
+        self._route_rate_limit_tasks.clear()
+
+    async def check_route_rate_limit(
+        self, route_key: str = "__direct__", proxy: ProxyInfo | None = None
+    ) -> None:
+        logger.info("Rate limit checker started for route %s", route_key)
+        timeout = aiohttp.ClientTimeout(
+            total=None, connect=10, sock_connect=10, sock_read=60
+        )
+        ssl_context = ssl.create_default_context()
+        ssl_context.post_handshake_auth = True
+
+        resolved_proxy = proxy or self._route_proxies.get(route_key)
+        if resolved_proxy is None and route_key != "__direct__":
+            try:
+                resolved_proxy = ProxyInfo(*python_socks.parse_proxy_url(route_key))
+            except Exception:
+                resolved_proxy = None
+
+        connector = (
+            self.proxy_manager.create_connection(resolved_proxy, ssl=ssl_context)
+            if resolved_proxy
+            else aiohttp.TCPConnector(ssl=ssl_context)
+        )
+        sleep_interval = max(int(getattr(self, "time2sleep", 5) or 5), 5)
+        rate_limit_count = 0
+        try:
+            async with ClientSession(connector=connector, timeout=timeout) as probe:
+                while self.is_route_rate_limited(route_key) and not self.kill:
+                    rate_limit_count += 1
+                    try:
+                        async with probe.get(
+                            "https://onlyfans.com/api2/v2/init"
+                        ) as response:
+                            status = response.status
+                        if status != 429:
+                            logger.info(
+                                "Rate limit check passed for route %s (status=%d, after %d checks) — resuming requests",
+                                route_key,
+                                status,
+                                rate_limit_count,
+                            )
+                            self._route_rate_limited[route_key] = False
+                            break
+                        logger.warning(
+                            "Rate limit checker for route %s: still rate-limited (429), check %d, sleeping %ds",
+                            route_key,
+                            rate_limit_count,
+                            sleep_interval,
+                        )
+                    except Exception as exc:
+                        logger.warning(
+                            "Rate limit checker error for route %s (check %d): %s",
+                            route_key,
+                            rate_limit_count,
+                            _format_exception_message(exc),
+                        )
+                    await asyncio.sleep(sleep_interval)
+        finally:
+            self._route_rate_limit_tasks.pop(route_key, None)
 
     async def check_rate_limit(self):
         if self.rate_limit_checker_active:
@@ -574,45 +753,17 @@ class SessionManager:
         owner = asyncio.current_task()
         self._rate_limit_task = owner
         logger.info("Rate limit checker started")
-        # Match the authenticated transport's existing connect/read deadlines.
-        timeout = aiohttp.ClientTimeout(
-            total=None, connect=10, sock_connect=10, sock_read=60
-        )
         try:
-            async with ClientSession(timeout=timeout) as probe:
-                while True:
-                    rate_limit_count = 1
-                    async with self.lock:
-                        while self.rate_limit_check:
-                            try:
-                                async with probe.get(
-                                    "https://onlyfans.com/api2/v2/init"
-                                ) as response:
-                                    status = response.status
-                                if status != 429:
-                                    logger.info(
-                                        "Rate limit check passed (status=%d, after %d checks) — resuming requests",
-                                        status,
-                                        rate_limit_count,
-                                    )
-                                    self.rate_limit_check = False
-                                    self.is_rate_limited = None
-                                    break
-                                self.is_rate_limited = True
-                                rate_limit_count += 1
-                                logger.warning(
-                                    "Rate limit checker: still rate-limited (429), check %d, sleeping %ds",
-                                    rate_limit_count,
-                                    self.time2sleep,
-                                )
-                            except Exception as exc:
-                                logger.warning(
-                                    "Rate limit checker error (check %d): %s",
-                                    rate_limit_count,
-                                    _format_exception_message(exc),
-                                )
-                            await asyncio.sleep(self.time2sleep)
-                    await asyncio.sleep(5)
+            while not self.kill:
+                if self._route_rate_limited.get("__direct__", False):
+                    task = self.start_route_rate_limit_checker("__direct__")
+                    try:
+                        await asyncio.shield(task)
+                    except asyncio.CancelledError:
+                        raise
+                    except Exception:
+                        pass
+                await asyncio.sleep(5)
         finally:
             self.rate_limit_checker_active = False
             if self._rate_limit_task is owner:

@@ -36,6 +36,7 @@ class Proxy(BaseModel):
     enabled: bool = True
     max_connections: int = -1
     downloads: DownloadSettings = DownloadSettings()
+    group: str | None = None
 
 
 class Network(BaseModel):
