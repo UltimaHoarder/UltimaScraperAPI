@@ -3,6 +3,7 @@ from typing import TYPE_CHECKING, Any
 
 from ultima_scraper_api.apis.onlyfans import SiteContent
 from ultima_scraper_api.apis.onlyfans.classes.extras import endpoint_links
+from ultima_scraper_api.apis.onlyfans.classes.media_model import MediaModel
 
 if TYPE_CHECKING:
     from ultima_scraper_api.apis.onlyfans.classes.user_model import UserModel
@@ -55,6 +56,8 @@ class MassMessageModel(SiteContent):
         self.text: str = options.get("text", "")
         self.raw_text: str = options.get("rawText", "")
         self.price: float = float(options.get("price", 0))
+        media_data: list[dict[str, Any]] = options.get("media") or []
+        self.media: list[MediaModel] = [MediaModel(media, self) for media in media_data]
         self.previews: list[int] = options["previews"]
         self.changed_at: str = options["changedAt"]
         self.unsend_seconds: int = options.get("unsendSeconds", 0)

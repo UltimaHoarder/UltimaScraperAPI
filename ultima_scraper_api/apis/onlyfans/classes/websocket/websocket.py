@@ -88,11 +88,16 @@ class OnlyFansWebSocket(WebSocketProtocol):
         ]
 
         # Connect to WebSocket
+        # OnlyFans uses application-level JSON heartbeats ({"act": "ping"})
+        # rather than RFC 6455 protocol ping/pong frames. Disable websockets'
+        # protocol-level keepalive ping to prevent 1011 keepalive ping timeouts.
         self._websocket = await websockets.connect(
             url,
             user_agent_header=user_agent,
             additional_headers=additional_headers,
             compression="deflate",
+            ping_interval=None,
+            ping_timeout=None,
         )
 
         logger.debug("OnlyFans WebSocket connected")
@@ -126,6 +131,8 @@ class OnlyFansWebSocket(WebSocketProtocol):
             try:
                 await self._websocket.close()
                 logger.info("OnlyFans WebSocket disconnected")
+            except websockets.ConnectionClosed:
+                pass
             except Exception as e:
                 logger.debug(f"Error closing WebSocket: {e}")
             finally:

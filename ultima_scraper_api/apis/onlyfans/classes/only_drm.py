@@ -25,6 +25,7 @@ from urllib.parse import urlparse
 import ffmpeg  # type: ignore
 import orjson
 import xmltodict
+from aiohttp import ClientConnectionError, ClientPayloadError
 
 from ultima_scraper_core.environment import runtime_env_value
 from ultima_scraper_core.processes import ProcessResult, finish_owned, run_blocking, run_process, run_process_sync
@@ -604,6 +605,30 @@ class OnlyDRM:
         hex_id = match.group(1)
         return hex_id
 
+    async def _read_drm_response(self, url: str, **kwargs: Any) -> bytes:
+        """Read while the response is owned; retry interrupted body transfers."""
+        requester = self.authed.get_requester()
+        attempts = max(1, int(requester.get_session_manager().max_attempts or 1))
+        for attempt in range(attempts):
+            # Request establishment already has its own retry policy.
+            response = await requester.request(url, **kwargs)
+            if response is None:
+                raise RuntimeError("DRM request returned no response")
+            try:
+                response.raise_for_status()
+                return await response.read()
+            except (ClientConnectionError, ClientPayloadError, TimeoutError) as exc:
+                if attempt + 1 >= attempts:
+                    raise
+                logger.warning(
+                    "DRM response read interrupted (%s), attempt %d/%d",
+                    type(exc).__name__, attempt + 1, attempts,
+                )
+            finally:
+                response.release()
+            await asyncio.sleep(min(2 ** attempt, 30))
+        raise RuntimeError("DRM response attempts exhausted")
+
     async def get_manifest(self, drm_media: "DRMMedia") -> dict[str, Any]:
         """
         Fetch and parse MPD manifest from CDN with CloudFront authentication.
@@ -627,14 +652,12 @@ class OnlyDRM:
         ).strip()
 
         # Fetch manifest from CDN
-        r = await self.authed.get_requester().request(
+        body = await self._read_drm_response(
             manifest_url, premade_settings="", custom_cookies=cookie_str
         )
-        assert r, f"Failed to fetch manifest from {manifest_url}"
 
         # Parse XML manifest to dictionary
-        resp_text = await r.text()
-        xml = xmltodict.parse(resp_text)
+        xml = xmltodict.parse(body)
         manifest: dict[str, Any] = orjson.loads(orjson.dumps(xml))
 
         logger.debug(f"Successfully fetched manifest for media {drm_media.media_id}")
@@ -666,13 +689,12 @@ class OnlyDRM:
         )
 
         # Request license from server
-        licence = await self.authed.get_requester().request(
+        licence = await self._read_drm_response(
             url, method="POST", data=challenge
         )
-        assert licence, f"Failed to acquire license from {url}"
 
         logger.debug(f"Successfully acquired license for media {drm_media.media_id}")
-        return await licence.read()
+        return licence
 
     async def get_keys(self, licence: bytes) -> list[Any]:
         """

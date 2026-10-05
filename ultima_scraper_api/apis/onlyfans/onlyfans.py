@@ -169,8 +169,9 @@ class OnlyFansAPI(StreamlinedAPI):
                     raise
                 authed = None
             if authed and authenticator.is_authed():
-                issues = await authed.get_login_issues()
                 if not guest:
+                    # Guest sessions have no account login issues to surface.
+                    issues = await authed.get_login_issues()
                     authed.issues = issues if issues.get("data") else None
                 self.add_auth(authed)
                 # Don't close authenticator - auth model reuses its session!
@@ -214,8 +215,8 @@ class OnlyFansAPI(StreamlinedAPI):
                     temp_authed = None
                 if temp_authed and temp_authed.is_authed():
                     authed = temp_authed
-                    issues = await authed.get_login_issues()
                     if not guest:
+                        issues = await authed.get_login_issues()
                         authed.issues = issues if issues.get("data") else None
                     self.add_auth(authed)
                 else:
@@ -229,8 +230,8 @@ class OnlyFansAPI(StreamlinedAPI):
             async with authenticator as temp_authed:
                 if temp_authed and temp_authed.is_authed():
                     authed = temp_authed
-                    issues = await authed.get_login_issues()
                     if not guest:
+                        issues = await authed.get_login_issues()
                         authed.issues = issues if issues.get("data") else None
                     self.add_auth(authed)
                 yield authed

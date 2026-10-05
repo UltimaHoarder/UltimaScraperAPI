@@ -50,10 +50,26 @@ async def test_connect_uses_type_only_auth_without_runtime_name_error(
             )
         ],
         compression="deflate",
+        ping_interval=None,
+        ping_timeout=None,
     )
     socket.send.assert_awaited_once_with(
         json.dumps({"act": "connect", "token": "old-token"})
     )
+
+
+@pytest.mark.asyncio
+async def test_disconnect_handles_connection_closed_cleanly() -> None:
+    auth = _auth()
+    websocket = OnlyFansWebSocket(auth)
+    mock_socket = SimpleNamespace(
+        close=AsyncMock(side_effect=websocket_module.websockets.ConnectionClosed(None, None))
+    )
+    websocket._websocket = mock_socket
+
+    # Should not raise exception
+    await websocket.disconnect()
+    assert websocket._websocket is None
 
 
 @pytest.mark.asyncio

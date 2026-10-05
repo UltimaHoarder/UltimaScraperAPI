@@ -27,6 +27,7 @@ if TYPE_CHECKING:
     from ultima_scraper_api.apis.onlyfans.classes.post_model import PostModel
     from ultima_scraper_api.managers.session_manager import AuthedSession
 
+
 async def iter_items(
     category: Literal[
         "list_posts",
@@ -86,7 +87,9 @@ async def iter_items(
             case "list_transactions":
                 link = APIRoutes().transaction_history(limit=limit, offset=offset)
             case "list_chats":
-                link = endpoint_links(global_limit=limit, global_offset=offset).list_chats
+                link = endpoint_links(
+                    global_limit=limit, global_offset=offset
+                ).list_chats
             case "search_chats":
                 assert isinstance(identifier, str)
                 link = APIRoutes().search_chats(
@@ -163,7 +166,9 @@ class UserModel(StreamlinedUser["OnlyFansAuthModel", "OnlyFansAPI"]):
     When a user subscribes to a performer, 'subscribed_by' refers to the user, and 'subscribed_on' refers to the performer.
     """
 
-    def __init__(self, option: dict[str, Any], authed: OnlyFansAuthModel, *, cache: bool = True) -> None:
+    def __init__(
+        self, option: dict[str, Any], authed: OnlyFansAuthModel, *, cache: bool = True
+    ) -> None:
         self.avatar: str | None = option.get("avatar")
         self.avatar_thumbs: list[str] | None = option.get("avatarThumbs")
         self.header: str | None = option.get("header")
@@ -221,7 +226,7 @@ class UserModel(StreamlinedUser["OnlyFansAuthModel", "OnlyFansAPI"]):
         self.audios_count: int = option.get("audiosCount", 0)
         self.medias_count: int = option.get("mediasCount", 0)
         self.mediasCount: int = option.get("mediasCount", 0)
-        self.promotions: list[dict[str, Any]] = option.get("promotions", {})
+        self.promotions: list[dict[str, Any]] | None = option.get("promotions")
         self.last_seen: Any = option.get("lastSeen")
         self.favorited_count: int = option.get("favoritedCount", 0)
         self.favorites_count: int = option.get("favoritesCount", 0)

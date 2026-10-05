@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import os
 import ssl
 from contextlib import aclosing
 from itertools import repeat
@@ -11,7 +12,7 @@ from typing import TYPE_CHECKING, Any, Literal
 import aiohttp
 import python_socks
 import requests
-from aiohttp import ClientResponse, ClientSession
+from aiohttp import ClientResponse, ClientSession, RequestInfo
 from aiohttp.client_exceptions import (
     ClientOSError,
     ClientPayloadError,
@@ -21,6 +22,8 @@ from aiohttp.client_exceptions import (
     ServerTimeoutError,
 )
 from aiohttp_socks import ProxyConnectionError, ProxyConnector, ProxyInfo
+from multidict import CIMultiDict, CIMultiDictProxy
+from yarl import URL
 
 import ultima_scraper_api
 import ultima_scraper_api.apis.api_helper as api_helper
@@ -28,6 +31,11 @@ from ultima_scraper_api.config import Proxy
 from ultima_scraper_core.concurrency import map_unordered
 
 logger = logging.getLogger(__name__)
+
+DEFAULT_GUEST_CONNECT_TIMEOUT = 1.5
+DEFAULT_GUEST_SOCK_CONNECT_TIMEOUT = 3.0
+DEFAULT_GUEST_SOCK_READ_TIMEOUT = 5.0
+DEFAULT_GUEST_TOTAL_TIMEOUT = 6.0
 
 if TYPE_CHECKING:
     auth_types = ultima_scraper_api.auth_types
@@ -197,9 +205,35 @@ class AuthedSession:
             else aiohttp.TCPConnector(limit=limit, ssl=ssl_context)
         )
         final_cookies = self.get_cookies()
-        timeout = aiohttp.ClientTimeout(
-            total=None, connect=10, sock_connect=10, sock_read=60
-        )
+        is_guest = getattr(self.auth, "guest", False)
+        if is_guest:
+            timeout = aiohttp.ClientTimeout(
+                total=float(
+                    os.environ.get(
+                        "ULTIMA_GUEST_TOTAL_TIMEOUT", DEFAULT_GUEST_TOTAL_TIMEOUT
+                    )
+                ),
+                connect=float(
+                    os.environ.get(
+                        "ULTIMA_GUEST_CONNECT_TIMEOUT", DEFAULT_GUEST_CONNECT_TIMEOUT
+                    )
+                ),
+                sock_connect=float(
+                    os.environ.get(
+                        "ULTIMA_GUEST_SOCK_CONNECT_TIMEOUT",
+                        DEFAULT_GUEST_SOCK_CONNECT_TIMEOUT,
+                    )
+                ),
+                sock_read=float(
+                    os.environ.get(
+                        "ULTIMA_GUEST_SOCK_READ_TIMEOUT", DEFAULT_GUEST_SOCK_READ_TIMEOUT
+                    )
+                ),
+            )
+        else:
+            timeout = aiohttp.ClientTimeout(
+                total=None, connect=10, sock_connect=10, sock_read=60
+            )
         client_session = ClientSession(
             connector=connector, cookies=final_cookies, timeout=timeout
         )
@@ -238,7 +272,15 @@ class AuthedSession:
         session_manager = self.get_session_manager()
         route_key = self.get_route_key()
         retries = 0
-        max_attempts = max(1, int(getattr(session_manager, "max_attempts", 10) or 1))
+        is_guest = getattr(self.auth, "guest", False)
+        if is_guest:
+            env_guest_attempts = os.environ.get("ULTIMA_GUEST_MAX_ATTEMPTS")
+            if env_guest_attempts and env_guest_attempts.strip().isdigit():
+                max_attempts = int(env_guest_attempts)
+            else:
+                max_attempts = min(1, int(getattr(session_manager, "max_attempts", 10) or 1))
+        else:
+            max_attempts = max(1, int(getattr(session_manager, "max_attempts", 10) or 1))
         backoff_seconds = 1.0
         max_backoff_seconds = 30.0
         while True:
@@ -248,6 +290,24 @@ class AuthedSession:
                 else getattr(session_manager, "rate_limit_check", False)
             )
             if is_limited:
+                if is_guest:
+                    logger.debug(
+                        "Route %s is currently rate-limited; failing fast for guest request: %s %s",
+                        route_key,
+                        method,
+                        url,
+                    )
+                    raise ClientResponseError(
+                        request_info=RequestInfo(
+                            url=URL(url),
+                            method=method,
+                            headers=CIMultiDictProxy(CIMultiDict()),
+                            real_url=URL(url),
+                        ),
+                        history=(),
+                        status=429,
+                        message=f"Route {route_key} is rate-limited",
+                    )
                 if retries == 0:
                     logger.debug(
                         "Request paused by rate limiter on route %s: %s %s",
@@ -442,6 +502,8 @@ class AuthedSession:
                             )
                         elif getattr(session_manager, "is_rate_limited", None) is None:
                             session_manager.rate_limit_check = True
+                        if is_guest:
+                            raise
                         continue
                     case 500 | 502 | 503 | 504:
                         retries += 1
