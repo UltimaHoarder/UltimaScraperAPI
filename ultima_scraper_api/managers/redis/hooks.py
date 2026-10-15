@@ -5,12 +5,35 @@ from __future__ import annotations
 import functools
 import inspect
 import logging
+import time
 from datetime import datetime, timezone
 from typing import Any, Callable, Optional, TypeVar
 
 from ultima_scraper_api.managers.redis.connection import RedisManager, get_redis
 
 logger = logging.getLogger(__name__)
+
+# The backend sets this key (with a TTL) while a browser watches per-call API
+# hooks. Without a watcher, hooks are neither built nor published.
+API_HOOK_WATCHERS_KEY = f"{RedisManager.HOOKS_CHANNEL}:api-watchers"
+_WATCH_CHECK_SECONDS = 1.0
+_watched = {"checked_at": float("-inf"), "value": False}
+
+
+async def _hooks_watched() -> bool:
+    now = time.monotonic()
+    if now - _watched["checked_at"] < _WATCH_CHECK_SECONDS:
+        return bool(_watched["value"])
+    _watched["checked_at"] = now
+    redis_conn = get_redis()
+    if not redis_conn or not redis_conn.is_connected:
+        _watched["value"] = False
+        return False
+    try:
+        _watched["value"] = bool(await redis_conn.client.exists(API_HOOK_WATCHERS_KEY))
+    except Exception:
+        _watched["value"] = False
+    return bool(_watched["value"])
 
 # Type variable for decorated functions
 F = TypeVar("F", bound=Callable[..., Any])
@@ -47,6 +70,8 @@ def _get_hook_metadata(
     event_type: str,
     result: Any = None,
     error: Optional[Exception] = None,
+    *,
+    parameter_names: tuple[str, ...] | None = None,
 ) -> dict[str, Any]:
     """Generate metadata for hook event.
 
@@ -61,9 +86,11 @@ def _get_hook_metadata(
     Returns:
         Dictionary with hook metadata
     """
-    # Get function signature
-    sig = inspect.signature(func)
-    param_names = list(sig.parameters.keys())
+    # Direct metadata calls retain fresh signature inspection. Decorated
+    # functions can supply immutable parameter names for the same signature.
+    param_names = parameter_names
+    if param_names is None:
+        param_names = tuple(inspect.signature(func).parameters)
 
     # Build arguments dict (skip 'self' for methods)
     func_args: dict[str, Any] = {}
@@ -121,24 +148,6 @@ async def _publish_hook_event(metadata: dict[str, Any]) -> None:
     try:
         await redis_conn.publish_hook(metadata)
 
-        # Log based on what fields are available
-        if "module" in metadata and "function" in metadata and "event_type" in metadata:
-            # Standard hook event from @with_hooks decorator
-            logger.info(
-                "✓ Published hook event: %s.%s [%s]",
-                metadata["module"],
-                metadata["function"],
-                metadata["event_type"],
-            )
-        elif "event" in metadata:
-            # Custom event (like scrape_progress, scrape_finished)
-            logger.info(
-                "✓ Published custom event: %s",
-                metadata["event"],
-            )
-        else:
-            # Generic event
-            logger.info("✓ Published event to %s", RedisManager.HOOKS_CHANNEL)
     except Exception as exc:
         logger.error("Failed to publish hook event: %s", exc, exc_info=True)
 
@@ -163,27 +172,45 @@ def with_hooks(func: F) -> F:
     """
     # Handle both sync and async functions
     if inspect.iscoroutinefunction(func):
+        cached_parameters: tuple[str, ...] | None = None
+        cached_signature_key = None
+
+        def metadata(args, kwargs, event_type, **state):
+            nonlocal cached_parameters, cached_signature_key
+            # Cache only function shape, never invocation values or results.
+            # Resolve wrappers so explicit signature/code replacement keeps
+            # the original metadata behavior after a runtime redecoration.
+            target = inspect.unwrap(func, stop=lambda value: hasattr(value, "__signature__"))
+            signature_key = (target, getattr(target, "__code__", None),
+                             getattr(target, "__signature__", None))
+            if cached_parameters is None or signature_key != cached_signature_key:
+                cached_parameters = tuple(inspect.signature(func).parameters)
+                cached_signature_key = signature_key
+            return _get_hook_metadata(func, args, kwargs, event_type,
+                                      parameter_names=cached_parameters, **state)
 
         @functools.wraps(func)
         async def async_wrapper(*args: Any, **kwargs: Any) -> Any:
+            if not await _hooks_watched():
+                return await func(*args, **kwargs)
             # Publish started event
-            started_metadata = _get_hook_metadata(func, args, kwargs, "started")
+            started_metadata = metadata(args, kwargs, "started")
             await _publish_hook_event(started_metadata)
 
             try:
                 result = await func(*args, **kwargs)
 
                 # Publish finished event
-                finished_metadata = _get_hook_metadata(
-                    func, args, kwargs, "finished", result=result
+                finished_metadata = metadata(
+                    args, kwargs, "finished", result=result
                 )
                 await _publish_hook_event(finished_metadata)
 
                 return result
             except Exception as exc:
                 # Publish error event
-                error_metadata = _get_hook_metadata(
-                    func, args, kwargs, "error", error=exc
+                error_metadata = metadata(
+                    args, kwargs, "error", error=exc
                 )
                 await _publish_hook_event(error_metadata)
                 raise

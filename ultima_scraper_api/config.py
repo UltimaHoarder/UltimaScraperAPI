@@ -1,4 +1,5 @@
 from pathlib import Path
+from typing import Any
 
 from pydantic import BaseModel, Field
 
@@ -29,6 +30,12 @@ class DownloadSettings(BaseModel):
     buffer_size_bytes: int = Field(default=10 * 1024 * 1024, gt=0, strict=True)
 
 
+class PluginProxyOwner(BaseModel):
+    plugin_id: str
+    source: str
+    provider_id: str
+
+
 class Proxy(BaseModel):
     url: str
     username: str | None = None
@@ -37,12 +44,22 @@ class Proxy(BaseModel):
     max_connections: int = -1
     downloads: DownloadSettings = DownloadSettings()
     group: str | None = None
+    managed_by: PluginProxyOwner | None = None
 
 
 class Network(BaseModel):
     max_connections: int = -1
     proxies: list[Proxy] = []
     proxy_fallback: bool = False
+    # Host-owned receipts commit with the proxy snapshot; never contain credentials.
+    plugin_sync_receipts: dict[str, dict[str, Any]] = Field(default_factory=dict)
+    # Guest requests per second per route (proxy IP) across all workers.
+    # OnlyFans answers more than ~38/s from one IP with HTTP 429. 0 disables.
+    guest_route_rate_limit: float = Field(default=35.0, ge=0)
+    # Give each proxy a fixed set of guest sessions (visitors) shared across
+    # workers. OnlyFans also limits each guest session to about 3 requests/s,
+    # so spreading a proxy's traffic over many sessions avoids HTTP 429.
+    guest_session_pool: bool = True
     downloads: DownloadSettings = DownloadSettings()
 
 

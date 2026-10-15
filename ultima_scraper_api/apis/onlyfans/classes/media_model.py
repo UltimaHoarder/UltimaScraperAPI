@@ -3,7 +3,6 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Any
 
 from ultima_scraper_api.apis.onlyfans.classes.only_drm import DRMMedia
-from ultima_scraper_api.helpers import media_types
 
 if TYPE_CHECKING:
     from ultima_scraper_api.apis.onlyfans.classes import content_types

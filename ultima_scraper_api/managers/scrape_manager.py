@@ -10,8 +10,8 @@ from contextlib import aclosing
 from typing import TYPE_CHECKING, Any, Generic, TypeVar
 
 from ultima_scraper_api.apis.api_helper import handle_error_details
+from ultima_scraper_api.helpers.concurrency import map_unordered
 from ultima_scraper_api.managers.session_manager import consume_response_json
-from ultima_scraper_core.concurrency import map_unordered
 
 if TYPE_CHECKING:
     from ultima_scraper_api.managers.session_manager import AuthedSession

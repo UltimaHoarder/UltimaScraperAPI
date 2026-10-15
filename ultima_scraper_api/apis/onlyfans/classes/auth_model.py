@@ -43,6 +43,34 @@ if TYPE_CHECKING:
     from ultima_scraper_api.apis.onlyfans.onlyfans import OnlyFansAPI
 
 
+class UserLookupError(RuntimeError):
+    """A profile lookup failed without establishing that the user is absent."""
+
+    def __init__(self, code: object = 0, *, proxy_code: object = None) -> None:
+        self.code = code if isinstance(code, int) else 0
+        self.proxy_code = proxy_code if isinstance(proxy_code, int) else None
+        # Upstream messages can contain authenticated proxy URLs.
+        super().__init__(f"Inconclusive profile lookup (code {self.code})")
+
+
+def _validate_user_lookup(response: Any, identifier: int | str) -> None:
+    if not isinstance(response, dict):
+        raise UserLookupError()
+    if "error" in response:
+        error = response["error"]
+        if not isinstance(error, dict):
+            raise UserLookupError()
+        code = error.get("code")
+        if code == 404 or (code == 0 and error.get("message") == "User not found"):
+            return
+        raise UserLookupError(code, proxy_code=error.get("proxy_code"))
+    user_id = response.get("id")
+    if not isinstance(user_id, int) or isinstance(user_id, bool) or user_id <= 0:
+        raise UserLookupError()
+    if str(identifier).isdigit() and user_id != int(identifier):
+        raise UserLookupError()
+
+
 class SettingsModel(BaseModel):
     model_config = ConfigDict(populate_by_name=True)
 
@@ -131,7 +159,8 @@ class OnlyFansAuthModel(
         self.extras: dict[str, Any] = {}
         self.blacklist: list[str] = []
         self.guest = self.authenticator.guest
-        self.drm: OnlyDRM | None = None
+        self._drm: OnlyDRM | None = None
+        self._drm_initialized = False
         self.settings: SettingsModel | None = None
 
         # WebSocket connection (new architecture)
@@ -139,14 +168,29 @@ class OnlyFansAuthModel(
 
         self.update()
 
-        # Initialize DRM if device files are available
-        self._initialize_drm()
+        # Bounded MPS visitors normally only look up profiles. Importing a
+        # device for each visitor blocks its event loop on RSA validation.
+        if not (self.guest and self.auth_session.guest_session_key is not None):
+            self._initialize_drm()
+
+    @property
+    def drm(self) -> OnlyDRM | None:
+        """Keep DRM available to pooled visitors when media first needs it."""
+        if not self._drm_initialized:
+            self._initialize_drm()
+        return self._drm
+
+    @drm.setter
+    def drm(self, value: OnlyDRM | None) -> None:
+        self._drm = value
+        self._drm_initialized = True
 
     def _initialize_drm(self) -> None:
         """Initialize DRM module if device files are available."""
         import logging
 
         logger = logging.getLogger(__name__)
+        self._drm_initialized = True
 
         # Check for DRM device files
         client_id_path = self.api.config.settings.drm.device_client_blob_filepath
@@ -180,9 +224,6 @@ class OnlyFansAuthModel(
             from ultima_scraper_api.apis.onlyfans.classes.only_drm import OnlyDRM
 
             self.drm = OnlyDRM(client_id_path, private_key_path, self)
-            logger.info(
-                f"✓ DRM module initialized for user {self.username} (id={self.id})"
-            )
         except Exception as e:
             logger.error(f"Failed to initialize DRM module: {e}", exc_info=True)
             self.drm = None
@@ -365,7 +406,12 @@ class OnlyFansAuthModel(
 
     @with_hooks
     async def get_user(
-        self, identifier: int | str, refresh: bool = False, *, cache: bool = True
+        self,
+        identifier: int | str,
+        refresh: bool = False,
+        *,
+        cache: bool = True,
+        strict: bool = False,
     ):
         """
         Retrieves a user from the OnlyFans API based on the provided identifier.
@@ -373,6 +419,7 @@ class OnlyFansAuthModel(
         Args:
             identifier (int | str): The identifier of the user.
             refresh (bool, optional): Flag indicating whether to refresh the user data. Defaults to False.
+            strict: Raise UserLookupError for inconclusive or malformed responses.
 
         Returns:
             UserModel | None: The user data if found, None otherwise.
@@ -382,6 +429,8 @@ class OnlyFansAuthModel(
             response = await self.auth_session.json_request(
                 endpoint_links(identifier).users
             )
+            if strict:
+                _validate_user_lookup(response, identifier)
             if "error" in response:
                 return None
             return UserModel(response, self, cache=False)
@@ -399,6 +448,8 @@ class OnlyFansAuthModel(
         link = endpoint_links(identifier).users
         response = await self.auth_session.json_request(link)
 
+        if strict:
+            _validate_user_lookup(response, identifier)
         if "error" in response:
             return None
 
@@ -462,11 +513,11 @@ class OnlyFansAuthModel(
         Streaming consumers own the returned objects. With cache=False no users,
         cache timers or subscription lists are added to the authenticated client.
         """
+        import os
         from contextlib import aclosing
         from datetime import datetime, timezone
 
-        from ultima_scraper_core import runtime_env_value
-        from ultima_scraper_core.concurrency import map_unordered
+        from ultima_scraper_api.helpers.concurrency import map_unordered
         from ultima_scraper_api.managers.redis import get_redis
 
         if limit is not None and (
@@ -476,7 +527,7 @@ class OnlyFansAuthModel(
         if limit == 0:
             return
         if concurrency is None:
-            raw_concurrency = runtime_env_value("ULTIMA_SUBSCRIPTION_HYDRATION_CONCURRENCY")
+            raw_concurrency = os.getenv("ULTIMA_SUBSCRIPTION_HYDRATION_CONCURRENCY")
             concurrency = (
                 int(raw_concurrency)
                 if raw_concurrency is not None and raw_concurrency.strip()
@@ -587,6 +638,7 @@ class OnlyFansAuthModel(
         job_id: str | None = None,
     ):
         """Compatibility collector; archive workers use iter_subscriptions."""
+        import os
         from contextlib import aclosing
 
         if not self.cache.subscriptions.is_released():
@@ -750,6 +802,7 @@ class OnlyFansAuthModel(
         cache: bool = False,
     ):
         """Yield paid posts/messages without retaining the feed or its authors."""
+        import os
         from contextlib import aclosing
 
         from ultima_scraper_api.apis.onlyfans.classes.user_model import iter_items
@@ -809,6 +862,7 @@ class OnlyFansAuthModel(
         offset: int = 0,
     ):
         """Compatibility collector; workers consume iter_paid_content directly."""
+        import os
         from contextlib import aclosing
 
         if not self.cache.paid_content.is_released():

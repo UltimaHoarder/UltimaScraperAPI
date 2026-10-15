@@ -267,7 +267,6 @@ class UserModel(StreamlinedUser["FanslyAuthModel", "FanslyAPI"]):
     async def get_highlights(
         self, identifier="", refresh=True, limit=100, offset=0, hightlight_id=""
     ) -> list:
-        api_type = "highlights"
         if not identifier:
             identifier = self.id
         if not hightlight_id:

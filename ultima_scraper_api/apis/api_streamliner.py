@@ -75,7 +75,17 @@ class StreamlinedAPI:
         self,
         auth: ultima_scraper_api.auth_types,
     ) -> auth_types:
-        self.api.auths[auth.id] = auth  # type: ignore
+        # Guest /me responses commonly have ID 0. Register by the supplied
+        # visitor identity so distinct owned clients survive until cleanup.
+        auth_key = auth.id
+        if getattr(auth, "guest", False):
+            authenticator = getattr(auth, "authenticator", None)
+            details = getattr(authenticator, "auth_details", None)
+            auth_key = (
+                getattr(authenticator, "guest_registration_id", None)
+                or getattr(details, "id", None) or auth_key
+            )
+        self.api.auths[auth_key] = auth  # type: ignore
         return auth
 
     def has_active_auths(self):
@@ -92,11 +102,21 @@ class StreamlinedAPI:
         try:
             await auth.get_requester().active_session.close()
         finally:
-            self.api.auths.pop(auth.id, None)  # type: ignore[attr-defined]
+            for key, registered in list(self.api.auths.items()):
+                if registered is auth:
+                    self.api.auths.pop(key, None)
 
     async def close_pools(self) -> None:
+        pending = getattr(self.api, "_mps_guest_auth_pending", {})
+        tasks = [entry["task"] for entry in list(pending.values())]
+        for task in tasks:
+            task.cancel()
+        if tasks:
+            await asyncio.gather(*tasks, return_exceptions=True)
         await self.session_manager.stop_rate_limit_checker()
         await asyncio.gather(
             *(self.remove_auth(auth) for auth in list(self.api.auths.values())),  # type: ignore[attr-defined]
             return_exceptions=True,
         )
+        for name in ("_mps_guest_auth_cache", "_mps_guest_auth_locks"):
+            getattr(self.api, name, {}).clear()

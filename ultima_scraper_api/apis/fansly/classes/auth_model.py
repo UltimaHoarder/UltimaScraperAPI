@@ -18,8 +18,6 @@ from ultima_scraper_api.apis.fansly.classes.user_model import UserModel
 
 if TYPE_CHECKING:
     from ultima_scraper_api.apis.fansly.authenticator import FanslyAuthenticator
-    from ultima_scraper_api.apis.fansly.classes.extras import AuthDetails
-    from ultima_scraper_api.apis.fansly.fansly import FanslyAPI
     from ultima_scraper_api.apis.onlyfans.classes.only_drm import OnlyDRM
 
 

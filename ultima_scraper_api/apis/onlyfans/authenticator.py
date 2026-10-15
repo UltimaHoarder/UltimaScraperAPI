@@ -7,7 +7,6 @@ import time
 from typing import Any
 from urllib.parse import urlparse
 
-from user_agent import generate_user_agent
 
 from ultima_scraper_api.apis import api_helper
 from ultima_scraper_api.apis.onlyfans.classes.auth_model import OnlyFansAuthModel
@@ -15,7 +14,6 @@ from ultima_scraper_api.apis.onlyfans.classes.extras import (
     AuthDetails,
     ErrorDetails,
     create_headers,
-    endpoint_links,
 )
 from ultima_scraper_api.apis.onlyfans.onlyfans import OnlyFansAPI
 from ultima_scraper_api.managers.session_manager import AuthedSession
@@ -69,20 +67,28 @@ class OnlyFansAuthenticator:
         api: "OnlyFansAPI",
         auth_details: AuthDetails = AuthDetails(),
         guest: bool = False,
+        *,
+        guest_session_key: str | None = None,
     ) -> None:
         self.api = api
         self.auth_details = auth_details
-        self.auth_session = AuthedSession(self, api.session_manager)
+        # The auth model updates auth_details.id from /me (usually 0 for a
+        # guest). Preserve the caller's ownership key before that update.
+        self.guest_registration_id = auth_details.id if guest else None
+        # A pooled visitor is a guest before its bounded client is constructed.
+        self.guest = guest if guest_session_key is not None else False
+        proxy_info = None
         if self.auth_details.proxy_url:
             try:
                 proxy_info = ProxyInfo(
                     *python_socks.parse_proxy_url(self.auth_details.proxy_url)
                 )
-                self.auth_session.active_session = (
-                    self.auth_session.create_client_session(False, proxy_info)
-                )
             except Exception:
                 pass
+        self.auth_session = AuthedSession(
+            self, api.session_manager, proxy=proxy_info,
+            guest_session_key=guest_session_key,
+        )
         self.auth_attempt = 0
         self.max_attempts = 10
         self.errors: list[ErrorDetails] = []
@@ -102,7 +108,6 @@ class OnlyFansAuthenticator:
     def create_auth(self):
         auth = OnlyFansAuthModel(self)
         # Connect to Redis if enabled (fire and forget, don't wait)
-        import asyncio
 
         try:
             from ultima_scraper_api.managers.redis import get_redis

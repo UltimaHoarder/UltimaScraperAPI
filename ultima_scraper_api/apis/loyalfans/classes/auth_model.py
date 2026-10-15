@@ -1,7 +1,6 @@
 from typing import TYPE_CHECKING, Any
 
 from ultima_scraper_api.apis.auth_streamliner import StreamlinedAuth
-from ultima_scraper_api.apis.loyalfans.classes import subscription_model
 from ultima_scraper_api.apis.loyalfans.classes.extras import endpoint_links
 from ultima_scraper_api.apis.loyalfans.classes.user_model import UserModel
 
@@ -9,8 +8,6 @@ if TYPE_CHECKING:
     from ultima_scraper_api.apis.loyalfans.authenticator import (
         LoyalFansAuthenticator,
     )
-    from ultima_scraper_api.apis.loyalfans.classes.extras import AuthDetails
-    from ultima_scraper_api.apis.loyalfans.classes.user_model import LoyalFansAPI
 
 
 class LoyalFansAuthModel(

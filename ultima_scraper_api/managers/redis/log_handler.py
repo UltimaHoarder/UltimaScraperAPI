@@ -5,18 +5,18 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
+import os
 import threading
 import traceback
 from collections import deque
 from datetime import datetime, timezone
 from typing import Any
 
-from ultima_scraper_core.environment import runtime_env_value
 from ultima_scraper_api.managers.redis.connection import RedisManager, get_redis
 
 
 def _positive_budget(name: str, value: int | None, default: int | None) -> int | None:
-    raw = value if value is not None else runtime_env_value(name)
+    raw = value if value is not None else os.getenv(name)
     if raw is None or (isinstance(raw, str) and not raw.strip()):
         return default
     if isinstance(raw, bool):

@@ -2,11 +2,16 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import math
 import os
 import ssl
-from contextlib import aclosing
+import time
+import weakref
+from contextlib import AsyncExitStack, aclosing
+from email.utils import parsedate_to_datetime
 from itertools import repeat
-from random import randint
+from contextvars import ContextVar
+from random import randint, random
 from typing import TYPE_CHECKING, Any, Literal
 
 import aiohttp
@@ -22,13 +27,14 @@ from aiohttp.client_exceptions import (
     ServerTimeoutError,
 )
 from aiohttp_socks import ProxyConnectionError, ProxyConnector, ProxyInfo
+from aiohttp_socks import ProxyError as SocksProxyError
 from multidict import CIMultiDict, CIMultiDictProxy
 from yarl import URL
 
 import ultima_scraper_api
 import ultima_scraper_api.apis.api_helper as api_helper
 from ultima_scraper_api.config import Proxy
-from ultima_scraper_core.concurrency import map_unordered
+from ultima_scraper_api.helpers.concurrency import map_unordered
 
 logger = logging.getLogger(__name__)
 
@@ -60,6 +66,25 @@ def _format_exception_message(error: BaseException) -> str:
 _JSON_UNSET = object()
 
 
+# A malformed or hostile Retry-After (an HTTP date months away) must not bench
+# a route indefinitely; longer upstream delays are re-probed after this bound.
+MAX_RETRY_AFTER_SECONDS = 3600.0
+
+
+def _retry_after_seconds(value: str | None) -> float:
+    """Interpret upstream delay without reducing it to our polling interval."""
+    if value is None:
+        return 0.0
+    try:
+        delay = float(value)
+    except ValueError:
+        try:
+            delay = parsedate_to_datetime(value).timestamp() - time.time()
+        except (TypeError, ValueError, OverflowError):
+            return 0.0
+    return min(max(0.0, delay), MAX_RETRY_AFTER_SECONDS) if math.isfinite(delay) else 0.0
+
+
 async def consume_response_json(response: ClientResponse) -> Any:
     """Transfer JSON already validated by request(), or decode an external response.
 
@@ -68,6 +93,64 @@ async def consume_response_json(response: ClientResponse) -> Any:
     """
     value = vars(response).pop("_ultima_validated_json", _JSON_UNSET)
     return await response.json() if value is _JSON_UNSET else value
+
+
+# OnlyFans accepts about 38 guest requests per second per IP and answers the
+# excess with HTTP 429 and Retry-After: 0 (measured 2026-10-11). Workers pace
+# every guest request per route below that cap; a 429 that still slips through
+# is retried on the same route after a short backoff rather than benching the
+# session. GUEST_429_RETRIES bounds those retries per request.
+GUEST_429_RETRIES = 2
+GUEST_429_BACKOFF_SECONDS = 0.2
+
+
+# Each worker's bucket holds half a second of its share, so requests that
+# arrive in clumps after a quiet moment are not spaced out below the average.
+GUEST_ROUTE_BURST_SECONDS = 0.5
+
+
+class _RouteRateLimiter:
+    """Token bucket for one route in this process."""
+
+    def __init__(self, rate: float) -> None:
+        self.rate = rate
+        self.capacity = max(1.0, rate * GUEST_ROUTE_BURST_SECONDS)
+        self.tokens = self.capacity
+        self.updated: float | None = None
+        self._lock = asyncio.Lock()
+
+    def _refill(self, now: float) -> None:
+        if self.updated is not None:
+            self.tokens = min(self.capacity, self.tokens + (now - self.updated) * self.rate)
+        self.updated = now
+
+    async def acquire(self) -> None:
+        # The lock keeps waiters in arrival order; a cancelled waiter takes nothing.
+        async with self._lock:
+            loop = asyncio.get_running_loop()
+            self._refill(loop.time())
+            if self.tokens < 1.0:
+                await asyncio.sleep((1.0 - self.tokens) / self.rate)
+                self._refill(loop.time())
+            self.tokens -= 1.0
+
+
+_GUEST_ROUTE_RATE: float | None = None
+# Limiters own an asyncio.Lock, which binds to one event loop. Keep a set per
+# loop so a second loop in the same process gets its own instead of failing.
+_ROUTE_LIMITERS: weakref.WeakKeyDictionary[
+    asyncio.AbstractEventLoop, dict[str, _RouteRateLimiter]
+] = weakref.WeakKeyDictionary()
+# A lookup may take its route token before its timeout starts; the next guest
+# request on that route in the same context then uses it instead of waiting.
+_PREPAID_ROUTE: ContextVar[list[str] | None] = ContextVar("prepaid_guest_route", default=None)
+
+
+def configure_guest_route_rate(rate_per_second: float | None) -> None:
+    """Set this process's guest request rate per route; None or <= 0 disables."""
+    global _GUEST_ROUTE_RATE
+    _GUEST_ROUTE_RATE = rate_per_second if rate_per_second and rate_per_second > 0 else None
+    _ROUTE_LIMITERS.clear()
 
 
 class ProxyManager:
@@ -93,8 +176,8 @@ class ProxyManager:
                 continue
         return final_proxies
 
-    def create_connection(self, proxy: ProxyInfo, ssl: ssl.SSLContext):
-        return ProxyConnector(**proxy._asdict(), ssl=ssl)  # type: ignore
+    def create_connection(self, proxy: ProxyInfo, ssl: ssl.SSLContext, **kwargs: Any):
+        return ProxyConnector(**proxy._asdict(), ssl=ssl, **kwargs)  # type: ignore
 
     def get_current_proxy(self):
         return self.proxies[self.current_proxy_index]
@@ -113,13 +196,21 @@ class AuthedSession:
         auth: ultima_scraper_api.authenticator_types,
         session_manager: SessionManager,
         headers: dict[str, Any] = {},
+        *,
+        proxy: ProxyInfo | None = None,
+        guest_session_key: str | None = None,
     ) -> None:
         self.session_manager = session_manager
         self.semaphore = session_manager.semaphore
         self.auth = auth
         self.headers = headers
+        self.guest_session_key = guest_session_key
+        self.request_waiters = 0
+        self._guest_request_semaphore = (
+            asyncio.Semaphore(1) if guest_session_key is not None else None
+        )
         self.current_proxy: ProxyInfo | None = None
-        self.active_session = self.create_client_session()
+        self.active_session = self.create_client_session(proxy=proxy)
 
     def get_session_manager(self):
         return self.session_manager
@@ -183,10 +274,14 @@ class AuthedSession:
             return str(raw_proxy_url).strip()
         return "__direct__"
 
+    def get_rate_limit_key(self) -> str:
+        """Keep each bounded visitor's cooldown on its own cookie context."""
+        return self.guest_session_key or self.get_route_key()
+
     def create_client_session(
         self, test_proxies: bool = False, proxy: ProxyInfo | None = None
     ) -> ClientSession:
-        limit = 0
+        limit = 1 if self.guest_session_key is not None else 0
         session_manager = self.get_session_manager()
         proxy_manager = self.get_proxy_manager()
         raw_proxies = session_manager.get_enabled_proxies()
@@ -197,10 +292,12 @@ class AuthedSession:
             proxy_manager.add_proxies(proxies)
             proxy = proxy_manager.get_current_proxy()
         self.current_proxy = proxy
-        ssl_context = ssl.create_default_context()
-        ssl_context.post_handshake_auth = True
+        ssl_context = session_manager.get_ssl_context()
         connector = (
-            self.session_manager.proxy_manager.create_connection(proxy, ssl=ssl_context)
+            self.session_manager.proxy_manager.create_connection(
+                proxy, ssl=ssl_context,
+                **({"limit": limit} if limit else {}),
+            )
             if proxy
             else aiohttp.TCPConnector(limit=limit, ssl=ssl_context)
         )
@@ -250,7 +347,65 @@ class AuthedSession:
                 False, proxy_manager.get_current_proxy()
             )
 
+    def create_json_request_headers(self, url: str) -> dict[str, Any]:
+        return self.auth.create_request_headers(
+            url,
+            extra_headers={
+                "accept": "application/json, text/plain, */*",
+                "Connection": "keep-alive",
+            },
+        )
+
+    async def acquire_route_rate(self) -> None:
+        """Wait for this route's request budget (guest sessions only)."""
+        if _GUEST_ROUTE_RATE is None or not getattr(self.auth, "guest", False):
+            return
+        key = self.get_route_key()
+        limiters = _ROUTE_LIMITERS.setdefault(asyncio.get_running_loop(), {})
+        limiter = limiters.get(key)
+        if limiter is None:
+            limiter = limiters[key] = _RouteRateLimiter(_GUEST_ROUTE_RATE)
+        await limiter.acquire()
+
+    async def prepay_route_rate(self) -> Any:
+        """Take the next request's route token now; reset the result when done."""
+        await self.acquire_route_rate()
+        return _PREPAID_ROUTE.set([self.get_route_key()])
+
+    def release_prepaid_route_rate(self, token: Any) -> None:
+        _PREPAID_ROUTE.reset(token)
+
+    def _take_prepaid_route_rate(self) -> bool:
+        held = _PREPAID_ROUTE.get()
+        if held and held[0] == self.get_route_key():
+            held.clear()  # Shared with the lookup's child task: use it once.
+            return True
+        return False
+
     async def request(
+        self,
+        url: str,
+        method: Literal["GET", "HEAD", "POST", "PUT", "PATCH", "DELETE"] = "GET",
+        data: Any = {},
+        json: Any = {},
+        premade_settings: str = "json",
+        custom_cookies: str = "",
+        custom_headers: dict[str, Any] = {},
+        range_header: dict[str, Any] | None = None,
+    ) -> ClientResponse | None:
+        args = (url, method, data, json, premade_settings, custom_cookies,
+                custom_headers, range_header)
+        semaphore = self._guest_request_semaphore
+        if semaphore is None:
+            return await self._request(*args)
+        self.request_waiters += 1
+        try:
+            async with semaphore:
+                return await self._request(*args)
+        finally:
+            self.request_waiters -= 1
+
+    async def _request(
         self,
         url: str,
         method: Literal["GET", "HEAD", "POST", "PUT", "PATCH", "DELETE"] = "GET",
@@ -271,6 +426,7 @@ class AuthedSession:
         """
         session_manager = self.get_session_manager()
         route_key = self.get_route_key()
+        rate_limit_key = self.get_rate_limit_key()
         retries = 0
         is_guest = getattr(self.auth, "guest", False)
         if is_guest:
@@ -283,9 +439,12 @@ class AuthedSession:
             max_attempts = max(1, int(getattr(session_manager, "max_attempts", 10) or 1))
         backoff_seconds = 1.0
         max_backoff_seconds = 30.0
+        guest_429_retries = 0
         while True:
+            if not self._take_prepaid_route_rate():
+                await self.acquire_route_rate()
             is_limited = (
-                session_manager.is_route_rate_limited(route_key)
+                session_manager.is_route_rate_limited(rate_limit_key)
                 if hasattr(session_manager, "is_route_rate_limited")
                 else getattr(session_manager, "rate_limit_check", False)
             )
@@ -319,13 +478,7 @@ class AuthedSession:
                 continue
             headers = {}
             if premade_settings == "json":
-                headers = self.auth.create_request_headers(
-                    url,
-                    extra_headers={
-                        "accept": "application/json, text/plain, */*",
-                        "Connection": "keep-alive",
-                    },
-                )
+                headers = self.create_json_request_headers(url)
             if custom_cookies:
                 headers = self.auth.create_request_headers(
                     url, custom_cookies=custom_cookies
@@ -496,14 +649,28 @@ class AuthedSession:
                             method,
                             url,
                         )
+                        if is_guest:
+                            # Retry-After is 0: back off briefly on the same route
+                            # instead of benching this session and probing it.
+                            if guest_429_retries < GUEST_429_RETRIES:
+                                guest_429_retries += 1
+                                await asyncio.sleep(
+                                    GUEST_429_BACKOFF_SECONDS * (1 + random())
+                                )
+                                continue
+                            raise
                         if hasattr(session_manager, "mark_route_rate_limited"):
                             session_manager.mark_route_rate_limited(
-                                route_key, proxy=self.get_current_proxy_info()
+                                rate_limit_key,
+                                proxy=self.get_current_proxy_info(),
+                                requester=self,
+                                probe_url=url if method.upper() == "GET" else None,
+                                retry_after=(
+                                    _e.headers.get("Retry-After") if _e.headers else None
+                                ),
                             )
                         elif getattr(session_manager, "is_rate_limited", None) is None:
                             session_manager.rate_limit_check = True
-                        if is_guest:
-                            raise
                         continue
                     case 500 | 502 | 503 | 504:
                         retries += 1
@@ -592,12 +759,15 @@ class AuthedSession:
         try:
             response = await self.request(url, method, data=payload)
         except Exception as exc:
-            return {
-                "error": {
-                    "code": 0,
-                    "message": _format_exception_message(exc),
-                }
+            error = {
+                "code": exc.status if isinstance(exc, ClientResponseError) else 0,
+                "message": _format_exception_message(exc),
             }
+            if isinstance(exc, (python_socks.ProxyError, SocksProxyError)) and isinstance(
+                exc.error_code, int
+            ):
+                error["proxy_code"] = exc.error_code
+            return {"error": error}
         if not response:
             return {}
 
@@ -661,9 +831,26 @@ class SessionManager:
         self._route_rate_limited: dict[str, bool] = {}
         self._route_rate_limit_tasks: dict[str, asyncio.Task[None]] = {}
         self._route_proxies: dict[str, ProxyInfo | None] = {}
+        self._route_rate_limit_until: dict[str, float] = {}
+        self._route_rate_limit_probes: dict[str, tuple[AuthedSession, str]] = {}
         self.time2sleep = 5
         self.rate_limit_checker_active = False
         self._rate_limit_task: asyncio.Task[None] | None = None
+        self._ssl_context: ssl.SSLContext | None = None
+
+    def get_ssl_context(self) -> ssl.SSLContext:
+        """Reuse verified TLS policy across this manager's clients and probes.
+
+        Loading the platform certificate store is synchronous. Repeating it for
+        short-lived rate-limit probes blocks every request on the same loop.
+        Configure the context once, before any connector starts using it.
+        """
+        context = self._ssl_context
+        if context is None:
+            context = ssl.create_default_context()
+            context.post_handshake_auth = True
+            self._ssl_context = context
+        return context
 
     @property
     def rate_limit_check(self) -> bool:
@@ -695,9 +882,21 @@ class SessionManager:
         return bool(self._route_rate_limited.get(route_key, False))
 
     def mark_route_rate_limited(
-        self, route_key: str, proxy: ProxyInfo | None = None
+        self,
+        route_key: str,
+        proxy: ProxyInfo | None = None,
+        *,
+        requester: AuthedSession | None = None,
+        probe_url: str | None = None,
+        retry_after: str | None = None,
     ) -> None:
         self._route_rate_limited[route_key] = True
+        delay = max(float(self.time2sleep or 5), 5.0, _retry_after_seconds(retry_after))
+        self._route_rate_limit_until[route_key] = max(
+            self._route_rate_limit_until.get(route_key, 0.0), time.monotonic() + delay
+        )
+        if requester is not None and probe_url is not None:
+            self._route_rate_limit_probes[route_key] = (requester, probe_url)
         if proxy is not None:
             self._route_proxies[route_key] = proxy
         self.start_route_rate_limit_checker(route_key, proxy=proxy)
@@ -706,6 +905,14 @@ class SessionManager:
         self, authenticator: ultima_scraper_api.authenticator_types
     ):
         return AuthedSession(authenticator, self)
+
+    async def wait_for_route_recovery(self, route_key: str) -> None:
+        """Share the checker while leaving cancellation local to each caller."""
+        while self.is_route_rate_limited(route_key) and not self.kill:
+            task = self.start_route_rate_limit_checker(route_key)
+            await asyncio.shield(task)
+        if self.kill:
+            raise RuntimeError("Session manager is closing")
 
     def get_proxy(self):
         proxies = self.get_enabled_proxies()
@@ -748,6 +955,8 @@ class SessionManager:
         if route_tasks:
             await asyncio.gather(*route_tasks, return_exceptions=True)
         self._route_rate_limit_tasks.clear()
+        self._route_rate_limit_probes.clear()
+        self._route_rate_limit_until.clear()
 
     async def check_route_rate_limit(
         self, route_key: str = "__direct__", proxy: ProxyInfo | None = None
@@ -756,8 +965,7 @@ class SessionManager:
         timeout = aiohttp.ClientTimeout(
             total=None, connect=10, sock_connect=10, sock_read=60
         )
-        ssl_context = ssl.create_default_context()
-        ssl_context.post_handshake_auth = True
+        ssl_context = self.get_ssl_context()
 
         resolved_proxy = proxy or self._route_proxies.get(route_key)
         if resolved_proxy is None and route_key != "__direct__":
@@ -766,23 +974,58 @@ class SessionManager:
             except Exception:
                 resolved_proxy = None
 
-        connector = (
-            self.proxy_manager.create_connection(resolved_proxy, ssl=ssl_context)
-            if resolved_proxy
-            else aiohttp.TCPConnector(ssl=ssl_context)
-        )
         sleep_interval = max(int(getattr(self, "time2sleep", 5) or 5), 5)
         rate_limit_count = 0
+        fallback_probe: ClientSession | None = None
         try:
-            async with ClientSession(connector=connector, timeout=timeout) as probe:
+            async with AsyncExitStack() as stack:
                 while self.is_route_rate_limited(route_key) and not self.kill:
+                    deadline = self._route_rate_limit_until.get(route_key, 0.0)
+                    remaining = deadline - time.monotonic()
+                    if remaining > 0:
+                        await asyncio.sleep(remaining)
+                        if self.kill or not self.is_route_rate_limited(route_key):
+                            break
+                        if self._route_rate_limit_until.get(route_key, 0.0) > deadline:
+                            continue
                     rate_limit_count += 1
                     try:
-                        async with probe.get(
-                            "https://onlyfans.com/api2/v2/init"
-                        ) as response:
+                        target = self._route_rate_limit_probes.get(route_key)
+                        probe_url = (
+                            target[1] if target else "https://onlyfans.com/api2/v2/init"
+                        )
+                        headers = (
+                            target[0].create_json_request_headers(probe_url)
+                            if target else {}
+                        )
+                        if target is not None:
+                            # A fresh anonymous cookie jar can pass while the
+                            # requester's existing visitor/session is still
+                            # limited. Probe its exact client context, borrowing
+                            # ownership so checker cancellation cannot close it.
+                            probe = getattr(target[0], "active_session", None)
+                            if probe is None or getattr(probe, "closed", False):
+                                raise RuntimeError("Rate-limit requester is closed")
+                        else:
+                            if fallback_probe is None:
+                                connector = (
+                                    self.proxy_manager.create_connection(
+                                        resolved_proxy, ssl=ssl_context
+                                    )
+                                    if resolved_proxy
+                                    else aiohttp.TCPConnector(ssl=ssl_context)
+                                )
+                                fallback_probe = await stack.enter_async_context(
+                                    ClientSession(connector=connector, timeout=timeout)
+                                )
+                            probe = fallback_probe
+                        async with probe.get(probe_url, headers=headers) as response:
                             status = response.status
-                        if status != 429:
+                            retry_after = (
+                                response.headers.get("Retry-After")
+                                if hasattr(response, "headers") else None
+                            )
+                        if 200 <= status < 300 or (target is not None and status == 404):
                             logger.info(
                                 "Rate limit check passed for route %s (status=%d, after %d checks) — resuming requests",
                                 route_key,
@@ -792,10 +1035,16 @@ class SessionManager:
                             self._route_rate_limited[route_key] = False
                             break
                         logger.warning(
-                            "Rate limit checker for route %s: still rate-limited (429), check %d, sleeping %ds",
+                            "Rate limit checker for route %s: inconclusive response (%d), check %d, sleeping %ds",
                             route_key,
+                            status,
                             rate_limit_count,
                             sleep_interval,
+                        )
+                        self._route_rate_limit_until[route_key] = max(
+                            self._route_rate_limit_until.get(route_key, 0.0),
+                            time.monotonic()
+                            + max(sleep_interval, _retry_after_seconds(retry_after)),
                         )
                     except Exception as exc:
                         logger.warning(
@@ -807,6 +1056,8 @@ class SessionManager:
                     await asyncio.sleep(sleep_interval)
         finally:
             self._route_rate_limit_tasks.pop(route_key, None)
+            self._route_rate_limit_probes.pop(route_key, None)
+            self._route_rate_limit_until.pop(route_key, None)
 
     async def check_rate_limit(self):
         if self.rate_limit_checker_active:

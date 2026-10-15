@@ -10,7 +10,6 @@ This module handles:
 from __future__ import annotations
 
 import re
-from typing import Literal
 from urllib.parse import urlparse
 
 

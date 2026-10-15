@@ -150,7 +150,7 @@ class endpoint_links(object):
         self.groups_api = f"{full_url_path}/group"
         self.message_api = f"{full_url_path}/message?groupId={identifier}&limit={global_limit}&before={before_id}&order=desc"
         self.search_messages = f"https://onlyfans.com/api2/v2/chats/{identifier}?limit=10&offset=0&filter=&order=activity&query={text}"
-        self.mass_messages_api = f"https://onlyfans.com/api2/v2/messages/queue/stats?limit=100&offset=0&format=infinite"
+        self.mass_messages_api = "https://onlyfans.com/api2/v2/messages/queue/stats?limit=100&offset=0&format=infinite"
         self.stories_api = (
             f"{full_url_path}/mediastoriesnew?accountId={identifier}&ngsw-bypass=true"
         )
@@ -163,17 +163,17 @@ class endpoint_links(object):
         )
         self.collection_api = f"{full_url_path}/uservault/album/content?albumId={identifier}&before={global_offset}&after=0&limit={global_limit}"
         self.archived_posts = f"https://onlyfans.com/api2/v2/users/{identifier}/posts/archived?limit={global_limit}&offset={global_offset}&order=publish_date_desc"
-        self.archived_stories = f"https://onlyfans.com/api2/v2/stories/archive/?limit=100&offset=0&order=publish_date_desc"
+        self.archived_stories = "https://onlyfans.com/api2/v2/stories/archive/?limit=100&offset=0&order=publish_date_desc"
         self.paid_api = f"{full_url_path}/account/media/orders/?limit={global_limit}&offset={global_offset}"
-        self.pay = f"https://onlyfans.com/api2/v2/payments/pay"
+        self.pay = "https://onlyfans.com/api2/v2/payments/pay"
         self.subscribe = f"https://onlyfans.com/api2/v2/users/{identifier}/subscribe"
         self.like = f"https://onlyfans.com/api2/v2/{identifier}/{identifier2}/like"
         self.favorite = f"https://onlyfans.com/api2/v2/{identifier}/{identifier2}/favorites/{identifier3}"
         self.transactions = (
-            f"https://onlyfans.com/api2/v2/payments/all/transactions?limit=10&offset=0"
+            "https://onlyfans.com/api2/v2/payments/all/transactions?limit=10&offset=0"
         )
         self.list_comments_api = f"{full_url_path}/{identifier}/{identifier2}/replies"
-        self.two_factor = f"https://onlyfans.com/api2/v2/users/otp/check"
+        self.two_factor = "https://onlyfans.com/api2/v2/users/otp/check"
 
     def list_followings(self, identifier: int, offset: int = 0):
         return f"{self.full_url_path}/account/{identifier}/following?before=0&after=0&limit=100&offset={offset}"

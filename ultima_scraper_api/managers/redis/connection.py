@@ -346,29 +346,6 @@ class RedisManager:
             logger.debug("Failed to publish log event: %s", exc)
             return False
 
-    async def _store_log_history(self, log_data: dict[str, Any]) -> None:
-        """Store log event in Redis history list.
-
-        Args:
-            log_data: Log data to store
-        """
-        if not self.is_connected:
-            return
-
-        if self.LOGS_HISTORY_MAX <= 0:
-            return
-
-        try:
-            payload = json.dumps(log_data, default=str)
-            await self.client.lpush(
-                self.LOGS_HISTORY_KEY, payload
-            )  # pyright: ignore[reportGeneralTypeIssues]
-            await self.client.ltrim(
-                self.LOGS_HISTORY_KEY, 0, self.LOGS_HISTORY_MAX - 1
-            )  # pyright: ignore[reportGeneralTypeIssues]
-        except Exception as exc:
-            logger.debug("Failed to store log history: %s", exc)
-
     async def publish_hook(self, hook_data: dict[str, Any]) -> bool:
         """Publish hook event to hooks channel.
 

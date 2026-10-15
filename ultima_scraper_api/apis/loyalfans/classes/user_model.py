@@ -4,7 +4,6 @@ from ultima_scraper_api.apis.user_streamliner import StreamlinedUser
 from ultima_scraper_api.managers.scrape_manager import ScrapeManager
 
 if TYPE_CHECKING:
-    from ultima_scraper_api import LoyalFansAPI
     from ultima_scraper_api.apis.loyalfans.classes.auth_model import LoyalFansAuthModel
 
 

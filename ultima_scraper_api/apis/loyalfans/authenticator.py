@@ -62,9 +62,6 @@ class LoyalFansAuthenticator:
             auth_items.user_agent = generate_user_agent()
             auth_items.active = True
 
-        auth_session = self.auth_session
-        session_manager = auth_session.get_session_manager()
-
         # LoyalFans specific authentication logic
         if guest:
             self.guest = True

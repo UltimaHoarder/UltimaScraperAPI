@@ -7,9 +7,9 @@ from typing import TYPE_CHECKING, Any, Literal
 from urllib import parse
 
 import ultima_scraper_api.apis.onlyfans.classes.message_model as message_model
-from ultima_scraper_api.apis.onlyfans import SubscriptionType, SubscriptionTypeEnum
+from ultima_scraper_api.apis.onlyfans import SubscriptionTypeEnum
 from ultima_scraper_api.apis.onlyfans.classes import post_model
-from ultima_scraper_api.apis.onlyfans.classes.extras import ErrorDetails, endpoint_links
+from ultima_scraper_api.apis.onlyfans.classes.extras import endpoint_links
 from ultima_scraper_api.apis.onlyfans.classes.hightlight_model import HighlightModel
 from ultima_scraper_api.apis.onlyfans.classes.mass_message_model import MassMessageModel
 from ultima_scraper_api.apis.onlyfans.classes.story_model import StoryModel
@@ -22,7 +22,6 @@ from ultima_scraper_api.managers.scrape_manager import (
 )
 
 if TYPE_CHECKING:
-    from ultima_scraper_api import OnlyFansAPI
     from ultima_scraper_api.apis.onlyfans.classes.auth_model import OnlyFansAuthModel
     from ultima_scraper_api.apis.onlyfans.classes.post_model import PostModel
     from ultima_scraper_api.managers.session_manager import AuthedSession

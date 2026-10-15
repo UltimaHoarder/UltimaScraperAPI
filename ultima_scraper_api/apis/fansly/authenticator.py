@@ -7,7 +7,6 @@ from ultima_scraper_api.apis.fansly.classes.auth_model import FanslyAuthModel
 from ultima_scraper_api.apis.fansly.classes.extras import (
     AuthDetails,
     ErrorDetails,
-    create_headers,
     endpoint_links,
 )
 from ultima_scraper_api.apis.fansly.classes.user_model import UserModel
@@ -65,9 +64,6 @@ class FanslyAuthenticator:
         assert auth_items
         if guest and auth_items:
             auth_items.user_agent = generate_user_agent()
-        link = endpoint_links().customer
-        user_agent = auth_items.user_agent
-        auth_session = self.auth_session
         if guest:
             self.guest = True
             self.__raw__ = {"response": {"account": {"id": 0}}}

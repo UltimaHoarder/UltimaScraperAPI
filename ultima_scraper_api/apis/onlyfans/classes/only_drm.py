@@ -27,9 +27,14 @@ import orjson
 import xmltodict
 from aiohttp import ClientConnectionError, ClientPayloadError
 
-from ultima_scraper_core.environment import runtime_env_value
-from ultima_scraper_core.processes import ProcessResult, finish_owned, run_blocking, run_process, run_process_sync
 from ultima_scraper_api.apis.onlyfans.urls import APIRoutes
+from ultima_scraper_api.helpers.processes import (
+    ProcessResult,
+    finish_owned,
+    run_blocking,
+    run_process,
+    run_process_sync,
+)
 
 if TYPE_CHECKING:
     import ultima_scraper_api
@@ -47,7 +52,7 @@ os_name = platform.system()
 
 
 def _resource_limit(name: str, value: int | None, fallback: int) -> int:
-    raw = value if value is not None else runtime_env_value(name)
+    raw = value if value is not None else os.getenv(name)
     if raw is None or (isinstance(raw, str) and not raw.strip()):
         return fallback
     if isinstance(raw, bool) or not isinstance(raw, (int, str)):
@@ -565,9 +570,7 @@ class OnlyDRM:
         if auto_start_workers and not self.media_formatter.workers:
             worker_count = self.media_formatter.max_workers
             self.media_formatter.start_workers(worker_count)
-            logger.info(f"Auto-started {worker_count} MediaFormatter workers")
 
-        logger.info("OnlyDRM initialized with CDM session")
 
     def _find_bento4_tool(self, tool_name: str) -> Path | None:
         """

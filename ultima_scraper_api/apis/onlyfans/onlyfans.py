@@ -145,6 +145,7 @@ class OnlyFansAPI(StreamlinedAPI):
         curl_string: str | None = None,
         guest: bool = False,
         ignore_auth_errors: bool = False,
+        guest_session_key: str | None = None,
     ):
         from ultima_scraper_api.apis.onlyfans.authenticator import (
             extract_auth_details_from_curl,
@@ -161,30 +162,38 @@ class OnlyFansAPI(StreamlinedAPI):
                 temp_auth_details = self.create_auth_details(auth_json)
 
             # Create authenticator only once
-            authenticator = self.authenticator(self, temp_auth_details, guest)
+            visitor_options = (
+                {"guest_session_key": guest_session_key}
+                if guest_session_key is not None else {}
+            )
+            authenticator = self.authenticator(
+                self, temp_auth_details, guest, **visitor_options
+            )
+            retained = False
             try:
-                authed = await authenticator.login(guest)
-            except Exception:
-                if not ignore_auth_errors or not auth_json:
-                    raise
-                authed = None
-            if authed and authenticator.is_authed():
-                if not guest:
-                    # Guest sessions have no account login issues to surface.
-                    issues = await authed.get_login_issues()
-                    authed.issues = issues if issues.get("data") else None
-                self.add_auth(authed)
-                # Don't close authenticator - auth model reuses its session!
-            elif ignore_auth_errors and auth_json:
-                authed = self._create_auth_ignoring_errors(
-                    authenticator,
-                    temp_auth_details,
-                    auth_json,
-                )
-                # Don't close authenticator - auth model reuses its session!
-            else:
-                # Only close on failure (auth model wasn't created)
-                await authenticator.close()
+                try:
+                    authed = await authenticator.login(guest)
+                except Exception:
+                    if not ignore_auth_errors or not auth_json:
+                        raise
+                    authed = None
+                if authed and authenticator.is_authed():
+                    if not guest:
+                        # Guest sessions have no account login issues to surface.
+                        issues = await authed.get_login_issues()
+                        authed.issues = issues if issues.get("data") else None
+                    self.add_auth(authed)
+                    retained = True
+                elif ignore_auth_errors and auth_json:
+                    authed = self._create_auth_ignoring_errors(
+                        authenticator, temp_auth_details, auth_json,
+                    )
+                    retained = True
+            finally:
+                # Includes failed and cancelled initialization. Successful models
+                # retain ownership through the registry until close_pools().
+                if not retained:
+                    await authenticator.close()
         return authed
 
     @asynccontextmanager

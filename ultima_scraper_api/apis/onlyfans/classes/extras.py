@@ -13,7 +13,6 @@ from user_agent import generate_user_agent
 
 from ultima_scraper_api.apis.onlyfans import SubscriptionType, SubscriptionTypeEnum
 from ultima_scraper_api.helpers.main_helper import is_pascal_case
-from ultima_scraper_api.managers.session_manager import SessionManager
 
 if TYPE_CHECKING:
     from ultima_scraper_api.apis.onlyfans.onlyfans import DynamicRulesModel
@@ -79,7 +78,7 @@ class CookieParser:
         for key, value in self.__dict__.items():
             key = key.replace("auth_uniq_", f"auth_uniq_{self.auth_id}")
             key = key.replace("auth_uid_", f"auth_uid_{self.auth_id}")
-            key = key.replace("aws_waf_token", f"aws-waf-token")
+            key = key.replace("aws_waf_token", "aws-waf-token")
             new_dict += f"{key}={value}; "
         new_dict = new_dict.strip()
         return new_dict
@@ -183,10 +182,10 @@ class endpoint_links(object):
         full_url_path = f"{domain}{api}"
         self.full_url_path = full_url_path
         self.login_issues = f"{full_url_path}/issues/login"
-        self.customer = f"https://onlyfans.com/api2/v2/users/me"
+        self.customer = "https://onlyfans.com/api2/v2/users/me"
         self.users = f"https://onlyfans.com/api2/v2/users/{identifier}"
         self.subscriptions = f"{full_url_path}/subscriptions/subscribes?limit={global_limit}&offset={global_offset}&type={identifier}"
-        self.lists = f"https://onlyfans.com/api2/v2/lists?limit=100&offset=0"
+        self.lists = "https://onlyfans.com/api2/v2/lists?limit=100&offset=0"
         self.lists_users = f"https://onlyfans.com/api2/v2/lists/{identifier}/users?limit={global_limit}&offset={global_offset}&query="
         self.list_chats = f"https://onlyfans.com/api2/v2/chats?limit={global_limit}&offset={global_offset}&order=recent"
         self.post_by_id = f"https://onlyfans.com/api2/v2/posts/{identifier}"
@@ -201,12 +200,12 @@ class endpoint_links(object):
         self.list_highlights = f"https://onlyfans.com/api2/v2/users/{identifier}/stories/highlights?limit={global_limit}&offset={global_offset}&order=desc"
         self.highlight = f"https://onlyfans.com/api2/v2/stories/highlights/{identifier}"
         self.paid_api = f"https://onlyfans.com/api2/v2/posts/paid?limit={global_limit}&offset={global_offset}&format=infinite"
-        self.pay = f"https://onlyfans.com/api2/v2/payments/pay"
+        self.pay = "https://onlyfans.com/api2/v2/payments/pay"
         self.subscribe = f"https://onlyfans.com/api2/v2/users/{identifier}/subscribe"
         self.like = f"https://onlyfans.com/api2/v2/{identifier}/{identifier2}/like"
         self.favorite = f"https://onlyfans.com/api2/v2/{identifier}/{identifier2}/favorites/{identifier3}"
         self.transactions = (
-            f"https://onlyfans.com/api2/v2/payments/all/transactions?limit=10&offset=0"
+            "https://onlyfans.com/api2/v2/payments/all/transactions?limit=10&offset=0"
         )
         self.socials = f"{full_url_path}/users/{identifier}/social/buttons"
         self.spotify = f"{full_url_path}/users/{identifier}/social/spotify"
