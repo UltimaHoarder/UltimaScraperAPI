@@ -7,11 +7,12 @@ import os
 import ssl
 import time
 import weakref
-from contextlib import AsyncExitStack, aclosing
+from collections.abc import Awaitable, Callable
+from contextlib import AbstractAsyncContextManager, AsyncExitStack, aclosing, nullcontext
 from email.utils import parsedate_to_datetime
 from itertools import repeat
 from contextvars import ContextVar
-from random import randint, random
+from random import randint
 from typing import TYPE_CHECKING, Any, Literal
 
 import aiohttp
@@ -95,29 +96,87 @@ async def consume_response_json(response: ClientResponse) -> Any:
     return await response.json() if value is _JSON_UNSET else value
 
 
-# OnlyFans accepts about 38 guest requests per second per IP and answers the
-# excess with HTTP 429 and Retry-After: 0 (measured 2026-10-11). Workers pace
-# every guest request per route below that cap; a 429 that still slips through
-# is retried on the same route after a short backoff rather than benching the
-# session. GUEST_429_RETRIES bounds those retries per request.
-GUEST_429_RETRIES = 2
-GUEST_429_BACKOFF_SECONDS = 0.2
+# OnlyFans limits each guest (visitor) session, not each IP: about 100
+# requests per ~24 s window, after which the session gets HTTP 429 with
+# Retry-After: 0 until the window clears (measured on a direct connection,
+# 2026-10-21; a fresh session on the same IP was unaffected). Retrying the same
+# session cannot succeed, so a guest 429 benches that session's rate-limit key
+# for GUEST_SESSION_BENCH_SECONDS; the route checker then probes it until it
+# passes, and callers move the request to another session meanwhile.
+GUEST_SESSION_BENCH_SECONDS = 20.0
+
+# Each IP also has a softer, provider-dependent cap (datacenter proxies are
+# throttled far harder than a residential IP). The per-route request rate is
+# therefore adaptive: cut on 429s, raised slowly while the route stays clean,
+# never above the configured rate. This learns each proxy's tolerance at run
+# time, whatever proxies and connection counts are configured.
+GUEST_RATE_CUT = 0.7  # multiply the rate on a 429
+GUEST_RATE_CUT_INTERVAL_SECONDS = 1.0  # one cut per burst of 429s
+GUEST_RATE_MIN_FRACTION = 0.1  # floor, as a fraction of the configured rate
+GUEST_RATE_HOLD_SECONDS = 5.0  # clean time after a cut before growing again
+GUEST_RATE_GROWTH_PER_SECOND = 0.02  # growth, as a fraction of the configured rate
 
 
 # Each worker's bucket holds half a second of its share, so requests that
 # arrive in clumps after a quiet moment are not spaced out below the average.
-GUEST_ROUTE_BURST_SECONDS = 0.5
+# ULTIMA_GUEST_ROUTE_BURST_SECONDS overrides it: a worker's share of a busy
+# route is only a few requests per second, so a half-second bucket makes
+# random arrivals queue even while the average rate stays below the budget.
+def _guest_route_burst_seconds(default: float = 0.5) -> float:
+    try:
+        value = float(os.environ.get("ULTIMA_GUEST_ROUTE_BURST_SECONDS") or default)
+    except ValueError:
+        return default
+    return value if value > 0 else default
+
+
+GUEST_ROUTE_BURST_SECONDS = _guest_route_burst_seconds()
 
 
 class _RouteRateLimiter:
-    """Token bucket for one route in this process."""
+    """Adaptive token bucket for one route in this process."""
 
     def __init__(self, rate: float) -> None:
+        self.max_rate = rate
         self.rate = rate
         self.capacity = max(1.0, rate * GUEST_ROUTE_BURST_SECONDS)
         self.tokens = self.capacity
         self.updated: float | None = None
+        self._last_cut: float | None = None
+        self._grown_at: float | None = None
         self._lock = asyncio.Lock()
+
+    def _set_rate(self, rate: float) -> None:
+        self.rate = rate
+        self.capacity = max(1.0, rate * GUEST_ROUTE_BURST_SECONDS)
+        self.tokens = min(self.tokens, self.capacity)
+
+    def rate_limited(self, now: float) -> None:
+        """A 429 on this route: cut the rate, at most once per interval."""
+        if (
+            self._last_cut is not None
+            and now - self._last_cut < GUEST_RATE_CUT_INTERVAL_SECONDS
+        ):
+            return
+        self._last_cut = self._grown_at = now
+        self._set_rate(
+            max(self.max_rate * GUEST_RATE_MIN_FRACTION, self.rate * GUEST_RATE_CUT)
+        )
+
+    def succeeded(self, now: float) -> None:
+        """A non-429 response: grow back toward the configured rate."""
+        if self.rate >= self.max_rate or self._last_cut is None:
+            return
+        start = max(self._grown_at or now, self._last_cut + GUEST_RATE_HOLD_SECONDS)
+        if now <= start:
+            return
+        self._grown_at = now
+        self._set_rate(
+            min(
+                self.max_rate,
+                self.rate + self.max_rate * GUEST_RATE_GROWTH_PER_SECOND * (now - start),
+            )
+        )
 
     def _refill(self, now: float) -> None:
         if self.updated is not None:
@@ -136,6 +195,33 @@ class _RouteRateLimiter:
 
 
 _GUEST_ROUTE_RATE: float | None = None
+# Optional cross-process cap on concurrent guest requests per proxy: called with
+# the session's proxy URL, it returns an async context manager held around each
+# send. Workers install a Redis-backed one so every worker can use every proxy
+# while a proxy's max_connections stays a total across all of them.
+_GUEST_ROUTE_PERMITS: Callable[[str], AbstractAsyncContextManager[Any]] | None = None
+
+
+# Optional cross-process pacing: called with the route key and this process's
+# current fraction of its rate (after 429 cuts), it waits for the request's slot
+# in a budget every worker shares, or returns False to pace locally instead.
+_GUEST_ROUTE_RATE_POOL: Callable[[str, float], Awaitable[bool]] | None = None
+
+
+def configure_guest_route_rate_pool(
+    provider: Callable[[str, float], Awaitable[bool]] | None,
+) -> None:
+    """Install (or clear, with None) the shared per-route request budget."""
+    global _GUEST_ROUTE_RATE_POOL
+    _GUEST_ROUTE_RATE_POOL = provider
+
+
+def configure_guest_route_permits(
+    provider: Callable[[str], AbstractAsyncContextManager[Any]] | None,
+) -> None:
+    """Install (or clear, with None) the per-proxy guest connection permits."""
+    global _GUEST_ROUTE_PERMITS
+    _GUEST_ROUTE_PERMITS = provider
 # Limiters own an asyncio.Lock, which binds to one event loop. Keep a set per
 # loop so a second loop in the same process gets its own instead of failing.
 _ROUTE_LIMITERS: weakref.WeakKeyDictionary[
@@ -356,16 +442,46 @@ class AuthedSession:
             },
         )
 
-    async def acquire_route_rate(self) -> None:
-        """Wait for this route's request budget (guest sessions only)."""
+    def _route_limiter(self) -> _RouteRateLimiter | None:
+        """This route's limiter in this event loop (guest sessions only)."""
         if _GUEST_ROUTE_RATE is None or not getattr(self.auth, "guest", False):
-            return
+            return None
         key = self.get_route_key()
         limiters = _ROUTE_LIMITERS.setdefault(asyncio.get_running_loop(), {})
         limiter = limiters.get(key)
         if limiter is None:
             limiter = limiters[key] = _RouteRateLimiter(_GUEST_ROUTE_RATE)
+        return limiter
+
+    def _route_permit(self) -> AbstractAsyncContextManager[Any]:
+        """This proxy's connection permit for one guest send, if configured."""
+        if _GUEST_ROUTE_PERMITS is None or not getattr(self.auth, "guest", False):
+            return nullcontext()
+        proxy_url = getattr(getattr(self.auth, "auth_details", None), "proxy_url", None)
+        proxy_url = str(proxy_url).strip() if proxy_url else ""
+        return _GUEST_ROUTE_PERMITS(proxy_url) if proxy_url else nullcontext()
+
+    async def acquire_route_rate(self) -> None:
+        """Wait for this route's request budget (guest sessions only)."""
+        limiter = self._route_limiter()
+        if limiter is None:
+            return
+        pool = _GUEST_ROUTE_RATE_POOL
+        if pool is not None and await pool(
+            self.get_route_key(), limiter.rate / limiter.max_rate
+        ):
+            return
         await limiter.acquire()
+
+    def _note_guest_route_outcome(self, *, rate_limited: bool) -> None:
+        limiter = self._route_limiter()
+        if limiter is None:
+            return
+        now = asyncio.get_running_loop().time()
+        if rate_limited:
+            limiter.rate_limited(now)
+        else:
+            limiter.succeeded(now)
 
     async def prepay_route_rate(self) -> Any:
         """Take the next request's route token now; reset the result when done."""
@@ -439,7 +555,6 @@ class AuthedSession:
             max_attempts = max(1, int(getattr(session_manager, "max_attempts", 10) or 1))
         backoff_seconds = 1.0
         max_backoff_seconds = 30.0
-        guest_429_retries = 0
         while True:
             if not self._take_prepaid_route_rate():
                 await self.acquire_route_rate()
@@ -488,249 +603,265 @@ class AuthedSession:
             if custom_headers:
                 headers.update(custom_headers)
 
-            result = None
-            try:
-                match method.upper():
-                    case "HEAD":
-                        result = await self.active_session.head(url, headers=headers)
-                    case "GET":
-                        result = await self.active_session.get(url, headers=headers)
-                    case "POST":
-                        if data:
-                            result = await self.active_session.post(
-                                url, headers=headers, data=data
-                            )
-                        else:
-                            result = await self.active_session.post(
-                                url, headers=headers, json=json
-                            )
-                    case "PATCH":
-                        if data:
-                            result = await self.active_session.patch(
-                                url, headers=headers, data=data
-                            )
-                        else:
-                            result = await self.active_session.patch(
-                                url, headers=headers, json=json
-                            )
-                    case "DELETE":
-                        result = await self.active_session.delete(url, headers=headers)
-                    case "PUT":
-                        if data:
-                            result = await self.active_session.put(
-                                url, headers=headers, data=data
-                            )
-                        else:
-                            result = await self.active_session.put(
-                                url, headers=headers, json=json
-                            )
-                    case _:
-                        raise Exception("Method not found")
-            except ServerTimeoutError as _e:
-                retries += 1
-                if retries >= max_attempts:
-                    logger.error(
-                        "Request timeout after %d/%d attempts: %s %s — %s",
-                        retries,
-                        max_attempts,
-                        method,
-                        url,
-                        _format_exception_message(_e),
-                    )
-                    raise
-                logger.warning(
-                    "Request timeout (attempt %d/%d): %s %s — %s; retrying in %.1fs",
-                    retries,
-                    max_attempts,
-                    method,
-                    url,
-                    _format_exception_message(_e),
-                    backoff_seconds,
-                )
-                await asyncio.sleep(backoff_seconds)
-                backoff_seconds = min(backoff_seconds * 2, max_backoff_seconds)
-                continue
-            except EXCEPTION_TEMPLATE as _e:
-                retries += 1
-                if retries >= max_attempts:
-                    logger.error(
-                        "Transient error after %d/%d attempts: %s %s — %s",
-                        retries,
-                        max_attempts,
-                        method,
-                        url,
-                        _format_exception_message(_e),
-                    )
-                    raise
-                logger.warning(
-                    "Transient error (attempt %d/%d): %s %s — %s; retrying in %.1fs",
-                    retries,
-                    max_attempts,
-                    method,
-                    url,
-                    _format_exception_message(_e),
-                    backoff_seconds,
-                )
-                await asyncio.sleep(backoff_seconds)
-                backoff_seconds = min(backoff_seconds * 2, max_backoff_seconds)
-                continue
-            except Exception as _e:
-                retries += 1
-                if retries >= max_attempts:
-                    logger.error(
-                        "Unexpected error after %d/%d attempts: %s %s — %s",
-                        retries,
-                        max_attempts,
-                        method,
-                        url,
-                        _format_exception_message(_e),
-                    )
-                    raise
-                logger.warning(
-                    "Unexpected error (attempt %d/%d): %s %s — %s; retrying in %.1fs",
-                    retries,
-                    max_attempts,
-                    method,
-                    url,
-                    _format_exception_message(_e),
-                    backoff_seconds,
-                )
-                await asyncio.sleep(backoff_seconds)
-                backoff_seconds = min(backoff_seconds * 2, max_backoff_seconds)
-                continue
-            returning_response = False
-            try:
-                assert result
-                if (
-                    result.content
-                    and result.content_type
-                    and "application/json" in result.content_type
-                ):
-                    vars(result)["_ultima_validated_json"] = await result.json()
-                result.raise_for_status()
-                returning_response = True
-                return result
-            except EXCEPTION_TEMPLATE as _e:
-                retries += 1
-                if retries >= max_attempts:
-                    logger.error(
-                        "Response processing error after %d/%d attempts: %s %s — %s",
-                        retries,
-                        max_attempts,
-                        method,
-                        url,
-                        _format_exception_message(_e),
-                    )
-                    raise
-                logger.warning(
-                    "Response processing error (attempt %d/%d): %s %s — %s; retrying in %.1fs",
-                    retries,
-                    max_attempts,
-                    method,
-                    url,
-                    _format_exception_message(_e),
-                    backoff_seconds,
-                )
-                await asyncio.sleep(backoff_seconds)
-                backoff_seconds = min(backoff_seconds * 2, max_backoff_seconds)
-                continue
-            except ClientResponseError as _e:
-                match _e.status:
-                    case 400 | 401 | 403 | 404:
-                        assert result
-                        returning_response = True
-                        return result
-                    case 416:
-                        return None
-                    case 429:
-                        logger.warning(
-                            "HTTP 429 rate-limited on route %s: %s %s",
-                            route_key,
+            # Hold a cross-process connection permit for this proxy only while
+            # the request is on the wire, not while it waited for its rate slot.
+            async with self._route_permit():
+                result = None
+                try:
+                    match method.upper():
+                        case "HEAD":
+                            result = await self.active_session.head(url, headers=headers)
+                        case "GET":
+                            result = await self.active_session.get(url, headers=headers)
+                        case "POST":
+                            if data:
+                                result = await self.active_session.post(
+                                    url, headers=headers, data=data
+                                )
+                            else:
+                                result = await self.active_session.post(
+                                    url, headers=headers, json=json
+                                )
+                        case "PATCH":
+                            if data:
+                                result = await self.active_session.patch(
+                                    url, headers=headers, data=data
+                                )
+                            else:
+                                result = await self.active_session.patch(
+                                    url, headers=headers, json=json
+                                )
+                        case "DELETE":
+                            result = await self.active_session.delete(url, headers=headers)
+                        case "PUT":
+                            if data:
+                                result = await self.active_session.put(
+                                    url, headers=headers, data=data
+                                )
+                            else:
+                                result = await self.active_session.put(
+                                    url, headers=headers, json=json
+                                )
+                        case _:
+                            raise Exception("Method not found")
+                except ServerTimeoutError as _e:
+                    retries += 1
+                    if retries >= max_attempts:
+                        logger.error(
+                            "Request timeout after %d/%d attempts: %s %s — %s",
+                            retries,
+                            max_attempts,
                             method,
                             url,
+                            _format_exception_message(_e),
                         )
-                        if is_guest:
-                            # Retry-After is 0: back off briefly on the same route
-                            # instead of benching this session and probing it.
-                            if guest_429_retries < GUEST_429_RETRIES:
-                                guest_429_retries += 1
-                                await asyncio.sleep(
-                                    GUEST_429_BACKOFF_SECONDS * (1 + random())
+                        raise
+                    logger.warning(
+                        "Request timeout (attempt %d/%d): %s %s — %s; retrying in %.1fs",
+                        retries,
+                        max_attempts,
+                        method,
+                        url,
+                        _format_exception_message(_e),
+                        backoff_seconds,
+                    )
+                    await asyncio.sleep(backoff_seconds)
+                    backoff_seconds = min(backoff_seconds * 2, max_backoff_seconds)
+                    continue
+                except EXCEPTION_TEMPLATE as _e:
+                    retries += 1
+                    if retries >= max_attempts:
+                        logger.error(
+                            "Transient error after %d/%d attempts: %s %s — %s",
+                            retries,
+                            max_attempts,
+                            method,
+                            url,
+                            _format_exception_message(_e),
+                        )
+                        raise
+                    logger.warning(
+                        "Transient error (attempt %d/%d): %s %s — %s; retrying in %.1fs",
+                        retries,
+                        max_attempts,
+                        method,
+                        url,
+                        _format_exception_message(_e),
+                        backoff_seconds,
+                    )
+                    await asyncio.sleep(backoff_seconds)
+                    backoff_seconds = min(backoff_seconds * 2, max_backoff_seconds)
+                    continue
+                except Exception as _e:
+                    retries += 1
+                    if retries >= max_attempts:
+                        logger.error(
+                            "Unexpected error after %d/%d attempts: %s %s — %s",
+                            retries,
+                            max_attempts,
+                            method,
+                            url,
+                            _format_exception_message(_e),
+                        )
+                        raise
+                    logger.warning(
+                        "Unexpected error (attempt %d/%d): %s %s — %s; retrying in %.1fs",
+                        retries,
+                        max_attempts,
+                        method,
+                        url,
+                        _format_exception_message(_e),
+                        backoff_seconds,
+                    )
+                    await asyncio.sleep(backoff_seconds)
+                    backoff_seconds = min(backoff_seconds * 2, max_backoff_seconds)
+                    continue
+                returning_response = False
+                if is_guest and result is not None and result.status != 429:
+                    self._note_guest_route_outcome(rate_limited=False)
+                try:
+                    assert result
+                    if (
+                        result.content
+                        and result.content_type
+                        and "application/json" in result.content_type
+                    ):
+                        vars(result)["_ultima_validated_json"] = await result.json()
+                    result.raise_for_status()
+                    returning_response = True
+                    return result
+                except EXCEPTION_TEMPLATE as _e:
+                    retries += 1
+                    if retries >= max_attempts:
+                        logger.error(
+                            "Response processing error after %d/%d attempts: %s %s — %s",
+                            retries,
+                            max_attempts,
+                            method,
+                            url,
+                            _format_exception_message(_e),
+                        )
+                        raise
+                    logger.warning(
+                        "Response processing error (attempt %d/%d): %s %s — %s; retrying in %.1fs",
+                        retries,
+                        max_attempts,
+                        method,
+                        url,
+                        _format_exception_message(_e),
+                        backoff_seconds,
+                    )
+                    await asyncio.sleep(backoff_seconds)
+                    backoff_seconds = min(backoff_seconds * 2, max_backoff_seconds)
+                    continue
+                except ClientResponseError as _e:
+                    match _e.status:
+                        case 400 | 401 | 403 | 404:
+                            assert result
+                            returning_response = True
+                            return result
+                        case 416:
+                            return None
+                        case 429:
+                            if is_guest:
+                                # This visitor session's window is spent; retrying it
+                                # cannot succeed. Bench it (the checker probes it back)
+                                # and let the caller use another session.
+                                logger.debug(
+                                    "HTTP 429 on guest session %s (route %s): %s %s",
+                                    rate_limit_key if rate_limit_key != route_key else "-",
+                                    route_key,
+                                    method,
+                                    url,
                                 )
-                                continue
-                            raise
-                        if hasattr(session_manager, "mark_route_rate_limited"):
-                            session_manager.mark_route_rate_limited(
-                                rate_limit_key,
-                                proxy=self.get_current_proxy_info(),
-                                requester=self,
-                                probe_url=url if method.upper() == "GET" else None,
-                                retry_after=(
-                                    _e.headers.get("Retry-After") if _e.headers else None
-                                ),
+                                self._note_guest_route_outcome(rate_limited=True)
+                                if hasattr(session_manager, "mark_route_rate_limited"):
+                                    session_manager.mark_route_rate_limited(
+                                        rate_limit_key,
+                                        proxy=self.get_current_proxy_info(),
+                                        requester=self,
+                                        probe_url=url if method.upper() == "GET" else None,
+                                        min_delay=GUEST_SESSION_BENCH_SECONDS,
+                                    )
+                                raise
+                            logger.warning(
+                                "HTTP 429 rate-limited on route %s: %s %s",
+                                route_key,
+                                method,
+                                url,
                             )
-                        elif getattr(session_manager, "is_rate_limited", None) is None:
-                            session_manager.rate_limit_check = True
-                        continue
-                    case 500 | 502 | 503 | 504:
-                        retries += 1
-                        if retries >= max_attempts:
-                            logger.error(
-                                "Server error %d after %d/%d attempts: %s %s",
+                            if hasattr(session_manager, "mark_route_rate_limited"):
+                                session_manager.mark_route_rate_limited(
+                                    rate_limit_key,
+                                    proxy=self.get_current_proxy_info(),
+                                    requester=self,
+                                    probe_url=url if method.upper() == "GET" else None,
+                                    retry_after=(
+                                        _e.headers.get("Retry-After") if _e.headers else None
+                                    ),
+                                )
+                            elif getattr(session_manager, "is_rate_limited", None) is None:
+                                session_manager.rate_limit_check = True
+                            continue
+                        case 500 | 502 | 503 | 504:
+                            retries += 1
+                            if retries >= max_attempts:
+                                logger.error(
+                                    "Server error %d after %d/%d attempts: %s %s",
+                                    _e.status,
+                                    retries,
+                                    max_attempts,
+                                    method,
+                                    url,
+                                )
+                                raise
+                            logger.warning(
+                                "Server error %d (attempt %d/%d): %s %s — retrying in %.1fs",
                                 _e.status,
                                 retries,
                                 max_attempts,
                                 method,
                                 url,
+                                backoff_seconds,
                             )
-                            raise
-                        logger.warning(
-                            "Server error %d (attempt %d/%d): %s %s — retrying in %.1fs",
-                            _e.status,
+                            await asyncio.sleep(backoff_seconds)
+                            backoff_seconds = min(backoff_seconds * 2, max_backoff_seconds)
+                            continue
+                        case _:
+                            raise Exception(
+                                f"Infinite Loop Detected for unhandled status error: {_e.status}"
+                            )
+                except Exception as _e:
+                    retries += 1
+                    if retries >= max_attempts:
+                        logger.error(
+                            "Unhandled response error after %d/%d attempts: %s %s — %s",
                             retries,
                             max_attempts,
                             method,
                             url,
-                            backoff_seconds,
+                            _format_exception_message(_e),
                         )
-                        await asyncio.sleep(backoff_seconds)
-                        backoff_seconds = min(backoff_seconds * 2, max_backoff_seconds)
-                        continue
-                    case _:
-                        raise Exception(
-                            f"Infinite Loop Detected for unhandled status error: {_e.status}"
-                        )
-            except Exception as _e:
-                retries += 1
-                if retries >= max_attempts:
-                    logger.error(
-                        "Unhandled response error after %d/%d attempts: %s %s — %s",
+                        raise
+                    logger.warning(
+                        "Unhandled response error (attempt %d/%d): %s %s — %s; retrying in %.1fs",
                         retries,
                         max_attempts,
                         method,
                         url,
                         _format_exception_message(_e),
+                        backoff_seconds,
                     )
-                    raise
-                logger.warning(
-                    "Unhandled response error (attempt %d/%d): %s %s — %s; retrying in %.1fs",
-                    retries,
-                    max_attempts,
-                    method,
-                    url,
-                    _format_exception_message(_e),
-                    backoff_seconds,
-                )
-                await asyncio.sleep(backoff_seconds)
-                backoff_seconds = min(backoff_seconds * 2, max_backoff_seconds)
-                continue
+                    await asyncio.sleep(backoff_seconds)
+                    backoff_seconds = min(backoff_seconds * 2, max_backoff_seconds)
+                    continue
 
-            finally:
-                if not returning_response and result is not None:
-                    # Failed/retried requests must release their connection even
-                    # when validation, a timeout or cancellation interrupts them.
-                    vars(result).pop("_ultima_validated_json", None)
-                    result.release()
+                finally:
+                    if not returning_response and result is not None:
+                        # Failed/retried requests must release their connection even
+                        # when validation, a timeout or cancellation interrupts them.
+                        vars(result).pop("_ultima_validated_json", None)
+                        result.release()
 
     async def bulk_requests(self, urls: list[str]) -> list[ClientResponse | None]:
         # This compatibility method returns a complete ordered list; only its
@@ -889,9 +1020,12 @@ class SessionManager:
         requester: AuthedSession | None = None,
         probe_url: str | None = None,
         retry_after: str | None = None,
+        min_delay: float = 0.0,
     ) -> None:
         self._route_rate_limited[route_key] = True
-        delay = max(float(self.time2sleep or 5), 5.0, _retry_after_seconds(retry_after))
+        delay = max(
+            float(self.time2sleep or 5), 5.0, _retry_after_seconds(retry_after), min_delay
+        )
         self._route_rate_limit_until[route_key] = max(
             self._route_rate_limit_until.get(route_key, 0.0), time.monotonic() + delay
         )
@@ -961,7 +1095,10 @@ class SessionManager:
     async def check_route_rate_limit(
         self, route_key: str = "__direct__", proxy: ProxyInfo | None = None
     ) -> None:
-        logger.info("Rate limit checker started for route %s", route_key)
+        # Benched guest sessions are routine (each covers ~100 requests per
+        # window); keep their checker chatter out of the INFO/WARNING logs.
+        level = logging.DEBUG if route_key.startswith("guest-") else logging.INFO
+        logger.log(level, "Rate limit checker started for route %s", route_key)
         timeout = aiohttp.ClientTimeout(
             total=None, connect=10, sock_connect=10, sock_read=60
         )
@@ -1026,7 +1163,8 @@ class SessionManager:
                                 if hasattr(response, "headers") else None
                             )
                         if 200 <= status < 300 or (target is not None and status == 404):
-                            logger.info(
+                            logger.log(
+                                level,
                                 "Rate limit check passed for route %s (status=%d, after %d checks) — resuming requests",
                                 route_key,
                                 status,
@@ -1034,7 +1172,8 @@ class SessionManager:
                             )
                             self._route_rate_limited[route_key] = False
                             break
-                        logger.warning(
+                        logger.log(
+                            logging.DEBUG if level == logging.DEBUG else logging.WARNING,
                             "Rate limit checker for route %s: inconclusive response (%d), check %d, sleeping %ds",
                             route_key,
                             status,

@@ -413,18 +413,13 @@ async def test_guest_request_honors_env_max_attempts(monkeypatch: pytest.MonkeyP
     assert sleep_mock.await_count == 1
 
 
-@pytest.mark.asyncio
-async def test_guest_request_retries_429_briefly_then_fails() -> None:
-    from ultima_scraper_api.managers.session_manager import (
-        GUEST_429_BACKOFF_SECONDS,
-        GUEST_429_RETRIES,
-    )
-    session = make_authed_session(max_attempts=10, guest=True)
-    resp_mock = AsyncMock()
-    resp_mock.content = b"{}"
-    resp_mock.content_type = "application/json"
-    resp_mock.json = AsyncMock(return_value={})
-    resp_mock.raise_for_status = MagicMock(
+def _guest_429_response() -> AsyncMock:
+    response = AsyncMock()
+    response.status = 429
+    response.content = b"{}"
+    response.content_type = "application/json"
+    response.json = AsyncMock(return_value={})
+    response.raise_for_status = MagicMock(
         side_effect=ClientResponseError(
             request_info=SimpleNamespace(real_url="https://onlyfans.com/api2/v2/users/me"),
             history=(),
@@ -432,8 +427,18 @@ async def test_guest_request_retries_429_briefly_then_fails() -> None:
             message="Too Many Requests",
         )
     )
-    resp_mock.release = MagicMock()
-    session.active_session.get = AsyncMock(return_value=resp_mock)
+    response.release = MagicMock()
+    return response
+
+
+@pytest.mark.asyncio
+async def test_guest_429_benches_the_session_without_retrying_it() -> None:
+    from ultima_scraper_api.managers.session_manager import GUEST_SESSION_BENCH_SECONDS
+
+    session = make_authed_session(max_attempts=10, guest=True)
+    session.guest_session_key = "guest-abc"
+    session.session_manager.mark_route_rate_limited = MagicMock()
+    session.active_session.get = AsyncMock(return_value=_guest_429_response())
     sleep_mock = AsyncMock()
 
     with (
@@ -446,12 +451,80 @@ async def test_guest_request_retries_429_briefly_then_fails() -> None:
         await session.request("https://onlyfans.com/api2/v2/users/me")
 
     assert exc_info.value.status == 429
-    # Guest sessions retry on the same route with a short jittered backoff
-    # instead of benching the route, then surface the 429.
-    assert session.active_session.get.await_count == GUEST_429_RETRIES + 1
-    assert sleep_mock.await_count == GUEST_429_RETRIES
-    for call in sleep_mock.await_args_list:
-        assert GUEST_429_BACKOFF_SECONDS <= call.args[0] < 2 * GUEST_429_BACKOFF_SECONDS
+    # OnlyFans limits each visitor session: the same session cannot succeed
+    # until its window clears, so it is benched and the caller moves on.
+    assert session.active_session.get.await_count == 1
+    assert sleep_mock.await_count == 0
+    mark = session.session_manager.mark_route_rate_limited
+    mark.assert_called_once()
+    assert mark.call_args.args == ("guest-abc",)
+    assert mark.call_args.kwargs["min_delay"] == GUEST_SESSION_BENCH_SECONDS
+    assert mark.call_args.kwargs["requester"] is session
+    assert mark.call_args.kwargs["probe_url"] == "https://onlyfans.com/api2/v2/users/me"
+
+
+def test_bench_delay_honours_the_guest_minimum() -> None:
+    manager = SessionManager.__new__(SessionManager)
+    manager.time2sleep = 0
+    manager._route_rate_limited, manager._route_rate_limit_until = {}, {}
+    manager._route_rate_limit_probes, manager._route_proxies = {}, {}
+    manager.start_route_rate_limit_checker = MagicMock()
+    with patch("ultima_scraper_api.managers.session_manager.time.monotonic", return_value=100.0):
+        manager.mark_route_rate_limited("guest-abc", min_delay=20.0)
+        manager.mark_route_rate_limited("route-b")
+    assert manager._route_rate_limit_until["guest-abc"] == 120.0
+    assert manager._route_rate_limit_until["route-b"] == 105.0
+
+
+def test_route_rate_cuts_on_429s_and_grows_back_while_clean() -> None:
+    from ultima_scraper_api.managers import session_manager as sm
+
+    limiter = sm._RouteRateLimiter(10.0)
+    limiter.rate_limited(0.0)
+    assert limiter.rate == pytest.approx(10.0 * sm.GUEST_RATE_CUT)
+    # A burst of 429s within one interval is one cut.
+    limiter.rate_limited(0.5)
+    assert limiter.rate == pytest.approx(7.0)
+    for second in range(1, 20):
+        limiter.rate_limited(float(second))
+    assert limiter.rate == pytest.approx(10.0 * sm.GUEST_RATE_MIN_FRACTION)
+    assert limiter.capacity >= 1.0 and limiter.tokens <= limiter.capacity
+    # No growth during the hold after the last cut, then a linear climb.
+    last_cut = 19.0
+    limiter.succeeded(last_cut + sm.GUEST_RATE_HOLD_SECONDS - 0.1)
+    assert limiter.rate == pytest.approx(1.0)
+    limiter.succeeded(last_cut + sm.GUEST_RATE_HOLD_SECONDS + 10)
+    assert limiter.rate == pytest.approx(1.0 + 10.0 * sm.GUEST_RATE_GROWTH_PER_SECOND * 10)
+    limiter.succeeded(last_cut + sm.GUEST_RATE_HOLD_SECONDS + 1000)
+    assert limiter.rate == pytest.approx(10.0)
+    # A limiter that never saw a 429 stays at the configured rate.
+    fresh = sm._RouteRateLimiter(10.0)
+    fresh.succeeded(1000.0)
+    assert fresh.rate == 10.0
+
+
+@pytest.mark.asyncio
+async def test_guest_responses_steer_the_route_rate() -> None:
+    from ultima_scraper_api.managers import session_manager as sm
+
+    session = make_authed_session(max_attempts=10, guest=True)
+    session.session_manager.mark_route_rate_limited = MagicMock()
+    ok = AsyncMock()
+    ok.status, ok.content, ok.content_type = 200, b"", None
+    ok.raise_for_status = MagicMock()
+    sm.configure_guest_route_rate(10.0)
+    try:
+        session.active_session.get = AsyncMock(return_value=_guest_429_response())
+        with pytest.raises(ClientResponseError):
+            await session.request("https://onlyfans.com/api2/v2/users/1")
+        limiter = session._route_limiter()
+        assert limiter.rate == pytest.approx(10.0 * sm.GUEST_RATE_CUT)
+        limiter._last_cut -= sm.GUEST_RATE_HOLD_SECONDS + 10  # the hold has passed
+        session.active_session.get = AsyncMock(return_value=ok)
+        await session.request("https://onlyfans.com/api2/v2/users/2")
+        assert limiter.rate > 10.0 * sm.GUEST_RATE_CUT
+    finally:
+        sm.configure_guest_route_rate(None)
 
 
 @pytest.mark.asyncio
@@ -508,3 +581,81 @@ def test_guest_route_pacing_works_on_a_second_event_loop() -> None:
         asyncio.run(burst())  # A fresh loop must not reuse the bound lock.
     finally:
         sm.configure_guest_route_rate(None)
+
+
+@pytest.mark.asyncio
+async def test_guest_sends_hold_the_proxy_permit_only_on_the_wire() -> None:
+    from contextlib import asynccontextmanager
+
+    from ultima_scraper_api.managers import session_manager as sm
+
+    events: list[tuple[str, str]] = []
+
+    @asynccontextmanager
+    async def permit(proxy_url: str):
+        events.append(("acquire", proxy_url))
+        try:
+            yield
+        finally:
+            events.append(("release", proxy_url))
+
+    ok = AsyncMock()
+    ok.status, ok.content, ok.content_type = 404, b"", None
+    ok.raise_for_status = MagicMock()
+
+    async def send(url, headers=None):
+        events.append(("send", url))
+        return ok
+
+    guest = make_authed_session(guest=True)
+    guest.auth.auth_details.proxy_url = "http://user:pw@1.2.3.4:8080"
+    guest.session_manager.mark_route_rate_limited = MagicMock()
+    guest.active_session.get = send
+    authed = make_authed_session(guest=False)
+    authed.auth.auth_details.proxy_url = "http://user:pw@1.2.3.4:8080"
+    authed.active_session.get = send
+    sm.configure_guest_route_permits(permit)
+    try:
+        await guest.request("https://onlyfans.com/api2/v2/users/1")
+        assert events == [
+            ("acquire", "http://user:pw@1.2.3.4:8080"),
+            ("send", "https://onlyfans.com/api2/v2/users/1"),
+            ("release", "http://user:pw@1.2.3.4:8080"),
+        ]
+        events.clear()
+        # A 429 still releases the permit.
+        guest.active_session.get = AsyncMock(return_value=_guest_429_response())
+        with pytest.raises(ClientResponseError):
+            await guest.request("https://onlyfans.com/api2/v2/users/2")
+        assert [kind for kind, _ in events] == ["acquire", "release"]
+        events.clear()
+        # A benched session fails fast without taking a permit.
+        guest.session_manager.is_route_rate_limited = MagicMock(return_value=True)
+        with pytest.raises(ClientResponseError):
+            await guest.request("https://onlyfans.com/api2/v2/users/3")
+        assert events == []
+        # Authenticated sessions are not guest traffic.
+        await authed.request("https://onlyfans.com/api2/v2/users/4")
+        assert events == [("send", "https://onlyfans.com/api2/v2/users/4")]
+    finally:
+        sm.configure_guest_route_permits(None)
+
+
+def test_route_burst_is_configurable_and_keeps_the_average_rate(monkeypatch) -> None:
+    from ultima_scraper_api.managers import session_manager as sm
+
+    monkeypatch.delenv("ULTIMA_GUEST_ROUTE_BURST_SECONDS", raising=False)
+    assert sm._guest_route_burst_seconds() == 0.5
+    for raw, expected in (("3", 3.0), ("0", 0.5), ("bad", 0.5)):
+        monkeypatch.setenv("ULTIMA_GUEST_ROUTE_BURST_SECONDS", raw)
+        assert sm._guest_route_burst_seconds() == expected
+    monkeypatch.setattr(sm, "GUEST_ROUTE_BURST_SECONDS", 3.0)
+    limiter = sm._RouteRateLimiter(4.0)
+    assert limiter.capacity == 12.0
+    # A full bucket absorbs a clump; refill stays at the configured rate.
+    limiter.updated = 0.0
+    limiter.tokens = 0.0
+    limiter._refill(1.0)
+    assert limiter.tokens == pytest.approx(4.0)
+    limiter._refill(100.0)
+    assert limiter.tokens == limiter.capacity
