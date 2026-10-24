@@ -29,6 +29,13 @@ class LoyalFansAuthModel(
     def find_user(self, identifier: int | str):
         if isinstance(identifier, int):
             user = self.users.get(identifier)
+        elif str(identifier).isdigit():
+            user = self.users.get(int(identifier))
+            if user is None:
+                for u in self.users.values():
+                    if u.username.lower() == str(identifier).lower():
+                        user = u
+                        break
         else:
             for user in self.users.values():
                 if user.username.lower() == identifier.lower():
