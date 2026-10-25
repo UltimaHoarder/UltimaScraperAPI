@@ -1,6 +1,10 @@
+import json
+import os
+import tempfile
 from pathlib import Path
-from typing import Any
+from typing import Self
 
+from platformdirs import user_config_dir
 from pydantic import BaseModel, Field
 
 
@@ -21,30 +25,13 @@ class MediaQuality(BaseModel):
     audio: str = "source"
 
 
-class DownloadSettings(BaseModel):
-    max_concurrency: int = Field(default=64, gt=0, strict=True)
-    # When omitted, file admission follows the configured part-request budget.
-    max_file_concurrency: int | None = Field(default=None, gt=0, strict=True)
-    per_domain_concurrency: int = Field(default=8, gt=0, strict=True)
-    head_concurrency: int = Field(default=64, gt=0, strict=True)
-    buffer_size_bytes: int = Field(default=10 * 1024 * 1024, gt=0, strict=True)
-
-
-class PluginProxyOwner(BaseModel):
-    plugin_id: str
-    source: str
-    provider_id: str
-
-
 class Proxy(BaseModel):
     url: str
     username: str | None = None
     password: str | None = None
     enabled: bool = True
     max_connections: int = -1
-    downloads: DownloadSettings = DownloadSettings()
     group: str | None = None
-    managed_by: PluginProxyOwner | None = None
     guest_lookup_timeout: float | None = None
 
 
@@ -52,8 +39,6 @@ class Network(BaseModel):
     max_connections: int = -1
     proxies: list[Proxy] = []
     proxy_fallback: bool = False
-    # Host-owned receipts commit with the proxy snapshot; never contain credentials.
-    plugin_sync_receipts: dict[str, dict[str, Any]] = Field(default_factory=dict)
     # Guest requests per second per route (proxy IP) across all workers.
     # OnlyFans answers more than ~38/s from one IP with HTTP 429. 0 disables.
     guest_route_rate_limit: float = Field(default=35.0, ge=0)
@@ -65,13 +50,6 @@ class Network(BaseModel):
     guest_lookup_timeout: float = Field(default=3.5, ge=0.5)
     # Maximum duration in seconds for guest route HTTP requests before timing out.
     guest_route_timeout: float = Field(default=3.0, ge=0.5)
-    downloads: DownloadSettings = DownloadSettings()
-
-
-class Server(BaseModel):
-    host: str = "localhost"
-    port: int = 8080
-    active: bool = False
 
 
 class Redis(BaseModel):
@@ -89,14 +67,11 @@ class GlobalCache(BaseModel):
 class DRM(BaseModel):
     device_client_blob_filepath: Path | None = None
     device_private_key_filepath: Path | None = None
-    decrypt_media_path: Path | None = None
 
 
 class Settings(BaseModel):
-    private_key_filepath: Path | None = None
     network: Network = Network()
     drm: DRM = DRM()
-    server: Server = Server()
     redis: Redis = Redis()
 
 
@@ -147,5 +122,47 @@ class UltimaScraperAPIConfig(BaseModel):
     settings: Settings = Settings()
     site_apis: Sites = Sites()
 
+    @classmethod
+    def get_config_path(cls) -> Path:
+        config_dir = user_config_dir("ultima_scraper_api")
+        return Path(config_dir) / "config.json"
+
+    @classmethod
+    def load_config(cls, path: Path | None = None) -> Self:
+        config_path = path or cls.get_config_path()
+        payload = json.loads(config_path.read_text(encoding="utf-8"))
+        return cls.model_validate(payload)
+
+    @classmethod
+    def load_or_create_default_config(cls, path: Path | None = None) -> Self:
+        config_path = path or cls.get_config_path()
+        if config_path.is_file():
+            return cls.load_config(config_path)
+        config = cls()
+        config.save_config(config_path)
+        return config
+
+    def save_config(self, path: Path | None = None) -> Path:
+        config_path = path or self.get_config_path()
+        config_path.parent.mkdir(parents=True, exist_ok=True)
+        payload = self.model_dump(mode="json")
+        serialized = json.dumps(payload, indent=2)
+        file_descriptor, temporary_path_raw = tempfile.mkstemp(
+            dir=config_path.parent,
+            prefix=f".{config_path.name}.",
+            suffix=".tmp",
+        )
+        temporary_path = Path(temporary_path_raw)
+        try:
+            with os.fdopen(file_descriptor, "w", encoding="utf-8") as config_file:
+                config_file.write(serialized)
+                config_file.flush()
+                os.fsync(config_file.fileno())
+            os.replace(temporary_path, config_path)
+        finally:
+            temporary_path.unlink(missing_ok=True)
+        return config_path
+
 
 api_config_types = OnlyFansAPIConfig | FanslyAPIConfig | LoyalFansAPIConfig
+
