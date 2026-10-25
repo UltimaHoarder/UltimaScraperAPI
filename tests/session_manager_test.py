@@ -324,10 +324,35 @@ async def test_guest_session_uses_fast_failing_socket_timeout() -> None:
         mock_cs.assert_called_once()
         timeout = mock_cs.call_args.kwargs.get("timeout")
         assert timeout is not None
-        assert timeout.total == 6.0
-        assert timeout.connect == 1.5
-        assert timeout.sock_connect == 3.0
-        assert timeout.sock_read == 5.0
+        assert timeout.total == 10.0
+        assert timeout.connect == 5.0
+        assert timeout.sock_connect == 5.0
+        assert timeout.sock_read == 10.0
+
+
+@pytest.mark.asyncio
+async def test_guest_session_respects_configured_lookup_timeout() -> None:
+    api = SimpleNamespace(
+        config=SimpleNamespace(
+            settings=SimpleNamespace(
+                network=SimpleNamespace(
+                    guest_lookup_timeout=15.0,
+                    proxies=[],
+                )
+            )
+        )
+    )
+    sm = SessionManager(api=api)
+    auth = DummyAuth(guest=True)
+    with patch("ultima_scraper_api.managers.session_manager.ClientSession") as mock_cs:
+        session = AuthedSession(auth, sm)
+        mock_cs.assert_called_once()
+        timeout = mock_cs.call_args.kwargs.get("timeout")
+        assert timeout is not None
+        assert timeout.total == 15.0
+        assert timeout.connect == 15.0
+        assert timeout.sock_connect == 15.0
+        assert timeout.sock_read == 15.0
 
 
 @pytest.mark.asyncio

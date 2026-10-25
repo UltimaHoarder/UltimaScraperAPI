@@ -39,10 +39,10 @@ from ultima_scraper_api.helpers.concurrency import map_unordered
 
 logger = logging.getLogger(__name__)
 
-DEFAULT_GUEST_CONNECT_TIMEOUT = 1.5
-DEFAULT_GUEST_SOCK_CONNECT_TIMEOUT = 3.0
-DEFAULT_GUEST_SOCK_READ_TIMEOUT = 5.0
-DEFAULT_GUEST_TOTAL_TIMEOUT = 6.0
+DEFAULT_GUEST_CONNECT_TIMEOUT = 5.0
+DEFAULT_GUEST_SOCK_CONNECT_TIMEOUT = 5.0
+DEFAULT_GUEST_SOCK_READ_TIMEOUT = 10.0
+DEFAULT_GUEST_TOTAL_TIMEOUT = 10.0
 
 if TYPE_CHECKING:
     auth_types = ultima_scraper_api.auth_types
@@ -390,26 +390,60 @@ class AuthedSession:
         final_cookies = self.get_cookies()
         is_guest = getattr(self.auth, "guest", False)
         if is_guest:
+            configured_timeout: float | None = None
+            try:
+                api = getattr(self.session_manager, "api", None)
+                cfg = getattr(api, "config", None)
+                network = getattr(getattr(cfg, "settings", None), "network", None)
+                if network is not None:
+                    raw_proxy_url = getattr(
+                        getattr(self.auth, "auth_details", None), "proxy_url", None
+                    )
+                    if hasattr(network, "proxies") and network.proxies and raw_proxy_url:
+                        from urllib.parse import urlparse
+                        p_target = urlparse(str(raw_proxy_url).strip())
+                        target_netloc = (p_target.hostname, p_target.port)
+                        for p in network.proxies:
+                            p_url = getattr(p, "url", None)
+                            if p_url:
+                                parsed = urlparse(str(p_url).strip())
+                                if (parsed.hostname, parsed.port) == target_netloc:
+                                    p_to = getattr(p, "guest_lookup_timeout", None)
+                                    if p_to is not None and p_to > 0:
+                                        configured_timeout = float(p_to)
+                                    break
+                    if configured_timeout is None:
+                        net_to = getattr(network, "guest_lookup_timeout", None)
+                        if net_to is not None and net_to > 0:
+                            configured_timeout = float(net_to)
+            except Exception:
+                pass
+
+            default_total = max(configured_timeout or 0.0, DEFAULT_GUEST_TOTAL_TIMEOUT)
+            default_connect = max(configured_timeout or 0.0, DEFAULT_GUEST_CONNECT_TIMEOUT)
+            default_sock_connect = max(configured_timeout or 0.0, DEFAULT_GUEST_SOCK_CONNECT_TIMEOUT)
+            default_sock_read = max(configured_timeout or 0.0, DEFAULT_GUEST_SOCK_READ_TIMEOUT)
+
             timeout = aiohttp.ClientTimeout(
                 total=float(
                     os.environ.get(
-                        "ULTIMA_GUEST_TOTAL_TIMEOUT", DEFAULT_GUEST_TOTAL_TIMEOUT
+                        "ULTIMA_GUEST_TOTAL_TIMEOUT", default_total
                     )
                 ),
                 connect=float(
                     os.environ.get(
-                        "ULTIMA_GUEST_CONNECT_TIMEOUT", DEFAULT_GUEST_CONNECT_TIMEOUT
+                        "ULTIMA_GUEST_CONNECT_TIMEOUT", default_connect
                     )
                 ),
                 sock_connect=float(
                     os.environ.get(
                         "ULTIMA_GUEST_SOCK_CONNECT_TIMEOUT",
-                        DEFAULT_GUEST_SOCK_CONNECT_TIMEOUT,
+                        default_sock_connect,
                     )
                 ),
                 sock_read=float(
                     os.environ.get(
-                        "ULTIMA_GUEST_SOCK_READ_TIMEOUT", DEFAULT_GUEST_SOCK_READ_TIMEOUT
+                        "ULTIMA_GUEST_SOCK_READ_TIMEOUT", default_sock_read
                     )
                 ),
             )

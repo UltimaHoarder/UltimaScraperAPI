@@ -45,6 +45,7 @@ class Proxy(BaseModel):
     downloads: DownloadSettings = DownloadSettings()
     group: str | None = None
     managed_by: PluginProxyOwner | None = None
+    guest_lookup_timeout: float | None = None
 
 
 class Network(BaseModel):
@@ -60,6 +61,10 @@ class Network(BaseModel):
     # workers. OnlyFans also limits each guest session to about 3 requests/s,
     # so spreading a proxy's traffic over many sessions avoids HTTP 429.
     guest_session_pool: bool = True
+    # Maximum duration in seconds to wait for guest user lookup across proxy routes before timing out.
+    guest_lookup_timeout: float = Field(default=3.5, ge=0.5)
+    # Maximum duration in seconds for guest route HTTP requests before timing out.
+    guest_route_timeout: float = Field(default=3.0, ge=0.5)
     downloads: DownloadSettings = DownloadSettings()
 
 
