@@ -7,7 +7,14 @@ from ultima_scraper_api.apis.loyalfans.classes.post_model import PostModel
 from ultima_scraper_api.apis.loyalfans.classes.user_model import UserModel
 from ultima_scraper_api.helpers.site_ids import native_id_to_db_id
 
-UID = "Gre3PwNWFFC7X4-2BBYcqlJzoBCMF8lxM7bfh0DMqRkhg"
+from tests.enviroment import (
+    DARKFANS_USER_ID,
+    FANSLY_USER_ID,
+    LOYALFANS_USER_ID,
+    ONLYFANS_USER_ID,
+)
+
+UID = LOYALFANS_USER_ID
 
 
 @pytest.fixture
@@ -28,7 +35,19 @@ def test_native_id_to_db_id_is_a_stable_positive_bigint():
     db_id = native_id_to_db_id(UID)
     assert db_id == native_id_to_db_id(UID)
     assert 0 <= db_id < 2**63
-    assert db_id != native_id_to_db_id("5e7cc513-0000-0000-009e-9e69d856010e")
+    assert db_id != native_id_to_db_id(DARKFANS_USER_ID)
+
+
+@pytest.mark.parametrize("site_id", [ONLYFANS_USER_ID, FANSLY_USER_ID])
+def test_integer_site_ids_fit_bigint_unhashed(site_id):
+    # OnlyFans and Fansly keep their own id as the archive key.
+    assert isinstance(site_id, int)
+    assert 0 < site_id < 2**63
+
+
+@pytest.mark.parametrize("site_id", [LOYALFANS_USER_ID, DARKFANS_USER_ID])
+def test_string_site_ids_hash_to_bigint(site_id):
+    assert 0 <= native_id_to_db_id(site_id) < 2**63
 
 
 def test_native_id_to_db_id_rejects_empty():

@@ -2,7 +2,7 @@
 
 OnlyFans and Fansly identify users and content with integers, and the archive
 stores those directly as primary keys. LoyalFans (and DarkFans) use opaque
-strings such as ``Gre3PwNWFFC7X4-2BBYcqlJzoBCMF8lxM7bfh0DMqRkhg``. Those sites
+strings such as ``R7lFAVk8H-2BI52sd3rMQYosAN6W7VjX-2F7wpSBt-2B3vguA``. Those sites
 expose ``id`` as a stable 63-bit hash of the string and keep the string itself
 as ``uid``; the archive stores the string in ``external_id`` so it can always
 be sent back to the site.
