@@ -7,6 +7,7 @@ from .identifier_helper import (
     validate_identifier,
 )
 from .media_types import MediaTypes, media_types
+from .site_ids import native_id_to_db_id
 from .url_diagnostics import (
     CloudFrontPolicy,
     UrlDiagnostics,
@@ -24,6 +25,7 @@ __all__ = [
     "validate_identifier",
     "MediaTypes",
     "media_types",
+    "native_id_to_db_id",
     "CloudFrontPolicy",
     "UrlDiagnostics",
     "decode_cloudfront_policy",

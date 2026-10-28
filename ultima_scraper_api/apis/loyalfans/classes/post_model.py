@@ -2,6 +2,7 @@ from datetime import datetime
 from typing import TYPE_CHECKING, Any, TypedDict
 
 from ultima_scraper_api.apis.onlyfans import SiteContent
+from ultima_scraper_api.helpers.site_ids import native_id_to_db_id
 
 if TYPE_CHECKING:
     from ultima_scraper_api.apis.loyalfans.classes.user_model import UserModel
@@ -39,8 +40,10 @@ class Reactions(TypedDict):
 
 class PostModel(SiteContent):
     def __init__(self, option: dict[str, Any], user: "UserModel") -> None:
-        SiteContent.__init__(self, option, user)
         self.uid: str = option["uid"]
+        SiteContent.__init__(
+            self, option | {"id": native_id_to_db_id(self.uid)}, user
+        )
         self.slug: str = option["slug"]
         self.short_url: str = option["short_url"]
         self.reactions: Reactions = option["reactions"]

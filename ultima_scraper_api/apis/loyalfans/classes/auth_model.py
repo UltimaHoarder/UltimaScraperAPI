@@ -38,7 +38,9 @@ class LoyalFansAuthModel(
                         break
         else:
             for user in self.users.values():
-                if user.username.lower() == identifier.lower():
+                if user.uid == identifier or (
+                    user.username.lower() == identifier.lower()
+                ):
                     break
             else:
                 user = None
@@ -66,7 +68,16 @@ class LoyalFansAuthModel(
             auth_details.id = identifier
             # auth_details.username = username
 
-    async def get_user(self, identifier: str, refresh: bool = False):
+    async def get_user(self, identifier: int | str, refresh: bool = False):
+        # The profile endpoint takes a slug. An int is an archive key (a hash
+        # of the uid), which only a loaded user can turn back into a slug.
+        known = self.find_user(identifier)
+        if known is not None:
+            identifier = known.username
+        elif isinstance(identifier, int):
+            raise ValueError(
+                f"LoyalFans user {identifier} is not loaded; look it up by username"
+            )
         link = f"https://www.loyalfans.com/api/v2/profile/star/{identifier}?ngsw-bypass=true"
         response = await self.auth_session.json_request(link)
         user = UserModel(response["data"], self)

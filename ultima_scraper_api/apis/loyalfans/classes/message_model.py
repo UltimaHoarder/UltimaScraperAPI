@@ -2,6 +2,7 @@ from datetime import datetime
 from typing import TYPE_CHECKING, Any
 
 from ultima_scraper_api.apis.onlyfans import SiteContent
+from ultima_scraper_api.helpers.site_ids import native_id_to_db_id
 
 if TYPE_CHECKING:
     from ultima_scraper_api.apis.loyalfans.classes.user_model import UserModel
@@ -9,10 +10,12 @@ if TYPE_CHECKING:
 
 class MessageModel(SiteContent):
     def __init__(self, option: dict[str, Any], user: "UserModel") -> None:
-        SiteContent.__init__(self, option, user)
+        self.uid: str = option["uid"]
+        SiteContent.__init__(
+            self, option | {"id": native_id_to_db_id(self.uid)}, user
+        )
 
         # Basic message info
-        self.uid: str = option["uid"]
         self.content: str = option.get("content", "")
         self.created_at: datetime = datetime.fromisoformat(option["created_at"]["date"])
         self.updated_at: datetime = datetime.fromisoformat(option["updated_at"]["date"])

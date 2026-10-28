@@ -684,3 +684,16 @@ def test_route_burst_is_configurable_and_keeps_the_average_rate(monkeypatch) -> 
     assert limiter.tokens == pytest.approx(4.0)
     limiter._refill(100.0)
     assert limiter.tokens == limiter.capacity
+
+
+def test_guest_lookup_timeout_resolves_proxy_then_group_then_network() -> None:
+    from ultima_scraper_api.config import Network, Proxy, resolve_guest_lookup_timeout
+
+    network = Network(guest_lookup_timeout=4.0, proxy_groups={"Proton": {"guest_lookup_timeout": 7.5}})
+    assert resolve_guest_lookup_timeout(network, Proxy(url="x", group="Proton", guest_lookup_timeout=9)) == 9.0
+    assert resolve_guest_lookup_timeout(network, Proxy(url="x", group=" Proton ")) == 7.5
+    assert resolve_guest_lookup_timeout(network, Proxy(url="x", group="Other")) == 4.0
+    assert resolve_guest_lookup_timeout(network, None) == 4.0
+    # Group settings read straight from JSON (dicts) resolve the same way.
+    raw = SimpleNamespace(guest_lookup_timeout=4.0, proxy_groups={"Proton": {"guest_lookup_timeout": 6}})
+    assert resolve_guest_lookup_timeout(raw, Proxy(url="x", group="Proton")) == 6.0

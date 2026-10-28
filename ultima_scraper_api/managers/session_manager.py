@@ -7,8 +7,14 @@ import os
 import ssl
 import time
 import weakref
-from collections.abc import Awaitable, Callable
-from contextlib import AbstractAsyncContextManager, AsyncExitStack, aclosing, nullcontext
+from collections.abc import AsyncIterator, Awaitable, Callable
+from contextlib import (
+    AbstractAsyncContextManager,
+    AsyncExitStack,
+    aclosing,
+    asynccontextmanager,
+    nullcontext,
+)
 from email.utils import parsedate_to_datetime
 from itertools import repeat
 from contextvars import ContextVar
@@ -230,6 +236,18 @@ _ROUTE_LIMITERS: weakref.WeakKeyDictionary[
 # A lookup may take its route token before its timeout starts; the next guest
 # request on that route in the same context then uses it instead of waiting.
 _PREPAID_ROUTE: ContextVar[list[str] | None] = ContextVar("prepaid_guest_route", default=None)
+# A caller may take its proxy's connection permit before its own timeout
+# starts (see AuthedSession.hold_route_permit); sends to that proxy in the same
+# context then use it instead of queueing for another.
+_HELD_PERMIT: ContextVar[str | None] = ContextVar("held_guest_route_permit", default=None)
+
+
+def _permit_proxy_url(session: Any) -> str:
+    """The proxy whose shared connection budget a guest session's sends use."""
+    if _GUEST_ROUTE_PERMITS is None or not getattr(session.auth, "guest", False):
+        return ""
+    proxy_url = getattr(getattr(session.auth, "auth_details", None), "proxy_url", None)
+    return str(proxy_url).strip() if proxy_url else ""
 
 
 def configure_guest_route_rate(rate_per_second: float | None) -> None:
@@ -396,9 +414,12 @@ class AuthedSession:
                 cfg = getattr(api, "config", None)
                 network = getattr(getattr(cfg, "settings", None), "network", None)
                 if network is not None:
+                    from ultima_scraper_api.config import resolve_guest_lookup_timeout
+
                     raw_proxy_url = getattr(
                         getattr(self.auth, "auth_details", None), "proxy_url", None
                     )
+                    route_proxy = None
                     if hasattr(network, "proxies") and network.proxies and raw_proxy_url:
                         from urllib.parse import urlparse
                         p_target = urlparse(str(raw_proxy_url).strip())
@@ -408,14 +429,10 @@ class AuthedSession:
                             if p_url:
                                 parsed = urlparse(str(p_url).strip())
                                 if (parsed.hostname, parsed.port) == target_netloc:
-                                    p_to = getattr(p, "guest_lookup_timeout", None)
-                                    if p_to is not None and p_to > 0:
-                                        configured_timeout = float(p_to)
+                                    route_proxy = p
                                     break
-                    if configured_timeout is None:
-                        net_to = getattr(network, "guest_lookup_timeout", None)
-                        if net_to is not None and net_to > 0:
-                            configured_timeout = float(net_to)
+                    # The proxy's own timeout, else its group's, else the network's.
+                    configured_timeout = resolve_guest_lookup_timeout(network, route_proxy)
             except Exception:
                 pass
 
@@ -489,11 +506,28 @@ class AuthedSession:
 
     def _route_permit(self) -> AbstractAsyncContextManager[Any]:
         """This proxy's connection permit for one guest send, if configured."""
-        if _GUEST_ROUTE_PERMITS is None or not getattr(self.auth, "guest", False):
+        proxy_url = _permit_proxy_url(self)
+        if not proxy_url or _HELD_PERMIT.get() == proxy_url:
             return nullcontext()
-        proxy_url = getattr(getattr(self.auth, "auth_details", None), "proxy_url", None)
-        proxy_url = str(proxy_url).strip() if proxy_url else ""
-        return _GUEST_ROUTE_PERMITS(proxy_url) if proxy_url else nullcontext()
+        return _GUEST_ROUTE_PERMITS(proxy_url)
+
+    @asynccontextmanager
+    async def hold_route_permit(self) -> AsyncIterator[None]:
+        """Hold this proxy's connection permit for the guest sends made inside.
+
+        A lookup whose timeout should measure the provider, not the wait for a
+        free connection of our own budget, takes the permit before its timeout.
+        """
+        proxy_url = _permit_proxy_url(self)
+        if not proxy_url or _HELD_PERMIT.get() == proxy_url:
+            yield
+            return
+        async with _GUEST_ROUTE_PERMITS(proxy_url):
+            token = _HELD_PERMIT.set(proxy_url)
+            try:
+                yield
+            finally:
+                _HELD_PERMIT.reset(token)
 
     async def acquire_route_rate(self) -> None:
         """Wait for this route's request budget (guest sessions only)."""

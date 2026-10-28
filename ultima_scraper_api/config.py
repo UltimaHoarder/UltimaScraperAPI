@@ -2,7 +2,7 @@ import json
 import os
 import tempfile
 from pathlib import Path
-from typing import Self
+from typing import Any, Self
 
 from platformdirs import user_config_dir
 from pydantic import BaseModel, Field
@@ -35,6 +35,33 @@ class Proxy(BaseModel):
     guest_lookup_timeout: float | None = None
 
 
+class ProxyGroupSettings(BaseModel):
+    """Settings every proxy in a group inherits unless the proxy sets its own."""
+
+    guest_lookup_timeout: float | None = Field(default=None, ge=0.5)
+
+
+def resolve_guest_lookup_timeout(network: Any, proxy: Any = None) -> float | None:
+    """A proxy's guest lookup timeout: its own, else its group's, else the network's."""
+    for value in (
+        getattr(proxy, "guest_lookup_timeout", None),
+        getattr(_proxy_group_settings(network, proxy), "guest_lookup_timeout", None),
+        getattr(network, "guest_lookup_timeout", None),
+    ):
+        if value is not None and value > 0:
+            return float(value)
+    return None
+
+
+def _proxy_group_settings(network: Any, proxy: Any) -> Any:
+    group = str(getattr(proxy, "group", None) or "").strip()
+    groups = getattr(network, "proxy_groups", None) or {}
+    if not group or not isinstance(groups, dict):
+        return None
+    settings = groups.get(group)
+    return ProxyGroupSettings(**settings) if isinstance(settings, dict) else settings
+
+
 class Network(BaseModel):
     max_connections: int = -1
     proxies: list[Proxy] = []
@@ -48,6 +75,8 @@ class Network(BaseModel):
     guest_session_pool: bool = True
     # Maximum duration in seconds to wait for guest user lookup across proxy routes before timing out.
     guest_lookup_timeout: float = Field(default=3.5, ge=0.5)
+    # Per-group overrides, keyed by Proxy.group; a proxy's own value wins.
+    proxy_groups: dict[str, ProxyGroupSettings] = Field(default_factory=dict)
     # Maximum duration in seconds for guest route HTTP requests before timing out.
     guest_route_timeout: float = Field(default=3.0, ge=0.5)
 

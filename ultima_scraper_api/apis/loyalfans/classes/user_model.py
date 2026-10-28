@@ -1,6 +1,7 @@
 from typing import TYPE_CHECKING, Any
 
 from ultima_scraper_api.apis.user_streamliner import StreamlinedUser
+from ultima_scraper_api.helpers.site_ids import native_id_to_db_id
 from ultima_scraper_api.managers.scrape_manager import ScrapeManager
 
 if TYPE_CHECKING:
@@ -11,8 +12,10 @@ class UserModel(StreamlinedUser["LoyalFansAuthModel", "LoyalFansAPI"]):
     def __init__(self, option: dict[str, Any], authed: "LoyalFansAuthModel") -> None:
         user_option = option["user"]
         profile_option = option.get("profile", {})
-        self.id: str = str(user_option.get("uid", 0))
-        self.username: str = user_option.get("slug", f"u{self.id}")
+        # LoyalFans ids are opaque strings; ``id`` is the archive's int key.
+        self.uid: str = str(user_option.get("uid", 0))
+        self.id: int = native_id_to_db_id(self.uid)
+        self.username: str = user_option.get("slug", f"u{self.uid}")
         self.name: str = user_option.get("name", self.username)
         profile_photo_dict: dict[str, Any] | None = user_option.get("profile_photo")
         self.avatar: str | None = (
@@ -57,14 +60,14 @@ class UserModel(StreamlinedUser["LoyalFansAuthModel", "LoyalFansAPI"]):
     def get_username(self) -> str:
         """Returns username, if not available returns user ID prefixed with 'u'"""
         if not self.username:
-            self.username = f"u{self.id}"
+            self.username = f"u{self.uid}"
         return self.username
 
     def get_link(self, use_username: bool = False) -> str:
         """Returns the user's profile link"""
         if use_username:
             return f"https://www.loyalfans.com/{self.username}"
-        return f"https://www.loyalfans.com/user/{self.id}"
+        return f"https://www.loyalfans.com/user/{self.uid}"
 
     async def get_avatar(self) -> str | None:
         """Returns the user's avatar URL"""
@@ -81,7 +84,11 @@ class UserModel(StreamlinedUser["LoyalFansAuthModel", "LoyalFansAPI"]):
 
     async def match_identifiers(self, identifiers: list[int | str]) -> bool:
         """Checks if user matches any of the provided identifiers"""
-        return self.id in identifiers or self.username in identifiers
+        return (
+            self.id in identifiers
+            or self.uid in identifiers
+            or self.username in identifiers
+        )
 
     async def get_posts(self, limit: int = 20, offset: int = 0) -> list[dict[str, Any]]:
         """Gets user's posts with pagination"""
@@ -99,7 +106,7 @@ class UserModel(StreamlinedUser["LoyalFansAuthModel", "LoyalFansAPI"]):
         if not self.can_message:
             return []
 
-        link = f"https://www.loyalfans.com/api/v2/messages/{self.id}"
+        link = f"https://www.loyalfans.com/api/v2/messages/{self.uid}"
         params = {"limit": limit, "offset": offset}
         results = await self.get_requester().json_request(link, params=params)
         return results.get("messages", [])
