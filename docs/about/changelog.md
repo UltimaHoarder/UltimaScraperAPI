@@ -21,6 +21,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [3.0.0b5] - Unreleased
+
+### Added
+- Configurable guest lookup and route timeouts, per proxy, proxy group or network.
+- Proxy group configuration, with rate limits per group.
+- Loading and saving of API settings from configuration.
+- Mapping from a site's native IDs to database IDs; user lookups by string identifier.
+- Processed and expected byte counts on download progress events.
+
+### Changed
+- Guest sessions: better rate limiting and response handling, and a 10s default timeout.
+- OnlyFans API: concurrency handling and WebSocket timeouts reworked.
+- Redis logging handler is faster and configurable.
+
+### Fixed
+- DRM media URLs use the correct CDN endpoint.
+- Authentication errors in `OnlyFansAPI` are handled instead of raised raw.
+
+---
+
 ## [3.0.0b4] - 2026-04-14
 
 ### Added
@@ -464,4 +484,4 @@ We welcome contributions! See our [Contributing Guide](../development/contributi
 ---
 
 **Last Updated:** April 28, 2026  
-**Current Version:** 3.0.0b4
+**Current Version:** 3.0.0b5

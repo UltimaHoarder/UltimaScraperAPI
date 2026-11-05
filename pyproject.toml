@@ -1,12 +1,12 @@
 [project]
 name = "ultima-scraper-api"
-version = "3.0.0b4"
+version = "3.0.0b5"
 description = "A modular Python scraping framework for premium content platforms"
 readme = "README.md"
 requires-python = ">=3.10,<4.0"
 license = { text = "AGPL-3.0" }
 authors = [
-    { name = "UltimaHoarder", email = "1285176+UltimaHoarder@users.noreply.github.com" }
+    { name = "UltimaHoarder", email = "21285176+UltimaHoarder@users.noreply.github.com" }
 ]
 keywords = ["scraper", "api", "onlyfans", "fansly", "loyalfans", "asyncio", "data"]
 classifiers = [
