@@ -614,16 +614,18 @@ mypy ultima_scraper_api/
 ### Building Documentation
 
 ```bash
+# Install the documentation tools (Python 3.11 or newer)
+uv sync --group docs
+
 # Serve documentation locally with live reload
-uv run mkdocs serve -a localhost:8001
+uv run zensical serve -a localhost:8001
 # Open http://localhost:8001 in your browser
 
-# Build static documentation site
-uv run mkdocs build --clean
-
-# Deploy to GitHub Pages
-uv run mkdocs gh-deploy
+# Build the static site into site/, failing on any warning
+uv run zensical build --strict
 ```
+
+Pushes to `main` publish the site to GitHub Pages through `.github/workflows/docs.yml`.
 
 ### Using Nox for Automation
 
@@ -662,7 +664,7 @@ UltimaScraperAPI/
 │   ├── helpers/             # Helper functions
 │   ├── managers/            # Session/scrape managers
 │   └── models/              # Data models
-├── docs/                    # MkDocs documentation source
+├── docs/                    # Zensical documentation source
 ├── tests/                   # Test files
 ├── typings/                 # Type stubs
 └── pyproject.toml          # Project configuration
@@ -694,7 +696,7 @@ Built with industry-leading open source libraries:
 - **[httpx](https://github.com/encode/httpx)** - Modern HTTP client
 - **[Redis](https://redis.io/)** - In-memory data structure store for caching
 - **[websockets](https://github.com/python-websockets/websockets)** - WebSocket client and server
-- **[MkDocs Material](https://squidfunk.github.io/mkdocs-material/)** - Beautiful documentation site generator
+- **[Zensical](https://zensical.org/)** - Documentation site generator
 - **[pytest](https://pytest.org/)** - Testing framework
 - **[Black](https://github.com/psf/black)** - Code formatter
 

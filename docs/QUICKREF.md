@@ -247,28 +247,26 @@ async def rate_limited_fetch(items, delay=1.0):
     return results
 ```
 
-## MkDocs Commands
+## Documentation Commands
 
-Install the repo's documentation dependencies first:
+The docs are built with [Zensical](https://zensical.org/), which needs Python 3.11 or newer. Install it first:
 
 ```bash
-uv sync --group dev
+uv sync --group docs
 ```
 
 ### Serve Documentation
 ```bash
-uv run mkdocs serve
+uv run zensical serve
 ```
 
 ### Build Documentation
 ```bash
-uv run mkdocs build
+uv run zensical build --strict
 ```
 
 ### Deploy to GitHub Pages
-```bash
-uv run mkdocs gh-deploy
-```
+Pushes to `main` publish the site to GitHub Pages through `.github/workflows/docs.yml`.
 
 ## Useful Links
 

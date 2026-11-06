@@ -1,0 +1,98 @@
+[project]
+site_name = "UltimaScraperAPI Documentation"
+site_description = "A modular Python scraping framework for premium content platforms"
+site_author = "UltimaHoarder"
+site_url = "https://ultimahoarder.github.io/UltimaScraperAPI/"
+repo_name = "UltimaHoarder/UltimaScraperAPI"
+repo_url = "https://github.com/UltimaHoarder/UltimaScraperAPI"
+copyright = "Copyright &copy; 2026 UltimaHoarder"
+
+nav = [
+  { "Home" = "index.md" },
+  { "Getting Started" = [
+      { "Installation" = "getting-started/installation.md" },
+      { "Quick Start" = "getting-started/quick-start.md" },
+      { "Configuration" = "getting-started/configuration.md" },
+  ]},
+  { "User Guide" = [
+      { "Authentication" = "user-guide/authentication.md" },
+      { "Working with APIs" = "user-guide/working-with-apis.md" },
+      { "Session Management" = "user-guide/session-management.md" },
+      { "Proxy Support" = "user-guide/proxy-support.md" },
+      { "Migration Guide" = "user-guide/migration.md" },
+      { "Troubleshooting" = "user-guide/troubleshooting.md" },
+  ]},
+  { "API Reference" = [
+      { "OnlyFans API" = "api-reference/onlyfans.md" },
+      { "Fansly API" = "api-reference/fansly.md" },
+      { "LoyalFans API" = "api-reference/loyalfans.md" },
+      { "API Helpers" = "api-reference/helpers.md" },
+  ]},
+  { "Development" = [
+      { "Contributing" = "development/contributing.md" },
+      { "Architecture" = "development/architecture.md" },
+      { "Testing" = "development/testing.md" },
+  ]},
+  { "About" = [
+      { "Quick Reference" = "QUICKREF.md" },
+      { "License" = "about/license.md" },
+      { "Changelog" = "about/changelog.md" },
+  ]},
+]
+
+[project.theme]
+language = "en"
+features = [
+  "content.code.annotate",
+  "content.code.copy",
+  "content.code.select",
+  "content.tabs.link",
+  "navigation.sections",
+  "navigation.tabs",
+  "navigation.top",
+  "navigation.tracking",
+  "search.highlight",
+]
+
+[[project.theme.palette]]
+media = "(prefers-color-scheme)"
+toggle.icon = "lucide/sun-moon"
+toggle.name = "Switch to light mode"
+
+[[project.theme.palette]]
+media = "(prefers-color-scheme: light)"
+scheme = "default"
+primary = "indigo"
+accent = "indigo"
+toggle.icon = "lucide/sun"
+toggle.name = "Switch to dark mode"
+
+[[project.theme.palette]]
+media = "(prefers-color-scheme: dark)"
+scheme = "slate"
+primary = "indigo"
+accent = "indigo"
+toggle.icon = "lucide/moon"
+toggle.name = "Switch to system preference"
+
+[[project.extra.social]]
+icon = "fontawesome/brands/github"
+link = "https://github.com/UltimaHoarder/UltimaScraperAPI"
+
+[project.markdown_extensions]
+admonition = {}
+attr_list = {}
+def_list = {}
+footnotes = {}
+md_in_html = {}
+toc.permalink = true
+pymdownx.arithmatex.generic = true
+pymdownx.details = {}
+pymdownx.highlight.anchor_linenums = true
+pymdownx.highlight.line_spans = "__span"
+pymdownx.highlight.pygments_lang_class = true
+pymdownx.inlinehilite = {}
+pymdownx.mark = {}
+pymdownx.superfences = {}
+pymdownx.tabbed.alternate_style = true
+pymdownx.tasklist.custom_checkbox = true

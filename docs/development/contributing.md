@@ -294,7 +294,6 @@ pip list | grep ultima-scraper-api
 - `pytest` - Testing framework
 - `pytest-asyncio` - Async test support
 - `pytest-cov` - Coverage reporting
-- `mkdocs-material` - Documentation
 - `nox` - Test automation
 - `python-semantic-release` - Version management
 
@@ -1350,7 +1349,7 @@ Main API client...
 
 - Add NewPlatform to README.md
 - Update platform comparison table
-- Add to mkdocs.yml navigation
+- Add to the `nav` list in zensical.toml
 
 #### 9. Create Pull Request
 
@@ -1395,7 +1394,7 @@ Closes #XXX
 - [ ] Authentication guide
 - [ ] Troubleshooting section
 - [ ] Update main README
-- [ ] Update mkdocs.yml
+- [ ] Update the `nav` list in zensical.toml
 
 ---
 
@@ -1465,7 +1464,7 @@ async def example():
     user = await api.get_user("username")
 ```
 
-## Admonitions (MkDocs Material)
+## Admonitions
 
 !!! note
     This is an informational note.
@@ -1495,20 +1494,19 @@ async def example():
 ### Building Documentation Locally
 
 ```bash
-# Install documentation dependencies
-uv sync --group dev
+# Install the documentation tools (Python 3.11 or newer)
+uv sync --group docs
 
 # Serve documentation locally
-uv run mkdocs serve
+uv run zensical serve
 
-# Open in browser: http://localhost:2110
+# Open in browser: http://localhost:8000
 
-# Build static site
-uv run mkdocs build
-
-# Deploy to GitHub Pages (maintainers only)
-uv run mkdocs gh-deploy
+# Build the site, failing on any warning
+uv run zensical build --strict
 ```
+
+Pushes to `main` publish the site to GitHub Pages through `.github/workflows/docs.yml`.
 
 ---
 
@@ -1899,7 +1897,7 @@ Contributors are recognized through:
 - [Pydantic documentation](https://docs.pydantic.dev/)
 - [pytest documentation](https://docs.pytest.org/)
 - [aiohttp documentation](https://docs.aiohttp.org/)
-- [MkDocs Material](https://squidfunk.github.io/mkdocs-material/)
+- [Zensical](https://zensical.org/docs/)
 
 ### Tools
 

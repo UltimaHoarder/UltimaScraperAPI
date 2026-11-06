@@ -132,7 +132,6 @@ This includes:
 - **pytest** & **pytest-asyncio** - Testing framework
 - **pytest-cov** - Coverage reporting
 - **black** - Code formatting
-- **mkdocs-material** - Documentation site generator
 - **nox** - Task automation
 
 ## Verify Installation
