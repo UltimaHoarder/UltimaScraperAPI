@@ -1,8 +1,8 @@
 # License
 
-## GNU Affero General Public License v3.0
+## GNU Affero General Public License v3.0 or later
 
-UltimaScraperAPI is licensed under the GNU Affero General Public License v3.0 (AGPL-3.0).
+UltimaScraperAPI is licensed under the GNU Affero General Public License v3.0 or later (AGPL-3.0-or-later).
 
 ### What This Means
 
