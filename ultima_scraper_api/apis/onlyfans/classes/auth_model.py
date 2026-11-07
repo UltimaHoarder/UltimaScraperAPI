@@ -302,6 +302,18 @@ class OnlyFansAuthModel(
         assert self.user
         return self.user
 
+    async def get_me(self):
+        """Fetch the account's own profile again, as get_authed_user keeps it from login.
+
+        Only /users/me carries the account's own creditBalance.
+        """
+        assert self.user
+        response = await self.auth_session.json_request(endpoint_links().customer)
+        if not isinstance(response, dict) or "error" in response:
+            return None
+        self.user.update_from_dict(response)
+        return self.user
+
     async def get_id(self):
         assert self.user
         return self.user.id
