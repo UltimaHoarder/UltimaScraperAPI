@@ -315,6 +315,85 @@ async def test_check_route_rate_limit_probe_clears_flag() -> None:
     assert sm.is_route_rate_limited(route) is False
 
 
+class _ProbeResponse:
+    def __init__(self, status: int) -> None:
+        self.status = status
+        self.headers: dict[str, str] = {}
+
+    async def __aenter__(self) -> _ProbeResponse:
+        return self
+
+    async def __aexit__(self, *_args: Any) -> None:
+        return None
+
+
+class _ProbeSession:
+    """An anonymous probe client that answers with scripted statuses."""
+
+    statuses: list[int] = []
+
+    def __init__(self, **_kwargs: Any) -> None:
+        pass
+
+    async def __aenter__(self) -> _ProbeSession:
+        return self
+
+    async def __aexit__(self, *_args: Any) -> None:
+        return None
+
+    def get(self, _url: str, **_kwargs: Any) -> _ProbeResponse:
+        return _ProbeResponse(self.statuses.pop(0))
+
+
+@pytest.mark.asyncio
+async def test_anonymous_probe_clears_a_route_on_400() -> None:
+    sm = SessionManager(api=None)
+    route = "http://user:pass@192.0.2.1:8080"
+    # A POST 429 records no probe, so the checker falls back to anonymous /init.
+    sm._route_rate_limited[route] = True
+    _ProbeSession.statuses = [429, 400]
+
+    with (
+        patch(
+            "ultima_scraper_api.managers.session_manager.ClientSession",
+            new=_ProbeSession,
+        ),
+        patch(
+            "ultima_scraper_api.managers.session_manager.asyncio.sleep",
+            new=AsyncMock(),
+        ),
+    ):
+        await sm.check_route_rate_limit(route)
+
+    assert sm.is_route_rate_limited(route) is False
+    # The 429 kept the route limited; only the 400 after it cleared it.
+    assert _ProbeSession.statuses == []
+
+
+@pytest.mark.asyncio
+async def test_requester_probe_stays_limited_on_400() -> None:
+    sm = SessionManager(api=None)
+    route = "http://user:pass@192.0.2.1:8080"
+    sm._route_rate_limited[route] = True
+    statuses = [400, 200]
+    requester = MagicMock()
+    requester.create_json_request_headers.return_value = {}
+    requester.active_session = SimpleNamespace(
+        closed=False, get=lambda _url, **_kwargs: _ProbeResponse(statuses.pop(0))
+    )
+    sm._route_rate_limit_probes[route] = (requester, "https://onlyfans.com/api2/v2/users/1")
+
+    with patch(
+        "ultima_scraper_api.managers.session_manager.asyncio.sleep",
+        new=AsyncMock(),
+    ):
+        await sm.check_route_rate_limit(route)
+
+    assert sm.is_route_rate_limited(route) is False
+    # A 400 to the account's own request says nothing; the 200 cleared it.
+    assert statuses == []
+
+
 @pytest.mark.asyncio
 async def test_guest_session_uses_fast_failing_socket_timeout() -> None:
     sm = SessionManager(api=None)

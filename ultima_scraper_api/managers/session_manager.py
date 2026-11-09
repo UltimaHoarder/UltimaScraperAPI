@@ -1230,7 +1230,9 @@ class SessionManager:
                                 response.headers.get("Retry-After")
                                 if hasattr(response, "headers") else None
                             )
-                        if 200 <= status < 300 or (target is not None and status == 404):
+                        # The anonymous fallback sends no account headers, so
+                        # an unlimited route answers it with 400, not 2xx.
+                        if 200 <= status < 300 or status == (404 if target is not None else 400):
                             logger.log(
                                 level,
                                 "Rate limit check passed for route %s (status=%d, after %d checks) — resuming requests",
