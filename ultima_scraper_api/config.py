@@ -139,12 +139,9 @@ class Sites(BaseModel):
     loyalfans: LoyalFansAPIConfig = LoyalFansAPIConfig()
 
     def get_settings(self, site_name: str):
-        if site_name == "OnlyFans":
-            return self.onlyfans
-        elif site_name == "Fansly":
-            return self.fansly
-        else:
-            return self.loyalfans
+        if site_name.lower() not in type(self).model_fields:
+            raise ValueError(f"No settings for site {site_name!r}")
+        return getattr(self, site_name.lower())
 
 
 class UltimaScraperAPIConfig(BaseModel):

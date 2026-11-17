@@ -154,26 +154,21 @@ def map_api_media_types(types: list[str]) -> set[str]:
     return {m.value for t in types if (m := MediaType.from_api_type(t))}
 
 
+# Lower-case key -> (title, API class). Adding a site starts here.
+SITE_APIS: dict[str, tuple[str, type[api_types]]] = {
+    "onlyfans": ("OnlyFans", OnlyFansAPI),
+    "fansly": ("Fansly", FanslyAPI),
+    "loyalfans": ("LoyalFans", LoyalFansAPI),
+}
+
+
 def select_api(option: str, config: UltimaScraperAPIConfig | None = None) -> api_types:
-    """Allows you to select an API
-
-    Args:
-        option (str): API name (e.g., onlyfans)
-        config (Config, optional): Defaults to Config().
-
-    Returns:
-        _type_: returns in instanced API
-    """
-    config = config or UltimaScraperAPIConfig()
-    match option.lower():
-        case "onlyfans":
-            return OnlyFansAPI(config)
-        case "fansly":
-            return FanslyAPI(config)
-        case "loyalfans":
-            return LoyalFansAPI(config)
-        case _:
-            raise ValueError(f"{option} API is invalid")
+    """An instance of the API for ``option`` (a site name, any case)."""
+    try:
+        _title, api_class = SITE_APIS[option.lower()]
+    except KeyError:
+        raise ValueError(f"{option} API is invalid") from None
+    return api_class(config or UltimaScraperAPIConfig())
 
 
 def load_classes(name: str | None = None) -> tuple[Any, ...]:
@@ -195,15 +190,10 @@ def load_classes(name: str | None = None) -> tuple[Any, ...]:
 
 
 def get_site_title(site_name: str) -> str:
-    match site_name.lower():
-        case "onlyfans":
-            return "OnlyFans"
-        case "fansly":
-            return "Fansly"
-        case "loyalfans":
-            return "LoyalFans"
-        case _:
-            raise ValueError(f"{site_name} is invalid")
+    try:
+        return SITE_APIS[site_name.lower()][0]
+    except KeyError:
+        raise ValueError(f"{site_name} is invalid") from None
 
 
 @dataclass
