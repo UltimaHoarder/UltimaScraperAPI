@@ -1,6 +1,8 @@
 # type:ignore
 from ultima_scraper_api.apis.fansly.classes import (
     auth_model,
+    chat_model,
+    collection_model,
     extras,
     message_model,
     post_model,

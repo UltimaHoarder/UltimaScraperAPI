@@ -1,15 +1,11 @@
 from __future__ import annotations
 
-import asyncio
-from datetime import datetime
-from itertools import product
-from typing import TYPE_CHECKING, Any, Dict
+from collections.abc import Sequence
+from typing import TYPE_CHECKING, Any
 
-from dateutil.relativedelta import relativedelta
-
-from ultima_scraper_api.apis import api_helper
 from ultima_scraper_api.apis.auth_streamliner import StreamlinedAuth
 from ultima_scraper_api.apis.fansly import SubscriptionType
+from ultima_scraper_api.apis.fansly.classes.chat_model import ChatModel
 from ultima_scraper_api.apis.fansly.classes.extras import endpoint_links
 from ultima_scraper_api.apis.fansly.classes.message_model import MessageModel
 from ultima_scraper_api.apis.fansly.classes.post_model import PostModel
@@ -19,6 +15,16 @@ from ultima_scraper_api.apis.fansly.classes.user_model import UserModel
 if TYPE_CHECKING:
     from ultima_scraper_api.apis.fansly.authenticator import FanslyAuthenticator
     from ultima_scraper_api.apis.onlyfans.classes.only_drm import OnlyDRM
+
+# /account?ids= accepts a batch; the web client sends its whole visible set.
+USER_BATCH = 50
+FOLLOWING_PAGE = 100
+CHAT_PAGE = 25
+ORDER_PAGE = 100
+
+
+def _response(result: dict[str, Any]) -> Any:
+    return result.get("response") if isinstance(result, dict) else None
 
 
 class FanslyAuthModel(
@@ -34,36 +40,28 @@ class FanslyAuthModel(
         self.user = authenticator.create_user(self)
         self.id = self.user.id
         self.username = self.user.username
-        self.lists = []
+        self.lists: list[dict[str, Any]] = []
         self.subscriptions: list[SubscriptionModel] = []
         self.followed_users: list[UserModel] = []
-        self.chats = None
-        self.archived_stories = {}
-        self.mass_messages = []
+        self.chats: list[ChatModel] | None = None
         self.paid_content: list[MessageModel | PostModel] = []
         self.extras: dict[str, Any] = {}
         self.blacklist: list[str] = []
         self.guest = self.authenticator.guest
+        # Fansly media are not DRM protected; kept for the shared download path.
         self.drm: OnlyDRM | None = None
         self.update()
 
     def find_user(self, identifier: int | str):
-        if isinstance(identifier, int):
-            user = self.users.get(identifier)
-        elif str(identifier).isdigit():
+        if isinstance(identifier, int) or str(identifier).isdigit():
             user = self.users.get(int(identifier))
-            if user is None:
-                for u in self.users.values():
-                    if u.username.lower() == str(identifier).lower():
-                        user = u
-                        break
-        else:
-            for user in self.users.values():
-                if user.username.lower() == identifier.lower():
-                    break
-            else:
-                user = None
-        return user
+            if user is not None:
+                return user
+        lowered = str(identifier).lower()
+        for user in self.users.values():
+            if user.username.lower() == lowered:
+                return user
+        return None
 
     def resolve_user(self, user_dict: dict[str, Any]):
         user = self.find_user(user_dict["id"])
@@ -76,17 +74,27 @@ class FanslyAuthModel(
 
     def update(self):
         if self.user:
-            identifier = self.user.id
-            username = self.user.username
-            self.id = identifier
-            self.username = username
-            # # This affects scripts that use the username to select profiles
+            self.id = self.user.id
+            self.username = self.user.username
             auth_details = self.get_auth_details()
-            auth_details.id = identifier
-            # auth_details.username = username
+            auth_details.id = self.id
+
+    def add_user(self, user: UserModel):
+        self.users[user.id] = user
 
     async def get_authed_user(self):
         assert self.user
+        return self.user
+
+    async def get_me(self):
+        """Fetch the account's own profile again (GET /account/me)."""
+        result = await self.auth_session.json_request(endpoint_links().me)
+        account = (_response(result) or {}).get("account")
+        if not account:
+            return None
+        self.users.pop(self.user.id, None)
+        self.user = UserModel(account, self)
+        self.update()
         return self.user
 
     async def get_id(self):
@@ -97,221 +105,212 @@ class FanslyAuthModel(
         assert self.user
         return self.user.get_username()
 
-    def add_user(self, user: UserModel):
-        self.users[user.id] = user
-
-    async def get_lists(self, refresh: bool = True, limit: int = 100, offset: int = 0):
-        link = endpoint_links(global_limit=limit, global_offset=offset).lists
-        json_resp = await self.get_requester().json_request(link)
-        self.lists = json_resp
-        return json_resp
-
-    async def get_blacklist(self, blacklists: list[str]):
-        bl_ids: list[str] = []
-        return bl_ids
-        remote_blacklists = await self.get_lists()
-        if remote_blacklists:
-            for remote_blacklist in remote_blacklists:
-                for blacklist in blacklists:
-                    if remote_blacklist["name"] == blacklist:
-                        list_users = remote_blacklist["users"]
-                        if remote_blacklist["usersCount"] > 2:
-                            list_id = remote_blacklist["id"]
-                            list_users = await self.get_lists_users(list_id)
-                        if list_users:
-                            users = list_users
-                            bl_ids = [x["username"] for x in users]
-        return bl_ids
-
     async def match_identifiers(self, identifiers: list[int | str]):
-        if self.id in identifiers or self.username in identifiers:
-            return True
-        else:
-            return False
+        return self.id in identifiers or self.username in identifiers
+
+    async def get_users(self, identifiers: Sequence[int | str]) -> list[UserModel]:
+        """Look accounts up in batches (GET /account?ids= / ?usernames=)."""
+        users: list[UserModel] = []
+        ids = [x for x in identifiers if str(x).isdigit()]
+        names = [x for x in identifiers if not str(x).isdigit()]
+        for group in (ids, names):
+            for start in range(0, len(group), USER_BATCH):
+                link = endpoint_links().list_users(group[start : start + USER_BATCH])
+                result = await self.get_requester().json_request(link)
+                for raw in _response(result) or []:
+                    user = UserModel(raw, self)
+                    self.users[user.id] = user
+                    users.append(user)
+        return users
 
     async def get_user(self, identifier: int | str, refresh: bool = False):
-        valid_user = self.find_user(identifier)
-        if valid_user:
-            return valid_user
-        else:
-            identifier = str(identifier)
-            if identifier.isdigit():
-                url = endpoint_links(identifier).users_by_id
-            else:
-                url = endpoint_links(identifier).users_by_username
-            response = await self.get_requester().json_request(url)
-            if response["response"]:
-                response["auth_session"] = self.auth_session
-                response = UserModel(response["response"][0], self)
-                return response
-
-    async def get_lists_users(
-        self,
-        identifier: int | str,
-        check: bool = False,
-        limit: int = 100,
-        offset: int = 0,
-    ):
-        link = endpoint_links(
-            identifier, global_limit=limit, global_offset=offset
-        ).lists_users
-        results = await self.get_requester().json_request(link)
-        if len(results) >= limit and not check:
-            results2 = await self.get_lists_users(
-                identifier, limit=limit, offset=limit + offset
-            )
-            results.extend(results2)  # type: ignore
-        return results
+        if not refresh:
+            cached = self.find_user(identifier)
+            if cached:
+                return cached
+        users = await self.get_users([identifier])
+        return users[0] if users else None
 
     async def get_followings(
-        self, identifiers: list[int | str] = []
+        self, identifiers: list[int | str] | None = None
     ) -> list[UserModel]:
-        offset_count = 0
-        followings: list[dict[str, Any]] = []
+        """Accounts the authed user follows (GET /account/{id}/following)."""
+        account_ids: list[str] = []
+        offset = 0
         while True:
-            followings_link = endpoint_links().list_followings(self.id, offset_count)
-            temp_followings: dict[str, Any] = await self.get_requester().json_request(
-                followings_link
-            )
-            account_ids = temp_followings["response"]
-            if account_ids:
-                followings.extend(account_ids)
-                offset_count += 100
-            else:
+            link = endpoint_links().list_followings(self.id, FOLLOWING_PAGE, offset)
+            page = _response(await self.get_requester().json_request(link)) or []
+            account_ids.extend(x["accountId"] for x in page)
+            if len(page) < FOLLOWING_PAGE:
                 break
-        final_followings: list[UserModel] = []
-        if followings:
-            followings_id: str = ",".join([x["accountId"] for x in followings])
-            customer_link = endpoint_links(followings_id).customer
-            temp_followings = await self.get_requester().json_request(customer_link)
-            if identifiers:
-                final_followings = [
-                    UserModel(x, self)
-                    for x in temp_followings["response"]
-                    for identifier in identifiers
-                    if x["username"].lower() == identifier or x["id"] == identifier
-                ]
-            else:
-                final_followings = [
-                    UserModel(x, self) for x in temp_followings["response"]
-                ]
-            for following in final_followings:
-                if not following.subscribed_by_data:
-                    new_date = datetime.now() + relativedelta(years=10)
-                    new_date = int(new_date.timestamp() * 1000)
-                    following.subscribed_by_data = {}
-                    following.subscribed_by_data["endsAt"] = new_date
-        self.followed_users = final_followings
-        return final_followings
+            offset += FOLLOWING_PAGE
+        followings = await self.get_users(account_ids)
+        if identifiers:
+            wanted = {str(x).lower() for x in identifiers}
+            followings = [
+                user
+                for user in followings
+                if str(user.id) in wanted or user.username.lower() in wanted
+            ]
+        self.followed_users = followings
+        return followings
 
     async def get_subscriptions(
         self,
-        identifiers: list[int | str] = [],
+        identifiers: list[int | str] | None = None,
+        refresh: bool = True,
+        limit: int | None = None,
         sub_type: SubscriptionType = "all",
-    ):
-        subscriptions_link = endpoint_links().subscriptions
-        temp_subscriptions = await self.get_requester().json_request(subscriptions_link)
-        raw_subscriptions = temp_subscriptions["response"]["subscriptions"]
-
-        async def assign_user_to_sub(raw_subscription: Dict[str, Any]):
-            user = await self.get_user(raw_subscription["accountId"])
-            if isinstance(user, dict):
-                user = UserModel(raw_subscription, self)
-                user.active = False
-            subscription_model = SubscriptionModel(raw_subscription, user, self)
-            return subscription_model
-
+        filter_by: str = "",
+        job_id: str | None = None,
+    ) -> list[SubscriptionModel]:
+        """Subscriptions from GET /subscriptions, one per subscribed account."""
+        if not refresh and self.subscriptions:
+            return self.subscriptions
+        response = _response(
+            await self.get_requester().json_request(endpoint_links().subscriptions)
+        ) or {}
+        raw_subscriptions: list[dict[str, Any]] = response.get("subscriptions") or []
+        # Keep the latest-ending subscription per account (renewals add entries).
+        latest: dict[str, dict[str, Any]] = {}
+        for raw in raw_subscriptions:
+            current = latest.get(raw["accountId"])
+            if current is None or raw["endsAt"] > current["endsAt"]:
+                latest[raw["accountId"]] = raw
+        users = {user.id: user for user in await self.get_users(list(latest))}
         subscriptions: list[SubscriptionModel] = []
-        with self.get_pool() as pool:
-            tasks = pool.starmap(assign_user_to_sub, product(raw_subscriptions))
-            subscriptions: list[SubscriptionModel] = await asyncio.gather(*tasks)
-            if identifiers:
-                found_subscriptions: list[SubscriptionModel] = []
-                for identifier in identifiers:
-                    for subscription in subscriptions:
-                        if (
-                            identifier == subscription.user.id
-                            or identifier == subscription.user.username
-                        ):
-                            found_subscriptions.append(subscription)
-                            break
-                subscriptions = found_subscriptions
-
+        for account_id, raw in latest.items():
+            user = users.get(int(account_id))
+            if user is None:
+                # Deleted accounts no longer resolve; keep the record.
+                user = UserModel({"id": account_id, "username": "unknown"}, self)
+                user.active = False
+            subscriptions.append(SubscriptionModel(raw, user, self))
+        if identifiers:
+            wanted = {str(x).lower() for x in identifiers}
+            subscriptions = [
+                s
+                for s in subscriptions
+                if str(s.user.id) in wanted or s.user.username.lower() in wanted
+            ]
         match sub_type:
-            case "all":
-                pass
             case "active":
-                subscriptions = [x for x in subscriptions if x.ends_at > datetime.now()]
+                subscriptions = [s for s in subscriptions if s.is_active()]
             case "expired":
-                subscriptions = [x for x in subscriptions if x.ends_at < datetime.now()]
+                subscriptions = [s for s in subscriptions if not s.is_active()]
+            case _:
+                pass
+        subscriptions.sort(key=lambda s: s.ends_at, reverse=True)
+        if limit is not None:
+            subscriptions = subscriptions[:limit]
+        self.subscriptions = subscriptions
         return subscriptions
 
     async def get_chats(
         self,
-        links: list[str] = [],
-        limit: int = 25,
+        limit: int | None = None,
         offset: int = 0,
-        depth: int = 1,
-    ) -> list[dict[str, Any]]:
-        multiplier = self.auth_session.get_session_manager().max_threads
-        temp_limit = limit
-        temp_offset = offset
-        link = endpoint_links(
-            identifier=self.id, global_limit=temp_limit, global_offset=temp_offset
-        ).list_chats
-        unpredictable_links, new_offset = api_helper.calculate_the_unpredictable(
-            link, offset, limit, multiplier, depth
-        )
-        links = unpredictable_links if depth != 1 else links + unpredictable_links
+        search: str = "",
+    ) -> list[ChatModel]:
+        """Conversations from GET /messaging/groups, newest activity first."""
+        chats: list[ChatModel] = []
+        while limit is None or len(chats) < limit:
+            link = endpoint_links().list_chats(CHAT_PAGE, offset, search)
+            response = _response(await self.get_requester().json_request(link)) or {}
+            page: list[dict[str, Any]] = response.get("data") or []
+            aggregation = response.get("aggregationData") or {}
+            accounts = {a["id"]: a for a in aggregation.get("accounts") or []}
+            groups = {g["id"]: g for g in aggregation.get("groups") or []}
+            for raw in page:
+                account = accounts.get(raw["partnerAccountId"])
+                if account is None:
+                    continue
+                user = self.resolve_user(account)
+                chats.append(ChatModel(raw, user, groups.get(raw["groupId"])))
+            if len(page) < CHAT_PAGE:
+                break
+            offset += CHAT_PAGE
+        if limit is not None:
+            chats = chats[:limit]
+        if not search:
+            self.chats = chats
+        return chats
 
-        results = await self.get_requester().bulk_json_requests(links)
-        has_more = results[-1]["response"]["data"]
-        final_results = api_helper.merge_dictionaries(results)["response"]
-
-        if has_more:
-            results2 = await self.get_chats(
-                limit=temp_limit,
-                offset=new_offset,
-                depth=depth + 1,
-            )
-            final_results = api_helper.merge_dictionaries([final_results, results2])
-        if depth == 1:
-            aggregationData = final_results["aggregationData"]
-            for result in final_results["data"]:
-                for account in aggregationData["accounts"]:
-                    if result["partnerAccountId"] == account["id"]:
-                        result["withUser"] = UserModel(account, self)
-                for group in aggregationData["groups"]:
-                    found_user = [
-                        x
-                        for x in group["users"]
-                        if x["userId"] == result["partnerAccountId"]
-                    ]
-                    last_message = group.get("lastMessage")
-                    if found_user and last_message:
-                        result["lastMessage"] = MessageModel(
-                            last_message, result["withUser"]
-                        )
-            final_results = final_results["data"]
-            final_results.sort(key=lambda x: x["withUser"].id, reverse=True)
-        self.chats = final_results
-        return final_results
+    async def find_chat_group_id(self, user: UserModel) -> int | None:
+        """The DM group with ``user``, from cached chats or a username search."""
+        for chat in self.chats or []:
+            if chat.user.id == user.id:
+                return chat.group_id
+        for chat in await self.get_chats(search=user.username):
+            if chat.user.id == user.id:
+                return chat.group_id
+        return None
 
     async def get_paid_content(
         self,
         performer_id: int | str | None = None,
-        limit: int = 10,
+        limit: int | None = None,
         offset: int = 0,
-    ):
-        if not self.cache.paid_content.is_released():
-            return self.paid_content
-        link = endpoint_links(global_limit=limit, global_offset=offset).paid_api
-        result = await self.get_requester().json_request(link)
-        final_results = result["response"]["accountMediaOrders"]
-        return final_results
+    ) -> list[dict[str, Any]]:
+        """Purchased media orders (GET /account/media/orders/) from ``offset``.
+
+        ``limit`` caps the total (None = all), as on OnlyFans.
+        """
+        orders: list[dict[str, Any]] = []
+        while limit is None or len(orders) < limit:
+            link = endpoint_links(global_limit=ORDER_PAGE, global_offset=offset).paid_api
+            response = _response(await self.get_requester().json_request(link)) or {}
+            page: list[dict[str, Any]] = response.get("accountMediaOrders") or []
+            orders.extend(page)
+            if len(page) < ORDER_PAGE:
+                break
+            offset += ORDER_PAGE
+        if performer_id is not None:
+            orders = [o for o in orders if str(o.get("accountId")) == str(performer_id)]
+        return orders[:limit] if limit is not None else orders
+
+    async def get_lists(self) -> list[dict[str, Any]]:
+        """The authed user's account lists (GET /lists/account)."""
+        result = await self.get_requester().json_request(endpoint_links().lists)
+        self.lists = _response(result) or []
+        return self.lists
+
+    async def get_lists_users(
+        self, identifier: int | str, limit: int = 100
+    ) -> list[dict[str, Any]]:
+        """Items of one list (GET /lists/itemsnew), all pages."""
+        items: list[dict[str, Any]] = []
+        before: int | str = 0
+        while True:
+            link = endpoint_links().list_items(identifier, limit, before)
+            page = _response(await self.get_requester().json_request(link)) or []
+            items.extend(page)
+            if len(page) < limit:
+                break
+            before = page[-1]["id"]
+        return items
+
+    async def get_blacklist(self, blacklists: list[str]) -> list[str]:
+        """Usernames on the account lists whose label is in ``blacklists``."""
+        if not blacklists:
+            return []
+        wanted = {name.lower() for name in blacklists}
+        account_ids: list[str] = []
+        for account_list in await self.get_lists():
+            if (account_list.get("label") or "").lower() in wanted:
+                items = await self.get_lists_users(account_list["id"])
+                # Type 1 items are accounts; their id is the account id.
+                account_ids.extend(item["id"] for item in items if item.get("type") == 1)
+        return [user.username for user in await self.get_users(account_ids)]
+
+    async def get_transactions(self, limit: int = 100, offset: int = 0):
+        link = endpoint_links().transactions(limit, offset)
+        return _response(await self.get_requester().json_request(link)) or {}
+
+    async def get_settings(self):
+        result = await self.get_requester().json_request(endpoint_links().settings)
+        return _response(result) or {}
 
     async def get_scrapable_users(self):
-        followed_users = self.followed_users
         subscription_users = [x.user for x in self.subscriptions]
-        unique_users = list(set(followed_users) | set(subscription_users))
-        return unique_users
+        return list(set(self.followed_users) | set(subscription_users))

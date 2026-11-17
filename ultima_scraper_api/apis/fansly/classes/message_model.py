@@ -1,86 +1,49 @@
 from __future__ import annotations
 
 from datetime import datetime
-from typing import TYPE_CHECKING, Any, Optional
+from typing import TYPE_CHECKING, Any
 
-from ultima_scraper_api.apis.fansly import SiteContent
+from ultima_scraper_api.apis.fansly import (
+    SiteContent,
+    from_timestamp,
+    resolve_attachments,
+)
 
 if TYPE_CHECKING:
     from ultima_scraper_api.apis.fansly.classes.user_model import UserModel
 
 
 class MessageModel(SiteContent):
+    """A direct message. ``user`` is the chat partner; the sender may be either side."""
+
     def __init__(
-        self, option: dict[str, Any], user: UserModel, extra: dict[Any, Any] = {}
+        self,
+        option: dict[str, Any],
+        user: UserModel,
+        aggregation: dict[str, Any] | None = None,
     ) -> None:
-        author = user.get_authed().resolve_user(option["senderId"])
-        self.user = user
+        authed = user.get_authed()
+        sender_id = int(option["senderId"])
+        author = authed.user if sender_id == authed.id else user
         SiteContent.__init__(self, option, author)
-        self.responseType: Optional[str] = option.get("responseType")
-        self.text: str = option["content"]
-        self.lockedText: Optional[bool] = option.get("lockedText")
-        self.isFree: Optional[bool] = option.get("isFree")
-        self.price: int | None = option.get("price")
-        self.isMediaReady: Optional[bool] = option.get("isMediaReady")
-        self.media_count: Optional[int] = option.get("mediaCount")
-        self.media: list[Any] = option.get("attachments", [])
-        self.previews: list[int] = option.get("previews", [])
-        self.isTip: Optional[bool] = option.get("isTip")
-        self.isReportedByMe: Optional[bool] = option.get("isReportedByMe")
-        self.fromUser = user.get_authed().resolve_user(option["senderId"])
-        self.isFromQueue: Optional[bool] = option.get("isFromQueue")
-        self.queue_id: Optional[int] = option.get("queueId")
-        self.canUnsendQueue: Optional[bool] = option.get("canUnsendQueue")
-        self.unsendSecondsQueue: Optional[int] = option.get("unsendSecondsQueue")
-        self.isOpened: Optional[bool] = option.get("isOpened")
-        self.isNew: Optional[bool] = option.get("isNew")
-        self.created_at: datetime = datetime.fromtimestamp(option["createdAt"])
-        self.changedAt: Optional[str] = option.get("changedAt")
-        self.cancelSeconds: Optional[int] = option.get("cancelSeconds")
-        self.isLiked: Optional[bool] = option.get("isLiked")
-        self.canPurchase: Optional[bool] = option.get("canPurchase")
-        self.canPurchaseReason: Optional[str] = option.get("canPurchaseReason")
-        self.canReport: Optional[bool] = option.get("canReport")
-        self.attachments: list[dict[str, Any]] = option.get("attachments", {})
-        # Custom
-        final_media_ids: list[Any] = []
-        for attachment in self.attachments:
-            attachment_content_id = attachment["contentId"]
-            match attachment["contentType"]:
-                case 1:
-                    final_media_ids.append(attachment_content_id)
-                case 2:
-                    for bundle in extra.get("accountMediaBundles", []):
-                        if bundle["id"] == attachment_content_id:
-                            final_media_ids.extend(bundle["accountMediaIds"])
-                case 32001:
-                    pass
-                case _:
-                    pass
-        final_media: list[Any] = []
-        if final_media_ids and extra:
-            for final_media_id in final_media_ids:
-                for account_media in extra.get("accountMedia", []):
-                    if account_media["id"] == final_media_id:
-                        temp_media = None
-                        if "preview" in account_media:
-                            temp_media = account_media["preview"]
-                            self.previews.append(temp_media)
-                        if (
-                            account_media["media"]["locations"]
-                            or account_media["media"]["variants"]
-                        ):
-                            temp_media = account_media["media"]
-                        if temp_media:
-                            final_media.append(temp_media)
-        self.media = final_media
         self.user = user
+        self.fromUser = author
+        self.group_id: int = int(option["groupId"])
+        self.text: str = option.get("content") or ""
+        self.created_at: datetime = from_timestamp(option["createdAt"])  # type: ignore[assignment]
+        self.reply_to: str | None = option.get("inReplyTo")
+        self.total_tip_amount: int = option.get("totalTipAmount", 0)
+        self.attachments: list[dict[str, Any]] = option.get("attachments") or []
+        # Price is per media on Fansly (accountMedia.price); messages carry none.
+        self.price: int | None = None
+        self.is_from_queue: bool = False
+        self.queue_id: int | None = None
+        self.media, self.previews = resolve_attachments(
+            self.attachments, aggregation or {}
+        )
 
     def get_receiver(self):
-        receiver = (
-            self.author.get_authed() if self.author.id == self.user.id else self.user
-        )
-        return receiver
+        return self.user.get_authed().user if self.author is self.user else self.user
 
     def get_previews(self):
-        return self.previews
+        return [x for x in self.media if int(x["id"]) in self.previews]
