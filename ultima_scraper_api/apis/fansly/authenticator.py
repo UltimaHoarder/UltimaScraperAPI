@@ -7,14 +7,13 @@ from user_agent import generate_user_agent
 from ultima_scraper_api.apis import api_helper
 from ultima_scraper_api.apis.fansly.classes.auth_model import FanslyAuthModel
 from ultima_scraper_api.apis.fansly.classes.extras import (
-    API_URL,
     AuthDetails,
     ErrorDetails,
-    endpoint_links,
 )
 from ultima_scraper_api.apis.fansly.classes.user_model import UserModel
 from ultima_scraper_api.apis.fansly.fansly import FanslyAPI
 from ultima_scraper_api.apis.fansly.signing import signed_headers
+from ultima_scraper_api.apis.fansly.urls import STANDARD_API_URL, APIRoutes
 from ultima_scraper_api.managers.session_manager import AuthedSession
 
 DEFAULT_USER_AGENT = (
@@ -95,7 +94,7 @@ class FanslyAuthenticator:
 
     async def process_auth(self):
         if not self.maxed_out_auth_attempts():
-            link = endpoint_links().me
+            link = APIRoutes().me()
             json_resp = await self.auth_session.json_request(link)
             await self.resolve_auth_errors(json_resp)
             if not self.errors:
@@ -105,7 +104,7 @@ class FanslyAuthenticator:
                 self.auth_details.active = False
                 if self.auth_details.id:
                     # Keep the public profile so the inactive auth still has a user.
-                    link = endpoint_links(self.auth_details.id).users_by_id
+                    link = APIRoutes().users([self.auth_details.id])
                     accounts = (await self.auth_session.json_request(link)).get("response")
                     if accounts:
                         self.__raw__ = {"response": {"account": accounts[0]}}
@@ -117,7 +116,7 @@ class FanslyAuthenticator:
         Requests are sent unsigned until this succeeds, which the API accepts.
         """
         if not self.device_id:
-            response = await self.auth_session.json_request(endpoint_links().device_id)
+            response = await self.auth_session.json_request(APIRoutes().device_id())
             device_id = response.get("response") if isinstance(response, dict) else None
             if isinstance(device_id, str):
                 self.device_id = device_id
@@ -165,7 +164,7 @@ class FanslyAuthenticator:
     ):
         headers = self.auth_session.headers.copy()
         headers["user-agent"] = self.auth_details.user_agent or DEFAULT_USER_AGENT
-        if link.startswith(API_URL):
+        if link.startswith(STANDARD_API_URL):
             headers["origin"] = "https://fansly.com"
             headers["referer"] = "https://fansly.com/"
             if self.auth_details.authorization and not self.guest:

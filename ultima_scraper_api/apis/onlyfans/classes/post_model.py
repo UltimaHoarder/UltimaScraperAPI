@@ -5,7 +5,7 @@ from typing import TYPE_CHECKING, Any
 
 from ultima_scraper_api.apis.onlyfans import SiteContent
 from ultima_scraper_api.apis.onlyfans.classes.comment_model import CommentModel
-from ultima_scraper_api.apis.onlyfans.classes.extras import endpoint_links
+from ultima_scraper_api.apis.onlyfans.urls import APIRoutes
 from ultima_scraper_api.apis.onlyfans.classes.media_model import MediaModel
 
 if TYPE_CHECKING:
@@ -111,7 +111,7 @@ class PostModel(SiteContent):
         authed = self.get_author().get_authed()
         assert authed.user.credit_balance != None
         if self.price and authed.user.credit_balance >= self.price:
-            link = endpoint_links(identifier=self.id).pay
+            link = APIRoutes().pay()
             result = (
                 await self.get_author()
                 .get_requester()
@@ -124,7 +124,7 @@ class PostModel(SiteContent):
         return result
 
     async def get_comments(self):
-        epl = endpoint_links()
+        epl = APIRoutes()
         link = epl.list_comments(self.responseType, self.id)
         links = epl.create_links(link, self.commentsCount)
         if links:
@@ -139,11 +139,7 @@ class PostModel(SiteContent):
         return self.comments
 
     async def favorite(self):
-        link = endpoint_links(
-            identifier=f"{self.responseType}s",
-            identifier2=self.id,
-            identifier3=self.author.id,
-        ).favorite
+        link = APIRoutes().favorite(self.responseType, self.id, self.author.id)
         results = (
             await self.get_author().get_requester().json_request(link, method="POST")
         )

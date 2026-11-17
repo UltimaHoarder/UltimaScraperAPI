@@ -9,7 +9,7 @@ from ultima_scraper_api.apis.fansly import (
     resolve_attachments,
 )
 from ultima_scraper_api.apis.fansly.classes.comment_model import CommentModel
-from ultima_scraper_api.apis.fansly.classes.extras import endpoint_links
+from ultima_scraper_api.apis.fansly.urls import APIRoutes
 
 if TYPE_CHECKING:
     from ultima_scraper_api.apis.fansly.classes.user_model import UserModel
@@ -46,7 +46,7 @@ class PostModel(SiteContent):
     async def get_comments(self):
         if not self.commentsCount:
             return self.comments
-        link = endpoint_links().post_replies(self.id)
+        link = APIRoutes().post_replies(self.id)
         result = await self.author.get_requester().json_request(link)
         response: dict[str, Any] = result.get("response") or {}
         authed = self.author.get_authed()

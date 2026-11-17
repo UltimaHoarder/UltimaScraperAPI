@@ -7,8 +7,9 @@ from ultima_scraper_api.apis.fansly import (
     resolve_account_media,
     resolve_attachments,
 )
-from ultima_scraper_api.apis.fansly.classes.extras import ErrorDetails, endpoint_links
+from ultima_scraper_api.apis.fansly.classes.extras import ErrorDetails
 from ultima_scraper_api.apis.fansly.signing import client_check, cyrb53, signed_headers
+from ultima_scraper_api.apis.fansly.urls import APIRoutes
 
 
 @pytest.mark.parametrize(
@@ -104,19 +105,19 @@ def test_from_timestamp_accepts_seconds_and_milliseconds():
     assert from_timestamp(None) is None
 
 
-def test_endpoints_match_the_web_client():
-    links = endpoint_links(42)
-    assert links.stories_api.endswith("/mediastoriesnew?accountId=42")
-    assert links.list_users([1, "2"]).endswith("/account?ids=1,2")
-    assert links.list_users(["name", 3]).endswith("/account?usernames=name,3")
-    assert links.timeline(42, before=7).endswith(
+def test_routes_match_the_web_client():
+    routes = APIRoutes()
+    assert routes.stories(42).endswith("/mediastoriesnew?accountId=42")
+    assert routes.users([1, "2"]).endswith("/account?ids=1,2")
+    assert routes.users(["name", 3]).endswith("/account?usernames=name,3")
+    assert routes.timeline(42, before=7).endswith(
         "/timelinenew/42?before=7&after=0&wallId=&contentSearch="
     )
-    assert links.list_messages(9).endswith("/message?groupId=9&limit=25")
-    assert links.list_messages(9, before=5, limit=1).endswith(
+    assert routes.list_messages(9).endswith("/message?groupId=9&limit=25")
+    assert routes.list_messages(9, before=5, limit=1).endswith(
         "/message?groupId=9&before=5&limit=1"
     )
-    assert links.list_chats(25, 50, "a b").endswith("&search=a%20b&limit=25&offset=50")
+    assert routes.list_chats(25, 50, "a b").endswith("&search=a%20b&limit=25&offset=50")
 
 
 def test_error_details_read_fansly_details():

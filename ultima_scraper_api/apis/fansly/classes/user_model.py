@@ -9,8 +9,9 @@ from ultima_scraper_api.apis.fansly.classes import (
     message_model,
     post_model,
 )
-from ultima_scraper_api.apis.fansly.classes.extras import ErrorDetails, endpoint_links
+from ultima_scraper_api.apis.fansly.classes.extras import ErrorDetails
 from ultima_scraper_api.apis.fansly.classes.story_model import StoryModel
+from ultima_scraper_api.apis.fansly.urls import APIRoutes
 from ultima_scraper_api.apis.user_streamliner import StreamlinedUser
 from ultima_scraper_api.managers.scrape_manager import ScrapeManager
 
@@ -123,7 +124,7 @@ class UserModel(StreamlinedUser["FanslyAuthModel", "FanslyAPI"]):
         return any(value for _, value in self.scrape_manager.scraped)
 
     async def get_stories(self) -> list[StoryModel]:
-        link = endpoint_links(self.id).stories_api
+        link = APIRoutes().stories(self.id)
         result = await self.get_requester().json_request(link)
         response = result.get("response") or {}
         aggregation = response.get("aggregationData") or response
@@ -144,7 +145,7 @@ class UserModel(StreamlinedUser["FanslyAuthModel", "FanslyAPI"]):
         posts: dict[int, PostModel] = {}
         cursor = before
         while limit is None or len(posts) < limit:
-            link = endpoint_links().timeline(self.id, before=cursor, wall_id=wall_id)
+            link = APIRoutes().timeline(self.id, before=cursor, wall_id=wall_id)
             result = await self.get_requester().json_request(link)
             response = result.get("response") or {}
             page = response.get("posts") or []
@@ -166,7 +167,7 @@ class UserModel(StreamlinedUser["FanslyAuthModel", "FanslyAPI"]):
         return final_posts
 
     async def get_post(self, identifier: int | str) -> PostModel | ErrorDetails | None:
-        link = endpoint_links().posts_by_ids([identifier])
+        link = APIRoutes().posts([identifier])
         result = await self.get_requester().json_request(link)
         if "error" in result:
             return ErrorDetails(result)
@@ -196,7 +197,7 @@ class UserModel(StreamlinedUser["FanslyAuthModel", "FanslyAPI"]):
         cursor: int | str = offset_id or 0
         done = False
         while not done and (limit is None or len(messages) < limit):
-            link = endpoint_links().list_messages(group_id, before=cursor, limit=MESSAGE_PAGE)
+            link = APIRoutes().list_messages(group_id, before=cursor, limit=MESSAGE_PAGE)
             result = await self.get_requester().json_request(link)
             response = result.get("response") or {}
             page = response.get("messages") or []
@@ -225,7 +226,7 @@ class UserModel(StreamlinedUser["FanslyAuthModel", "FanslyAPI"]):
             group_id = await self.get_authed().find_chat_group_id(self)
         if group_id is None:
             return None
-        link = endpoint_links().list_messages(group_id, before=int(message_id) + 1, limit=1)
+        link = APIRoutes().list_messages(group_id, before=int(message_id) + 1, limit=1)
         result = await self.get_requester().json_request(link)
         response = result.get("response") or {}
         for raw in response.get("messages") or []:
@@ -235,7 +236,7 @@ class UserModel(StreamlinedUser["FanslyAuthModel", "FanslyAPI"]):
 
     async def get_collections(self) -> list[dict[str, Any]]:
         """Vault albums the account shares (GET /uservault/albumsnew)."""
-        link = endpoint_links(self.id).collections_api
+        link = APIRoutes().vault_albums(self.id)
         result = await self.get_requester().json_request(link)
         response = result.get("response") or {}
         return response.get("albums") or []
@@ -244,7 +245,7 @@ class UserModel(StreamlinedUser["FanslyAuthModel", "FanslyAPI"]):
         pages: list[dict[str, Any]] = []
         cursor: int | str = 0
         while True:
-            link = endpoint_links().collection_content(
+            link = APIRoutes().vault_album_content(
                 collection["id"], before=cursor, limit=ALBUM_PAGE
             )
             result = await self.get_requester().json_request(link)

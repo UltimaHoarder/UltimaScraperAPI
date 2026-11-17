@@ -6,6 +6,7 @@ from ultima_scraper_api.apis.api_streamliner import StreamlinedAPI
 from ultima_scraper_api.apis.loyalfans.classes.extras import AuthDetails
 from ultima_scraper_api.apis.loyalfans.classes.message_model import MessageModel
 from ultima_scraper_api.apis.loyalfans.classes.post_model import PostModel
+from ultima_scraper_api.apis.loyalfans.urls import APIRoutes
 from ultima_scraper_api.config import UltimaScraperAPIConfig
 from ultima_scraper_api.managers.websocket_manager import WebSocketManager
 
@@ -82,6 +83,7 @@ class LoyalFansAPI(StreamlinedAPI):
         self.site_name: Literal["LoyalFans"] = "LoyalFans"
         StreamlinedAPI.__init__(self, self, config)
         self.auths: dict[int, "LoyalFansAuthModel"] = {}
+        self.api_routes = APIRoutes()
 
         # Store WebSocket manager (passed from UltimaScraperAPI)
         self.websocket_manager = (

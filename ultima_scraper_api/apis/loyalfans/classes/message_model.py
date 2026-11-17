@@ -1,6 +1,7 @@
 from datetime import datetime
 from typing import TYPE_CHECKING, Any
 
+from ultima_scraper_api.apis.loyalfans.urls import APIRoutes
 from ultima_scraper_api.apis.onlyfans import SiteContent
 from ultima_scraper_api.helpers.site_ids import native_id_to_db_id
 
@@ -66,7 +67,7 @@ class MessageModel(SiteContent):
         if not self.can_buy or not self.price:
             return {"error": "Message cannot be purchased"}
 
-        link = f"https://www.loyalfans.com/api/v2/messages/{self.uid}/purchase"
+        link = APIRoutes().message_purchase(self.uid)
         result = (
             await self.get_author().get_requester().json_request(link, method="POST")
         )
@@ -74,7 +75,7 @@ class MessageModel(SiteContent):
 
     async def react(self, reaction_type: str) -> dict[str, Any]:
         """Add a reaction to the message"""
-        link = f"https://www.loyalfans.com/api/v2/messages/{self.uid}/react"
+        link = APIRoutes().message_react(self.uid)
         payload = {"type": reaction_type}
         result = (
             await self.get_author()
@@ -85,7 +86,7 @@ class MessageModel(SiteContent):
 
     async def remove_reaction(self) -> dict[str, Any]:
         """Remove reaction from message"""
-        link = f"https://www.loyalfans.com/api/v2/messages/{self.uid}/react"
+        link = APIRoutes().message_react(self.uid)
         result = (
             await self.get_author().get_requester().json_request(link, method="DELETE")
         )
@@ -96,7 +97,7 @@ class MessageModel(SiteContent):
         if not self.can_delete:
             return {"error": "Cannot delete message"}
 
-        link = f"https://www.loyalfans.com/api/v2/messages/{self.uid}"
+        link = APIRoutes().message(self.uid)
         result = (
             await self.get_author().get_requester().json_request(link, method="DELETE")
         )
@@ -107,7 +108,7 @@ class MessageModel(SiteContent):
         if not self.can_report:
             return {"error": "Cannot report message"}
 
-        link = f"https://www.loyalfans.com/api/v2/messages/{self.uid}/report"
+        link = APIRoutes().message_report(self.uid)
         payload = {"reason": reason}
         result = (
             await self.get_author()

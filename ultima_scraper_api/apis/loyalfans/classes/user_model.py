@@ -1,5 +1,6 @@
 from typing import TYPE_CHECKING, Any
 
+from ultima_scraper_api.apis.loyalfans.urls import APIRoutes, Routes
 from ultima_scraper_api.apis.user_streamliner import StreamlinedUser
 from ultima_scraper_api.helpers.site_ids import native_id_to_db_id
 from ultima_scraper_api.managers.scrape_manager import ScrapeManager
@@ -66,8 +67,8 @@ class UserModel(StreamlinedUser["LoyalFansAuthModel", "LoyalFansAPI"]):
     def get_link(self, use_username: bool = False) -> str:
         """Returns the user's profile link"""
         if use_username:
-            return f"https://www.loyalfans.com/{self.username}"
-        return f"https://www.loyalfans.com/user/{self.uid}"
+            return Routes().profile(self.username)
+        return Routes().profile_by_uid(self.uid)
 
     async def get_avatar(self) -> str | None:
         """Returns the user's avatar URL"""
@@ -95,7 +96,7 @@ class UserModel(StreamlinedUser["LoyalFansAuthModel", "LoyalFansAPI"]):
         max_pagination_limit = 20  # maximum number of results per request
         page = offset // max_pagination_limit + 1
 
-        link = f"https://www.loyalfans.com/api/v2/social/timeline/{self.username}?limit={limit}&page={page}&ngsw-bypass=true"
+        link = APIRoutes().timeline(self.username, limit=limit, page=page)
         results = await self.get_requester().json_request(link)
         return results.get("timeline", [])
 
@@ -106,7 +107,6 @@ class UserModel(StreamlinedUser["LoyalFansAuthModel", "LoyalFansAPI"]):
         if not self.can_message:
             return []
 
-        link = f"https://www.loyalfans.com/api/v2/messages/{self.uid}"
-        params = {"limit": limit, "offset": offset}
-        results = await self.get_requester().json_request(link, params=params)
+        link = APIRoutes().messages(self.uid, limit=limit, offset=offset)
+        results = await self.get_requester().json_request(link)
         return results.get("messages", [])

@@ -10,7 +10,6 @@ from ultima_scraper_api.apis.onlyfans.classes.chat_model import ChatModel
 from ultima_scraper_api.apis.onlyfans.classes.extras import (
     AuthDetails,
     ContentTypeTransformer,
-    endpoint_links,
 )
 from ultima_scraper_api.apis.onlyfans.classes.hightlight_model import HighlightModel
 from ultima_scraper_api.apis.onlyfans.classes.mass_message_model import MassMessageModel
@@ -18,6 +17,7 @@ from ultima_scraper_api.apis.onlyfans.classes.message_model import MessageModel
 from ultima_scraper_api.apis.onlyfans.classes.post_model import PostModel
 from ultima_scraper_api.apis.onlyfans.classes.story_model import StoryModel
 from ultima_scraper_api.apis.onlyfans.classes.user_model import UserModel
+from ultima_scraper_api.apis.onlyfans.urls import APIRoutes
 from ultima_scraper_api.config import UltimaScraperAPIConfig
 from ultima_scraper_api.managers.websocket_manager import WebSocketManager
 
@@ -63,7 +63,7 @@ class OnlyFansAPI(StreamlinedAPI):
                 continue
         StreamlinedAPI.__init__(self, self, config)
         self.auths: dict[int, "OnlyFansAuthModel"] = {}
-        self.endpoint_links = endpoint_links
+        self.api_routes = APIRoutes()
 
         # Store WebSocket manager (passed from UltimaScraperAPI)
         self.websocket_manager = (

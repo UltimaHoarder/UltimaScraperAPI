@@ -1,7 +1,7 @@
 from typing import TYPE_CHECKING, Any
 
 from ultima_scraper_api.apis.auth_streamliner import StreamlinedAuth
-from ultima_scraper_api.apis.loyalfans.classes.extras import endpoint_links
+from ultima_scraper_api.apis.loyalfans.urls import APIRoutes
 from ultima_scraper_api.apis.loyalfans.classes.user_model import UserModel
 
 if TYPE_CHECKING:
@@ -78,14 +78,14 @@ class LoyalFansAuthModel(
             raise ValueError(
                 f"LoyalFans user {identifier} is not loaded; look it up by username"
             )
-        link = f"https://www.loyalfans.com/api/v2/profile/star/{identifier}?ngsw-bypass=true"
+        link = APIRoutes().profile(str(identifier))
         response = await self.auth_session.json_request(link)
         user = UserModel(response["data"], self)
         return user
 
     async def get_subscription_count(self) -> dict[str, Any]:
 
-        url = endpoint_links().subscription_count()
+        url = APIRoutes().user_lists()
         payload: dict[str, Any] = {"page": 1, "search_term": "", "limit": 16}
         result = await self.auth_session.json_request(
             url, method="POST", payload=payload
@@ -107,8 +107,8 @@ class LoyalFansAuthModel(
             "page": 1,
             "limit": max_pagination_limit,
         }
-        url = endpoint_links().list_subscriptions()
-        urls, payloads = endpoint_links().create_payloads(
+        url = APIRoutes().user_list_users()
+        urls, payloads = APIRoutes().create_payloads(
             url,
             payload,
             limit,

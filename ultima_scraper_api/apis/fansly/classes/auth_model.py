@@ -6,11 +6,11 @@ from typing import TYPE_CHECKING, Any
 from ultima_scraper_api.apis.auth_streamliner import StreamlinedAuth
 from ultima_scraper_api.apis.fansly import SubscriptionType
 from ultima_scraper_api.apis.fansly.classes.chat_model import ChatModel
-from ultima_scraper_api.apis.fansly.classes.extras import endpoint_links
 from ultima_scraper_api.apis.fansly.classes.message_model import MessageModel
 from ultima_scraper_api.apis.fansly.classes.post_model import PostModel
 from ultima_scraper_api.apis.fansly.classes.subscription_model import SubscriptionModel
 from ultima_scraper_api.apis.fansly.classes.user_model import UserModel
+from ultima_scraper_api.apis.fansly.urls import APIRoutes
 
 if TYPE_CHECKING:
     from ultima_scraper_api.apis.fansly.authenticator import FanslyAuthenticator
@@ -88,7 +88,7 @@ class FanslyAuthModel(
 
     async def get_me(self):
         """Fetch the account's own profile again (GET /account/me)."""
-        result = await self.auth_session.json_request(endpoint_links().me)
+        result = await self.auth_session.json_request(APIRoutes().me())
         account = (_response(result) or {}).get("account")
         if not account:
             return None
@@ -115,7 +115,7 @@ class FanslyAuthModel(
         names = [x for x in identifiers if not str(x).isdigit()]
         for group in (ids, names):
             for start in range(0, len(group), USER_BATCH):
-                link = endpoint_links().list_users(group[start : start + USER_BATCH])
+                link = APIRoutes().users(group[start : start + USER_BATCH])
                 result = await self.get_requester().json_request(link)
                 for raw in _response(result) or []:
                     user = UserModel(raw, self)
@@ -138,7 +138,7 @@ class FanslyAuthModel(
         account_ids: list[str] = []
         offset = 0
         while True:
-            link = endpoint_links().list_followings(self.id, FOLLOWING_PAGE, offset)
+            link = APIRoutes().following(self.id, FOLLOWING_PAGE, offset)
             page = _response(await self.get_requester().json_request(link)) or []
             account_ids.extend(x["accountId"] for x in page)
             if len(page) < FOLLOWING_PAGE:
@@ -168,7 +168,7 @@ class FanslyAuthModel(
         if not refresh and self.subscriptions:
             return self.subscriptions
         response = _response(
-            await self.get_requester().json_request(endpoint_links().subscriptions)
+            await self.get_requester().json_request(APIRoutes().subscriptions())
         ) or {}
         raw_subscriptions: list[dict[str, Any]] = response.get("subscriptions") or []
         # Keep the latest-ending subscription per account (renewals add entries).
@@ -215,7 +215,7 @@ class FanslyAuthModel(
         """Conversations from GET /messaging/groups, newest activity first."""
         chats: list[ChatModel] = []
         while limit is None or len(chats) < limit:
-            link = endpoint_links().list_chats(CHAT_PAGE, offset, search)
+            link = APIRoutes().list_chats(CHAT_PAGE, offset, search)
             response = _response(await self.get_requester().json_request(link)) or {}
             page: list[dict[str, Any]] = response.get("data") or []
             aggregation = response.get("aggregationData") or {}
@@ -258,7 +258,7 @@ class FanslyAuthModel(
         """
         orders: list[dict[str, Any]] = []
         while limit is None or len(orders) < limit:
-            link = endpoint_links(global_limit=ORDER_PAGE, global_offset=offset).paid_api
+            link = APIRoutes().media_orders(ORDER_PAGE, offset)
             response = _response(await self.get_requester().json_request(link)) or {}
             page: list[dict[str, Any]] = response.get("accountMediaOrders") or []
             orders.extend(page)
@@ -271,7 +271,7 @@ class FanslyAuthModel(
 
     async def get_lists(self) -> list[dict[str, Any]]:
         """The authed user's account lists (GET /lists/account)."""
-        result = await self.get_requester().json_request(endpoint_links().lists)
+        result = await self.get_requester().json_request(APIRoutes().lists())
         self.lists = _response(result) or []
         return self.lists
 
@@ -282,7 +282,7 @@ class FanslyAuthModel(
         items: list[dict[str, Any]] = []
         before: int | str = 0
         while True:
-            link = endpoint_links().list_items(identifier, limit, before)
+            link = APIRoutes().list_items(identifier, limit, before)
             page = _response(await self.get_requester().json_request(link)) or []
             items.extend(page)
             if len(page) < limit:
@@ -304,11 +304,11 @@ class FanslyAuthModel(
         return [user.username for user in await self.get_users(account_ids)]
 
     async def get_transactions(self, limit: int = 100, offset: int = 0):
-        link = endpoint_links().transactions(limit, offset)
+        link = APIRoutes().transactions(limit, offset)
         return _response(await self.get_requester().json_request(link)) or {}
 
     async def get_settings(self):
-        result = await self.get_requester().json_request(endpoint_links().settings)
+        result = await self.get_requester().json_request(APIRoutes().settings())
         return _response(result) or {}
 
     async def get_scrapable_users(self):

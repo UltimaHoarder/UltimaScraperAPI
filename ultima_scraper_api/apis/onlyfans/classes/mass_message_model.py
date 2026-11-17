@@ -2,7 +2,7 @@ from datetime import datetime, timedelta
 from typing import TYPE_CHECKING, Any
 
 from ultima_scraper_api.apis.onlyfans import SiteContent
-from ultima_scraper_api.apis.onlyfans.classes.extras import endpoint_links
+from ultima_scraper_api.apis.onlyfans.urls import APIRoutes
 from ultima_scraper_api.apis.onlyfans.classes.media_model import MediaModel
 
 if TYPE_CHECKING:
@@ -32,7 +32,7 @@ class MassMessageStatModel:
         self.__raw__ = options
 
     async def get_mass_message(self):
-        link = endpoint_links(self.id).mass_message
+        link = APIRoutes().mass_message(self.id)
         result = await self.author.get_requester().json_request(link)
         self.mass_message = MassMessageModel(result, self.author, self)
         return self.mass_message

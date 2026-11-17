@@ -4,7 +4,6 @@ from datetime import datetime
 from typing import TYPE_CHECKING, Any, Optional
 
 from ultima_scraper_api.apis.onlyfans import SiteContent
-from ultima_scraper_api.apis.onlyfans.classes.extras import endpoint_links
 from ultima_scraper_api.apis.onlyfans.classes.mass_message_model import MassMessageModel
 from ultima_scraper_api.apis.onlyfans.classes.media_model import MediaModel
 from ultima_scraper_api.apis.onlyfans.urls import APIRoutes
@@ -111,7 +110,7 @@ class MessageModel(SiteContent):
         authed = self.get_author().get_authed()
         assert authed.user.credit_balance is not None
         assert message_price is not None
-        link = endpoint_links().pay
+        link = APIRoutes().pay()
         response = (
             await self.get_author().get_requester().request(link, method="POST", json=x)
         )

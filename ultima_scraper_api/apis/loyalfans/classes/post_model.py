@@ -1,6 +1,7 @@
 from datetime import datetime
 from typing import TYPE_CHECKING, Any, TypedDict
 
+from ultima_scraper_api.apis.loyalfans.urls import APIRoutes
 from ultima_scraper_api.apis.onlyfans import SiteContent
 from ultima_scraper_api.helpers.site_ids import native_id_to_db_id
 
@@ -103,7 +104,7 @@ class PostModel(SiteContent):
         if not self.can_buy or not self.price:
             return {"error": "Post cannot be purchased"}
 
-        link = f"https://www.loyalfans.com/api/v2/posts/{self.uid}/purchase"
+        link = APIRoutes().post_purchase(self.uid)
         result = (
             await self.get_author().get_requester().json_request(link, method="POST")
         )
@@ -114,7 +115,7 @@ class PostModel(SiteContent):
         if self.comments_disabled:
             return []
 
-        link = f"https://www.loyalfans.com/api/v2/posts/{self.uid}/comments"
+        link = APIRoutes().post_comments(self.uid)
         results = await self.get_author().get_requester().json_request(link)
         return results.get("comments", [])
 
@@ -123,7 +124,7 @@ class PostModel(SiteContent):
         if not self.can_react:
             return {"error": "Cannot react to post"}
 
-        link = f"https://www.loyalfans.com/api/v2/posts/{self.uid}/react"
+        link = APIRoutes().post_react(self.uid)
         payload = {"type": reaction_type}
         result = (
             await self.get_author()
@@ -134,7 +135,7 @@ class PostModel(SiteContent):
 
     async def remove_reaction(self) -> dict[str, Any]:
         """Remove reaction from post"""
-        link = f"https://www.loyalfans.com/api/v2/posts/{self.uid}/react"
+        link = APIRoutes().post_react(self.uid)
         result = (
             await self.get_author().get_requester().json_request(link, method="DELETE")
         )
@@ -142,7 +143,7 @@ class PostModel(SiteContent):
 
     async def bookmark(self) -> dict[str, Any]:
         """Bookmark this post"""
-        link = f"https://www.loyalfans.com/api/v2/posts/{self.uid}/bookmark"
+        link = APIRoutes().post_bookmark(self.uid)
         result = (
             await self.get_author().get_requester().json_request(link, method="POST")
         )
@@ -150,7 +151,7 @@ class PostModel(SiteContent):
 
     async def remove_bookmark(self) -> dict[str, Any]:
         """Remove bookmark from post"""
-        link = f"https://www.loyalfans.com/api/v2/posts/{self.uid}/bookmark"
+        link = APIRoutes().post_bookmark(self.uid)
         result = (
             await self.get_author().get_requester().json_request(link, method="DELETE")
         )

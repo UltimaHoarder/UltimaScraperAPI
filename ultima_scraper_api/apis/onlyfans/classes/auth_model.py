@@ -14,7 +14,6 @@ from ultima_scraper_api.apis.onlyfans import (
     SubscriptionTypeEnum,
 )
 from ultima_scraper_api.apis.onlyfans.classes.chat_model import ChatModel
-from ultima_scraper_api.apis.onlyfans.classes.extras import endpoint_links
 from ultima_scraper_api.apis.onlyfans.classes.mass_message_model import (
     MassMessageStatModel,
 )
@@ -308,7 +307,7 @@ class OnlyFansAuthModel(
         Only /users/me carries the account's own creditBalance.
         """
         assert self.user
-        response = await self.auth_session.json_request(endpoint_links().customer)
+        response = await self.auth_session.json_request(APIRoutes().me())
         if not isinstance(response, dict) or "error" in response:
             return None
         self.user.update_from_dict(response)
@@ -323,7 +322,7 @@ class OnlyFansAuthModel(
         return self.user.get_username()
 
     async def get_lists(self, refresh: bool = True, limit: int = 100, offset: int = 0):
-        link = endpoint_links(global_limit=limit, global_offset=offset).lists
+        link = APIRoutes().lists(limit=limit, offset=offset)
         json_resp: list[dict[str, Any]] = await self.get_requester().json_request(
             link
         )  # type:ignore
@@ -331,7 +330,7 @@ class OnlyFansAuthModel(
         return json_resp
 
     async def get_vault_lists(self, limit: int = 100, offset: int = 0):
-        link = endpoint_links().list_vault_lists(limit=limit, offset=offset)
+        link = APIRoutes().list_vault_lists(limit=limit, offset=offset)
         json_resp: list[dict[str, Any]] = await self.get_requester().json_request(
             link
         )  # type:ignore
@@ -370,7 +369,7 @@ class OnlyFansAuthModel(
 
         Backward compatible: can be called with just (to_user_id, text).
         """
-        link = endpoint_links().send_message(to_user_id)
+        link = APIRoutes().send_message(to_user_id)
         payload: dict[str, Any] = {"text": text}
         if lockedText is not None:
             payload["lockedText"] = lockedText
@@ -446,7 +445,7 @@ class OnlyFansAuthModel(
 
         if not cache:
             response = await self.auth_session.json_request(
-                endpoint_links(identifier).users
+                APIRoutes().users(identifier)
             )
             if strict:
                 _validate_user_lookup(response, identifier)
@@ -464,7 +463,7 @@ class OnlyFansAuthModel(
             return cached_user
 
         # Fetch fresh data from API
-        link = endpoint_links(identifier).users
+        link = APIRoutes().users(identifier)
         response = await self.auth_session.json_request(link)
 
         if strict:
@@ -493,9 +492,7 @@ class OnlyFansAuthModel(
         limit: int = 100,
         offset: int = 0,
     ):
-        link = endpoint_links(
-            identifier, global_limit=limit, global_offset=offset
-        ).lists_users
+        link = APIRoutes().list_users_in_list(identifier, limit=limit, offset=offset)
         results: list[dict[str, Any]] = await self.auth_session.json_request(
             link
         )  # type:ignore
@@ -512,7 +509,7 @@ class OnlyFansAuthModel(
 
     async def get_subscription_count(self) -> SubscriptionCountModel:
 
-        url = endpoint_links().subscription_count()
+        url = APIRoutes().subscription_count()
         result = await self.auth_session.json_request(url)
         return SubscriptionCountModel(result)
 
@@ -610,7 +607,7 @@ class OnlyFansAuthModel(
             # worker/write budgets and of the total subscription count.
             request_limit = min(100, total - offset)
             response = await self.auth_session.json_request(
-                endpoint_links().list_subscriptions(
+                APIRoutes().list_subscriptions(
                     limit=request_limit,
                     offset=offset,
                     sub_type=selected_type,
@@ -722,7 +719,7 @@ class OnlyFansAuthModel(
         async def mass_recursive(
             limit: int, offset: int, multiplier: int, depth: int = 1
         ):
-            link = endpoint_links(global_limit=limit, global_offset=offset).list_chats
+            link = APIRoutes().list_chats(limit=limit, offset=offset)
 
             unpredictable_links, new_offset = api_helper.calculate_the_unpredictable(
                 link, offset, limit, multiplier, depth
@@ -780,9 +777,7 @@ class OnlyFansAuthModel(
         async def recursive(
             resume: list[dict[str, Any]] | None, limit: int, offset: int
         ):
-            link = endpoint_links(
-                global_limit=limit, global_offset=offset
-            ).mass_messages_stats
+            link = APIRoutes().mass_messages_stats(limit=limit, offset=offset)
             results = await self.auth_session.json_request(link)
             items = results.get("list", [])
             if not items:
@@ -905,7 +900,7 @@ class OnlyFansAuthModel(
         return subscription_users
 
     async def get_login_issues(self):
-        url = endpoint_links().login_issues
+        url = APIRoutes().login_issues()
         response = await self.auth_session.json_request(url, method="POST")
         return response
 

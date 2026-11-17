@@ -3,7 +3,8 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any, Literal
 
 from ultima_scraper_api.apis.api_streamliner import StreamlinedAPI
-from ultima_scraper_api.apis.fansly.classes.extras import AuthDetails, endpoint_links
+from ultima_scraper_api.apis.fansly.classes.extras import AuthDetails
+from ultima_scraper_api.apis.fansly.urls import APIRoutes
 from ultima_scraper_api.apis.fansly.classes.message_model import MessageModel
 from ultima_scraper_api.apis.fansly.classes.post_model import PostModel
 from ultima_scraper_api.apis.fansly.classes.story_model import StoryModel
@@ -23,7 +24,7 @@ class FanslyAPI(StreamlinedAPI):
         self.site_name: Literal["Fansly"] = "Fansly"
         StreamlinedAPI.__init__(self, self, config)
         self.auths: dict[int, "FanslyAuthModel"] = {}
-        self.endpoint_links = endpoint_links
+        self.api_routes = APIRoutes()
 
         # Store WebSocket manager (passed from UltimaScraperAPI)
         self.websocket_manager = (

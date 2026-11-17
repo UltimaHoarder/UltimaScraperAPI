@@ -7,6 +7,7 @@ from ultima_scraper_api.apis.loyalfans.classes.auth_model import LoyalFansAuthMo
 from ultima_scraper_api.apis.loyalfans.classes.extras import AuthDetails
 from ultima_scraper_api.apis.loyalfans.classes.user_model import UserModel
 from ultima_scraper_api.apis.loyalfans.loyalfans import LoyalFansAPI
+from ultima_scraper_api.apis.loyalfans.urls import API_URL, STANDARD_URL, APIRoutes
 from ultima_scraper_api.managers.session_manager import AuthedSession
 from aiohttp_socks import ProxyInfo
 import python_socks
@@ -87,7 +88,7 @@ class LoyalFansAuthenticator:
     async def process_auth(self):
         if not self.maxed_out_auth_attempts():
             # Replace with actual LoyalFans API endpoint
-            link = "https://www.loyalfans.com/api/v1/auth/user/me?ngsw-bypass=true"
+            link = APIRoutes().me()
             json_resp = await self.auth_session.json_request(link)
             await self.resolve_auth_errors(json_resp)
 
@@ -122,9 +123,9 @@ class LoyalFansAuthenticator:
         extra_headers: dict[str, str] | None = None,
     ):
         headers = self.auth_session.headers.copy()
-        if "https://www.loyalfans.com/api" in link:
+        if link.startswith(API_URL):
             headers["authorization"] = f"Bearer {self.auth_details.authorization}"
-            headers["Referer"] = "https://www.loyalfans.com/"
+            headers["Referer"] = f"{STANDARD_URL}/"
         if extra_headers:
             headers.update(extra_headers)
         return headers

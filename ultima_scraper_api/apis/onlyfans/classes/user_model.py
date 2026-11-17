@@ -9,7 +9,6 @@ from urllib import parse
 import ultima_scraper_api.apis.onlyfans.classes.message_model as message_model
 from ultima_scraper_api.apis.onlyfans import SubscriptionTypeEnum
 from ultima_scraper_api.apis.onlyfans.classes import post_model
-from ultima_scraper_api.apis.onlyfans.classes.extras import endpoint_links
 from ultima_scraper_api.apis.onlyfans.classes.hightlight_model import HighlightModel
 from ultima_scraper_api.apis.onlyfans.classes.mass_message_model import MassMessageModel
 from ultima_scraper_api.apis.onlyfans.classes.story_model import StoryModel
@@ -58,7 +57,7 @@ async def iter_items(
         match category:
             case "list_posts":
                 assert identifier
-                link = endpoint_links().list_posts(
+                link = APIRoutes().list_posts(
                     identifier=identifier,
                     limit=limit,
                     before_date=before_date,
@@ -66,11 +65,11 @@ async def iter_items(
                 )
             case "list_vault_media":
                 assert identifier
-                link = endpoint_links().list_vault_media(
+                link = APIRoutes().list_vault_media(
                     list_id=identifier, limit=limit, offset=offset
                 )
             case "list_subscriptions":
-                link = endpoint_links().list_subscriptions(
+                link = APIRoutes().list_subscriptions(
                     limit=limit,
                     offset=offset,
                     sub_type=SubscriptionTypeEnum(query_type),
@@ -86,9 +85,7 @@ async def iter_items(
             case "list_transactions":
                 link = APIRoutes().transaction_history(limit=limit, offset=offset)
             case "list_chats":
-                link = endpoint_links(
-                    global_limit=limit, global_offset=offset
-                ).list_chats
+                link = APIRoutes().list_chats(limit=limit, offset=offset)
             case "search_chats":
                 assert isinstance(identifier, str)
                 link = APIRoutes().search_chats(
@@ -516,9 +513,7 @@ class UserModel(StreamlinedUser["OnlyFansAuthModel", "OnlyFansAPI"]):
         effective_job_id = job_id or "api"
 
         links = [
-            endpoint_links(
-                identifier=self.id, global_limit=limit, global_offset=offset
-            ).stories_api
+            APIRoutes().stories(self.id)
         ]
 
         # Create internal progress callback that publishes events with user context
@@ -572,15 +567,11 @@ class UserModel(StreamlinedUser["OnlyFansAuthModel", "OnlyFansAPI"]):
         if not identifier:
             identifier = self.id
         if not hightlight_id:
-            link = endpoint_links(
-                identifier=identifier, global_limit=limit, global_offset=offset
-            ).list_highlights
+            link = APIRoutes().list_highlights(identifier, limit=limit, offset=offset)
             result: dict[str, Any] = await self.get_requester().json_request(link)
             final_results = [HighlightModel(x, self) for x in result.get("list", [])]
         else:
-            link = endpoint_links(
-                identifier=hightlight_id, global_limit=limit, global_offset=offset
-            ).highlight
+            link = APIRoutes().highlight(hightlight_id)
             if not self.is_deleted:
                 result = await self.get_requester().json_request(link)
                 if not isinstance(result, error_types):
@@ -620,11 +611,9 @@ class UserModel(StreamlinedUser["OnlyFansAuthModel", "OnlyFansAPI"]):
             current_offset = offset
             previous_page = None
             while True:
-                link = endpoint_links(
-                    identifier=self.id,
-                    global_limit=limit,
-                    global_offset=current_offset,
-                ).list_highlights
+                link = APIRoutes().list_highlights(
+                    self.id, limit=limit, offset=current_offset
+                )
                 result = await self.get_requester().json_request(link)
                 if not isinstance(result, dict) or "error" in result:
                     raise RuntimeError("Highlights page request failed")
@@ -649,7 +638,7 @@ class UserModel(StreamlinedUser["OnlyFansAuthModel", "OnlyFansAPI"]):
         async with aclosing(albums()) as identifiers:
             async for identifier in identifiers:
                 result = await self.get_requester().json_request(
-                    endpoint_links(identifier=identifier).highlight
+                    APIRoutes().highlight(identifier)
                 )
                 if not isinstance(result, dict) or "error" in result:
                     raise RuntimeError(f"Highlight {identifier} request failed")
@@ -712,7 +701,7 @@ class UserModel(StreamlinedUser["OnlyFansAuthModel", "OnlyFansAPI"]):
         effective_job_id = job_id or "api"
 
         max_pagination_limit = 50  # maximum number of results per request
-        epl = endpoint_links()
+        epl = APIRoutes()
         api_count = self.posts_count
         if label == "archived":
             api_count = self.archived_posts_count
@@ -784,9 +773,7 @@ class UserModel(StreamlinedUser["OnlyFansAuthModel", "OnlyFansAPI"]):
     ) -> PostModel:
         if not identifier:
             identifier = self.id
-        link = endpoint_links(
-            identifier=identifier, global_limit=limit, global_offset=offset
-        ).post_by_id
+        link = APIRoutes().post(identifier)
         result = await self.get_requester().json_request(link)
         final_result = post_model.PostModel(result, self)
         if not final_result.author.id:
@@ -846,7 +833,7 @@ class UserModel(StreamlinedUser["OnlyFansAuthModel", "OnlyFansAPI"]):
         pages_completed = 0
         total_items = 0
         while max_items is None or total_items < max_items:
-            link = endpoint_links().list_messages(
+            link = APIRoutes().list_messages(
                 self.id, global_limit=limit, global_offset=offset_id
             )
             result = await self.get_requester().json_request(link)
@@ -913,12 +900,7 @@ class UserModel(StreamlinedUser["OnlyFansAuthModel", "OnlyFansAPI"]):
     ):
         if not user_id:
             user_id = self.id
-        link = endpoint_links(
-            identifier=user_id,
-            identifier2=message_id,
-            global_limit=limit,
-            global_offset=offset,
-        ).message_by_id
+        link = APIRoutes().message_by_id(user_id, message_id)
         response = await self.get_requester().json_request(link)
         temp_response: dict[str, Any] = response
         results: list[dict[str, Any]] = [
@@ -933,7 +915,7 @@ class UserModel(StreamlinedUser["OnlyFansAuthModel", "OnlyFansAPI"]):
         if self.is_authed_user() and self.is_performer():
 
             async def recursive(limit: int = limit, offset: int = offset):
-                link = endpoint_links().list_archived_stories(
+                link = APIRoutes().list_archived_stories(
                     limit=limit, marker_offset=offset
                 )
                 results = await self.get_requester().json_request(link)
@@ -961,9 +943,7 @@ class UserModel(StreamlinedUser["OnlyFansAuthModel", "OnlyFansAPI"]):
             identifier = parse.urljoin(str(identifier), "messages")
         else:
             identifier = self.id
-        link = endpoint_links(
-            identifier=identifier, text=text, global_limit=limit, global_offset=offset
-        ).search_chat
+        link = APIRoutes().search_chat(identifier, text)
         results = await self.get_requester().json_request(link)
         return results
 
@@ -979,19 +959,17 @@ class UserModel(StreamlinedUser["OnlyFansAuthModel", "OnlyFansAPI"]):
         if identifier:
             identifier = parse.urljoin(str(identifier), "messages")
         text = parse.quote_plus(text)
-        link = endpoint_links(
-            identifier=identifier, text=text, global_limit=limit, global_offset=offset
-        ).search_messages
+        link = APIRoutes().search_messages(identifier, text)
         results = await self.get_requester().json_request(link)
         return results
 
     async def like(self, category: str, identifier: int):
-        link = endpoint_links(identifier=category, identifier2=identifier).like
+        link = APIRoutes().like(category, identifier)
         results = await self.get_requester().json_request(link, method="POST")
         return results
 
     async def unlike(self, category: str, identifier: int):
-        link = endpoint_links(identifier=category, identifier2=identifier).like
+        link = APIRoutes().like(category, identifier)
         results = await self.get_requester().json_request(link, method="DELETE")
         return results
 
@@ -1027,7 +1005,7 @@ class UserModel(StreamlinedUser["OnlyFansAuthModel", "OnlyFansAPI"]):
         authed = self.get_authed()
         assert authed.user.credit_balance is not None
         if authed.user.credit_balance >= subscription_price:
-            link = endpoint_links(identifier=self.id).pay
+            link = APIRoutes().pay()
             result = await self.get_requester().json_request(
                 link, method="POST", payload=x
             )
@@ -1114,13 +1092,13 @@ class UserModel(StreamlinedUser["OnlyFansAuthModel", "OnlyFansAPI"]):
     async def has_socials(self):
         # If error message, this means the user has socials, but we have to subscribe to see them
         result = bool(
-            await self.get_requester().json_request(endpoint_links(self.id).socials)
+            await self.get_requester().json_request(APIRoutes().socials(self.id))
         )
         return result
 
     async def get_socials(self):
         results: list[dict[str, Any]] | dict[str, Any] = (
-            await self.get_requester().json_request(endpoint_links(self.id).socials)
+            await self.get_requester().json_request(APIRoutes().socials(self.id))
         )
         if "error" in results:
             results = []
@@ -1130,7 +1108,7 @@ class UserModel(StreamlinedUser["OnlyFansAuthModel", "OnlyFansAPI"]):
     async def get_spotify(self):
         if self.is_spotify_connected:
             result: dict[str, Any] = await self.get_requester().json_request(
-                endpoint_links(self.id).spotify
+                APIRoutes().spotify(self.id)
             )
             if "error" in result:
                 result = {}
@@ -1139,7 +1117,7 @@ class UserModel(StreamlinedUser["OnlyFansAuthModel", "OnlyFansAPI"]):
     async def has_spotify(self):
         # If error message, this means the user has socials, but we have to subscribe to see them
         result = bool(
-            await self.get_requester().json_request(endpoint_links(self.id).spotify)
+            await self.get_requester().json_request(APIRoutes().spotify(self.id))
         )
         return result
 
@@ -1152,13 +1130,13 @@ class UserModel(StreamlinedUser["OnlyFansAuthModel", "OnlyFansAPI"]):
                 return await response.read()
 
     async def block(self):
-        block_url = endpoint_links(self.id).block
+        block_url = APIRoutes().block(self.id)
         result = await self.get_requester().json_request(block_url, method="POST")
 
         return result
 
     async def unblock(self):
-        block_url = endpoint_links(self.id).block
+        block_url = APIRoutes().block(self.id)
         result = await self.get_requester().json_request(block_url, method="DELETE")
 
         return result

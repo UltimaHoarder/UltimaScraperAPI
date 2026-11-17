@@ -1,7 +1,10 @@
 import math
+from collections.abc import Iterator
 from datetime import datetime
 from typing import Literal, Optional
-from urllib.parse import parse_qs, parse_qsl, urlencode, urlparse
+from urllib.parse import parse_qs, parse_qsl, urlencode, urlparse, urlunparse
+
+from ultima_scraper_api.apis.onlyfans import SubscriptionType, SubscriptionTypeEnum
 
 SCHEME = "https://"
 DOMAIN = "onlyfans.com"
@@ -10,6 +13,19 @@ STANDARD_URL = f"{SCHEME}{DOMAIN}"
 STANDARD_API_URL = f"{STANDARD_URL}{API}"
 MEDIA_URL = f"{SCHEME}cdn2.{DOMAIN}"
 DRM_MEDIA_URL = f"{SCHEME}cdn2.{DOMAIN}"
+
+
+def format_url(url: str) -> str:
+    """Re-encode the query string (e.g. ``filter[]`` brackets)."""
+    parsed = urlparse(url)
+    encoded_params = urlencode(dict(parse_qsl(parsed.query)))
+    base_url = urlunparse((parsed.scheme, parsed.netloc, parsed.path, "", "", ""))
+    return f"{base_url}?{encoded_params}"
+
+
+def _plural(content_type: str) -> str:
+    """"post" -> "posts"; already plural types ("messages", "stories") stay."""
+    return content_type if content_type.endswith("s") else f"{content_type}s"
 
 
 class Routes:
@@ -32,14 +48,54 @@ class APIRoutes:
     def me(self) -> str:
         return f"{STANDARD_API_URL}/users/me"
 
-    def users(self, identifier: int) -> str:
+    def users(self, identifier: int | str) -> str:
         return f"{STANDARD_API_URL}/users/{identifier}"
+
+    def socials(self, identifier: int | str) -> str:
+        return f"{STANDARD_API_URL}/users/{identifier}/social/buttons"
+
+    def spotify(self, identifier: int | str) -> str:
+        return f"{STANDARD_API_URL}/users/{identifier}/social/spotify"
+
+    def block(self, identifier: int | str) -> str:
+        return f"{STANDARD_API_URL}/users/{identifier}/block"
+
+    def stories(self, identifier: int | str) -> str:
+        return f"{STANDARD_API_URL}/users/{identifier}/stories"
+
+    def list_highlights(
+        self, identifier: int | str, limit: int = 100, offset: int = 0
+    ) -> str:
+        return (
+            f"{STANDARD_API_URL}/users/{identifier}/stories/highlights"
+            f"?limit={limit}&offset={offset}&order=desc"
+        )
+
+    def highlight(self, highlight_id: int | str) -> str:
+        return f"{STANDARD_API_URL}/stories/highlights/{highlight_id}"
+
+    def post(self, post_id: int | str) -> str:
+        return f"{STANDARD_API_URL}/posts/{post_id}"
+
+    def favorite(
+        self, content_type: str, content_id: int | str, user_id: int | str
+    ) -> str:
+        return (
+            f"{STANDARD_API_URL}/{_plural(content_type)}/{content_id}"
+            f"/favorites/{user_id}"
+        )
+
+    def pay(self) -> str:
+        return f"{STANDARD_API_URL}/payments/pay"
 
     def blocked_users(self, limit: int = 10, offset: int = 0) -> str:
         return f"{STANDARD_API_URL}/users/blocked?limit={limit}&offset={offset}"
 
     def restricted_users(self, limit: int = 10, offset: int = 0) -> str:
         return f"{STANDARD_API_URL}/users/restrict?limit={limit}&offset={offset}"
+
+    def login_issues(self) -> str:
+        return f"{STANDARD_API_URL}/issues/login"
 
     def list_archived_stories(
         self,
@@ -83,8 +139,35 @@ class APIRoutes:
             f"&order=publish_date_desc&skip_users_dups=0&label={label}"
         )
 
+    def list_chats(self, limit: int = 10, offset: int = 0) -> str:
+        return f"{STANDARD_API_URL}/chats?limit={limit}&offset={offset}&order=recent"
+
     def search_chats(self, query: str, limit: int = 100, offset: int = 0) -> str:
         return f"{STANDARD_API_URL}/chats?limit={limit}&offset={offset}&order=recent&query={query}"
+
+    def search_chat(self, identifier: int | str, text: str) -> str:
+        return f"{STANDARD_API_URL}/chats/{identifier}/messages/search?query={text}"
+
+    def search_messages(self, identifier: int | str, text: str) -> str:
+        return (
+            f"{STANDARD_API_URL}/chats/{identifier}?limit=10&offset=0&filter="
+            f"&order=activity&query={text}"
+        )
+
+    def message_by_id(self, chat_id: int | str, message_id: int | str) -> str:
+        return (
+            f"{STANDARD_API_URL}/chats/{chat_id}/messages?limit=10&offset=0"
+            f"&firstId={message_id}&order=desc&skip_users=all&skip_users_dups=1"
+        )
+
+    def mass_messages_stats(self, limit: int = 100, offset: int = 0) -> str:
+        return (
+            f"{STANDARD_API_URL}/messages/queue/stats?limit={limit}&offset={offset}"
+            "&format=infinite"
+        )
+
+    def mass_message(self, queue_id: int | str) -> str:
+        return f"{STANDARD_API_URL}/messages/queue/{queue_id}?format=scheduled"
 
     def list_messages(
         self,
@@ -111,19 +194,6 @@ class APIRoutes:
             "&format=infinite"
         )
 
-    def list_paid_posts(
-        self, limit: int = 10, offset: int = 0, performer_id: int | str | None = None
-    ) -> str:
-        if performer_id is not None:
-            return (
-                f"{STANDARD_API_URL}/posts/paid?limit={limit}&offset={offset}"
-                f"&user_id={performer_id}&format=infinite"
-            )
-        return (
-            f"{STANDARD_API_URL}/posts/paid?limit={limit}&offset={offset}"
-            "&format=infinite"
-        )
-
     def list_comments(
         self,
         content_type: str,
@@ -132,12 +202,28 @@ class APIRoutes:
         global_offset: int = 0,
         sort_order: Literal["asc", "desc"] = "desc",
     ) -> str:
-        content_type = (
-            f"{content_type}s" if not content_type.startswith("s") else content_type
-        )
         return (
-            f"{STANDARD_API_URL}/{content_type}/{content_id}/comments?limit={global_limit}"
-            f"&offset={global_offset}&sort={sort_order}"
+            f"{STANDARD_API_URL}/{_plural(content_type)}/{content_id}/comments"
+            f"?limit={global_limit}&offset={global_offset}&sort={sort_order}"
+        )
+
+    def lists(
+        self,
+        limit: int = 100,
+        offset: int = 0,
+        sort_order: Literal["asc", "desc"] = "desc",
+    ) -> str:
+        return (
+            f"{STANDARD_API_URL}/lists?limit={limit}&offset={offset}"
+            f"&order={sort_order}"
+        )
+
+    def list_users_in_list(
+        self, list_id: int | str, limit: int = 100, offset: int = 0
+    ) -> str:
+        return (
+            f"{STANDARD_API_URL}/lists/{list_id}/users?limit={limit}"
+            f"&offset={offset}&query="
         )
 
     def list_vault_lists(
@@ -171,19 +257,17 @@ class APIRoutes:
         self,
         limit: int = 20,
         offset: int = 0,
-        sub_type: str = "all",
+        sub_type: SubscriptionType = SubscriptionTypeEnum.ALL,
         filter: str = "",
     ) -> str:
-        return (
+        sub_type_value = SubscriptionTypeEnum(sub_type).value
+        return format_url(
             f"{STANDARD_API_URL}/subscriptions/subscribes?limit={limit}&offset={offset}"
-            f"&type={sub_type}&filter[{filter}]=1&format=infinite"
+            f"&type={sub_type_value}&filter[{filter}]=1&format=infinite"
         )
 
     def like(self, content_type: str, content_id: int | str) -> str:
-        content_type = (
-            f"{content_type}s" if not content_type.startswith("s") else content_type
-        )
-        return f"{STANDARD_API_URL}/{content_type}/{content_id}/like"
+        return f"{STANDARD_API_URL}/{_plural(content_type)}/{content_id}/like"
 
     def subscription_count(self) -> str:
         url = f"{STANDARD_API_URL}/subscriptions/count/all"
@@ -192,26 +276,40 @@ class APIRoutes:
         encoded_params = urlencode(query_params)
         return f"{url}?{encoded_params}"
 
+    def iter_links(
+        self,
+        url: str,
+        max_items: int,
+        pagination_limit: int = 10,
+        offset: int = 0,
+        *,
+        exact_limit: bool = False,
+    ) -> Iterator[str]:
+        """Generate page URLs without retaining the total selection in RAM."""
+        if not max_items:
+            return
+        pages = math.ceil(max_items / pagination_limit)
+        if pages <= 0:
+            return
+        query = parse_qs(urlparse(url).query)
+        limit_value = query.get("limit", [str(pagination_limit)])[0]
+        base_url = url.replace(f"limit={limit_value}", f"limit={pagination_limit}")
+        for page in range(pages):
+            page_url = base_url.replace(
+                f"offset={offset}", f"offset={page * pagination_limit}"
+            )
+            if exact_limit:
+                size = min(pagination_limit, max_items - page * pagination_limit)
+                page_url = page_url.replace(
+                    f"limit={pagination_limit}", f"limit={size}"
+                )
+            yield page_url
+
     def create_links(
         self, url: str, max_items: int, pagination_limit: int = 10, offset: int = 0
     ) -> list[str]:
-        final_links: list[str] = []
-        if max_items:
-            pages = math.ceil(max_items / pagination_limit)
-            for page in range(pages):
-                current_offset = page * pagination_limit
-                parsed_url = urlparse(url)
-                query_params = parse_qs(parsed_url.query)
-                limit_value = query_params.get("limit", [str(pagination_limit)])[0]
-                normalized_url = url.replace(
-                    f"limit={limit_value}", f"limit={pagination_limit}"
-                )
-                final_links.append(
-                    normalized_url.replace(
-                        f"offset={offset}", f"offset={current_offset}"
-                    )
-                )
-        return final_links
+        """Collect page URLs for callers that explicitly need a complete list."""
+        return list(self.iter_links(url, max_items, pagination_limit, offset))
 
     def transaction_history(self, limit: int = 10, offset: int = 0) -> str:
         return f"{STANDARD_API_URL}/payments/all/transactions?limit={limit}&offset={offset}"
