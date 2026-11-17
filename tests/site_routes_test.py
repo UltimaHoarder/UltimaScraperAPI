@@ -1,8 +1,11 @@
 from ultima_scraper_api.apis.darkfans.urls import APIRoutes as DarkFansRoutes
 from ultima_scraper_api.apis.loyalfans.urls import APIRoutes as LoyalFansRoutes
 from ultima_scraper_api.apis.onlyfans.urls import APIRoutes as OnlyFansRoutes
+from ultima_scraper_api.apis.privacy.urls import APIRoutes as PrivacyRoutes
+from ultima_scraper_api.apis.privacy.urls import video_file_id, video_request_headers
 
 OF = "https://onlyfans.com/api2/v2"
+PRIVACY = "https://service.privacy.com.br"
 
 
 def test_onlyfans_content_types_are_pluralised_once():
@@ -51,3 +54,30 @@ def test_darkfans_routes_omit_unset_filters():
     )
     assert routes.chats("u-1", archived=False).endswith("/user/u-1/chat?page=1&perPage=15&archived=0")
     assert routes.me() == "https://darkfans.com/api/v1/user/info"
+
+
+def test_privacy_routes_match_the_web_client():
+    routes = PrivacyRoutes()
+    assert routes.profile_posts("someone", skip=10, take=10) == (
+        f"{PRIVACY}/timelinequeries/profile/10/10/someone"
+    )
+    assert routes.subscriptions() == (
+        f"{PRIVACY}/subscriptionmanager/subscriptions/active?page=1&filter=all&sort=closest"
+    )
+    assert routes.chat_rooms() == (
+        f"{PRIVACY}/chat/rooms?page=1&filter=all&sort=newest&online=false"
+    )
+    # Brackets encoded, the timestamp's colons kept, as the browser sends them.
+    assert routes.chat_messages("room1", [1, 2], "2026-01-02T03:04:05.678Z") == (
+        f"{PRIVACY}/chat/messages?roomId=room1&usersId%5B%5D=1&usersId%5B%5D=2"
+        "&minorSentAt=2026-01-02T03:04:05.678Z"
+    )
+
+
+def test_privacy_video_token_inputs():
+    url = "https://video.privacy.com.br/abc123/hls/file--name.m3u8"
+    assert video_file_id(url) == "abc123"
+    assert video_request_headers(url, "tok") == {
+        "content": "tok",
+        "x-content-uri": "file--name.m3u8",
+    }
