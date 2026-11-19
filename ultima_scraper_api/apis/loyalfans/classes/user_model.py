@@ -1,56 +1,80 @@
+from __future__ import annotations
+
+from collections.abc import AsyncGenerator
+from contextlib import aclosing
 from typing import TYPE_CHECKING, Any
 
+from ultima_scraper_api.apis.loyalfans import numbered_pages
+from ultima_scraper_api.apis.loyalfans.classes import (
+    message_model,
+    post_model,
+    story_model,
+)
 from ultima_scraper_api.apis.loyalfans.urls import APIRoutes, Routes
+from ultima_scraper_api.apis.pagination import ScrapeProgress, paginate
 from ultima_scraper_api.apis.user_streamliner import StreamlinedUser
 from ultima_scraper_api.helpers.site_ids import native_id_to_db_id
-from ultima_scraper_api.managers.scrape_manager import ScrapeManager
+from ultima_scraper_api.managers.scrape_manager import (
+    ScrapeManager,
+    ScrapeProgressCallback,
+)
 
 if TYPE_CHECKING:
     from ultima_scraper_api.apis.loyalfans.classes.auth_model import LoyalFansAuthModel
+    from ultima_scraper_api.apis.loyalfans.classes.message_model import MessageModel
+    from ultima_scraper_api.apis.loyalfans.classes.post_model import PostModel
+    from ultima_scraper_api.apis.loyalfans.classes.story_model import (
+        HighlightModel,
+        StoryModel,
+    )
+    from ultima_scraper_api.apis.loyalfans.loyalfans import LoyalFansAPI  # noqa: F401
+
+# Page sizes: the web client asks for 4 timeline posts, 18 store videos and
+# 12 highlights at a time; larger timeline pages are served the same way.
+POST_PAGE = 20
+STORE_PAGE = 18
+HIGHLIGHT_PAGE = 12
+
+
+def split_user(option: dict[str, Any]) -> tuple[dict[str, Any], dict[str, Any]]:
+    """(user, extras): a profile's ``data`` and the ``me`` response nest the
+    user under "user" beside profile/counters/prices; post owners, chat
+    partners and list members are bare users."""
+    nested = option.get("user")
+    if isinstance(nested, dict):
+        return nested, option
+    return option, {}
 
 
 class UserModel(StreamlinedUser["LoyalFansAuthModel", "LoyalFansAPI"]):
-    def __init__(self, option: dict[str, Any], authed: "LoyalFansAuthModel") -> None:
-        user_option = option["user"]
-        profile_option = option.get("profile", {})
-        # LoyalFans ids are opaque strings; ``id`` is the archive's int key.
-        self.uid: str = str(user_option.get("uid", 0))
-        self.id: int = native_id_to_db_id(self.uid)
-        self.username: str = user_option.get("slug", f"u{self.uid}")
-        self.name: str = user_option.get("name", self.username)
-        profile_photo_dict: dict[str, Any] | None = user_option.get("profile_photo")
-        self.avatar: str | None = (
-            profile_photo_dict["images"]["original"] if profile_photo_dict else None
-        )
-        cover_photo_dict: dict[str, Any] | None = user_option.get("cover_photo")
-        self.header: str | None = (
-            cover_photo_dict["url_original"] if cover_photo_dict else None
-        )
-        self.about: str = profile_option.get("about", "")
-        self.location: str | None = option.get("location")
-        self.website: str | None = option.get("website")
-        self.is_verified: bool = option.get("isVerified", False)
-        self.subscriber_count: int = option.get("subscriberCount", 0)
-        self.post_count: int = option.get("postCount", 0)
-        self.media_count: int = option.get("mediaCount", 0)
-        self.subscription_price: float = option.get("subscriptionPrice", 0.0)
-        self.is_subscribed: bool = option.get("isSubscribed", False)
-        self.is_blocked: bool = option.get("isBlocked", False)
-        self.can_message: bool = option.get("canMessage", False)
-        created_at_dict: dict[str, Any] | None = option.get("created_at")
-        self.join_date: str | None = (
-            created_at_dict.get("date") if created_at_dict else None
-        )
-        self.last_seen: str | None = option.get("online_activity_at")
-        self.is_online: bool = option.get("is_online", False)
+    """A LoyalFans user, built from whichever user object the API returned."""
 
-        # Custom fields for internal use
-        found_user = authed.find_user(self.id)
-        if not found_user:
+    def __init__(self, option: dict[str, Any], authed: LoyalFansAuthModel) -> None:
+        user, extras = split_user(option)
+        # LoyalFans ids are opaque strings; ``id`` is the archive's int key.
+        self.uid: str = str(user.get("uid") or 0)
+        self.id: int = native_id_to_db_id(self.uid)
+        self.username: str = user.get("slug") or f"u{self.uid}"
+        self.name: str = user.get("display_name") or user.get("name") or self.username
+        self.user_type: str = user.get("user_type") or ""
+        self.avatar: str | None = None
+        self.header: str | None = None
+        self.about: str = ""
+        self.twitter: str | None = None
+        self.subscription_price: float | None = None
+        self.counters: dict[str, Any] = {}
+        self.has_story = False
+        self.has_highlights = False
+        # True once a full profile (GET /profile/star/{slug}) has been merged.
+        self.profile_loaded = False
+        self.join_date: str | None = None
+        self.active = True
+        self.is_deleted = False
+        self._apply(user, extras)
+        if not authed.find_user(self.id):
             authed.add_user(self)
-        self.username = self.get_username()
         self.download_info: dict[str, Any] = {}
-        self.duplicate_media = []
+        self.duplicate_media: list[Any] = []
         self.scrape_manager = ScrapeManager[
             "LoyalFansAuthModel", authed.get_api().CategorizedContent
         ](authed)
@@ -58,55 +82,256 @@ class UserModel(StreamlinedUser["LoyalFansAuthModel", "LoyalFansAPI"]):
         self.__db_user__: Any = None
         super().__init__(authed)
 
+    def _apply(self, user: dict[str, Any], extras: dict[str, Any]) -> None:
+        photo = user.get("profile_photo")
+        if isinstance(photo, dict):
+            self.avatar = (photo.get("images") or {}).get("original") or self.avatar
+        cover = user.get("cover_photo")
+        if isinstance(cover, dict):
+            self.header = cover.get("url_original") or cover.get("url") or self.header
+        created = user.get("created_at")
+        if isinstance(created, dict):
+            self.join_date = created.get("date") or self.join_date
+        profile = extras.get("profile")
+        if isinstance(profile, dict):
+            self.profile_loaded = True
+            self.about = profile.get("description") or self.about
+            self.twitter = profile.get("twitter") or self.twitter
+        prices = extras.get("prices")
+        if isinstance(prices, dict) and isinstance(prices.get("subscription_price"), dict):
+            self.subscription_price = prices["subscription_price"].get("value")
+        if isinstance(extras.get("counters"), dict):
+            self.counters = extras["counters"]
+        self.has_story = bool(extras.get("hasStory", self.has_story))
+        self.has_highlights = bool(extras.get("hasHighlights", self.has_highlights))
+
+    def merge(self, option: dict[str, Any]) -> None:
+        """Fill fields a richer user object knows (e.g. a full profile)."""
+        user, extras = split_user(option)
+        self.username = user.get("slug") or self.username
+        self.name = user.get("display_name") or user.get("name") or self.name
+        self.user_type = user.get("user_type") or self.user_type
+        self._apply(user, extras)
+        if extras:
+            self.__raw__ = option
+
     def get_username(self) -> str:
-        """Returns username, if not available returns user ID prefixed with 'u'"""
-        if not self.username:
-            self.username = f"u{self.uid}"
         return self.username
 
     def get_link(self, use_username: bool = False) -> str:
-        """Returns the user's profile link"""
         if use_username:
             return Routes().profile(self.username)
         return Routes().profile_by_uid(self.uid)
 
+    def is_authed_user(self) -> bool:
+        return self.id == self.get_authed().id
+
+    def is_performer(self) -> bool:
+        return self.user_type == "model"
+
     async def get_avatar(self) -> str | None:
-        """Returns the user's avatar URL"""
         return self.avatar
 
     async def get_header(self) -> str | None:
-        """Returns the user's header/banner URL"""
         return self.header
 
-    def is_performer(self) -> bool:
-        """Returns True if the user is a content creator"""
-        # In LoyalFans, anyone with subscription price > 0 is considered a performer
-        return self.subscription_price > 0
-
     async def match_identifiers(self, identifiers: list[int | str]) -> bool:
-        """Checks if user matches any of the provided identifiers"""
-        return (
-            self.id in identifiers
-            or self.uid in identifiers
-            or self.username in identifiers
+        return any(value in identifiers for value in (self.id, self.uid, self.username))
+
+    async def if_scraped(self):
+        return any(value for _, value in self.scrape_manager.scraped)
+
+    async def get_socials(self) -> list[dict[str, Any]]:
+        """The profile's linked accounts (LoyalFans profiles show only X/Twitter)."""
+        if not self.twitter:
+            return []
+        url = self.twitter if "://" in self.twitter else f"https://{self.twitter}"
+        handle = url.rstrip("/").rsplit("/", 1)[-1]
+        return [{"socialMedia": "Twitter", "username": handle, "url": url}]
+
+    # --- posts -----------------------------------------------------------------------
+
+    async def get_posts(
+        self,
+        limit: int | None = None,
+        on_progress: ScrapeProgressCallback | None = None,
+        job_id: str | None = None,
+    ) -> list[PostModel]:
+        async with aclosing(
+            self.iter_posts(limit=limit, on_progress=on_progress, job_id=job_id)
+        ) as values:
+            posts = [post async for post in values]
+        self.scrape_manager.scraped.Posts = {post.id: post for post in posts}
+        return posts
+
+    async def iter_posts(
+        self,
+        limit: int | None = None,
+        on_progress: ScrapeProgressCallback | None = None,
+        job_id: str | None = None,
+        *,
+        label: str = "",
+        store: bool = True,
+        cache: bool = False,
+    ) -> AsyncGenerator[PostModel, None]:
+        """The timeline newest first, then the video store; ``limit`` caps the total.
+
+        Store videos are posts that never appear on the timeline. The first
+        timeline page can carry a promoted free post that later pages repeat,
+        so posts are deduplicated by uid. LoyalFans has no archived posts, so
+        any ``label`` yields nothing.
+        """
+        if label:
+            return
+        authed = self.get_authed()
+
+        async def timeline(page: int) -> tuple[list[dict[str, Any]], dict[str, Any]]:
+            link = APIRoutes().timeline(self.username, limit=POST_PAGE, page=page)
+            result = await authed.call(link)
+            return result.get("timeline") or [], result.get("page_meta") or {}
+
+        async def store_page(page: int) -> tuple[list[dict[str, Any]], dict[str, Any]]:
+            body = {"slug": self.username, "type": "video", "limit": STORE_PAGE, "page": page}
+            result = await authed.call(APIRoutes().videos_store(), body)
+            return result.get("list") or [], result.get("page_meta") or {}
+
+        progress = ScrapeProgress(
+            self, "Posts", job_id=job_id, total_items=limit, on_progress=on_progress
         )
+        seen: set[str] = set()
+        for source in [timeline, store_page] if store else [timeline]:
+            async with aclosing(numbered_pages(source, progress=progress)) as values:
+                async for raw in values:
+                    if limit is not None and len(seen) >= limit:
+                        return
+                    if raw["uid"] in seen:
+                        continue
+                    seen.add(raw["uid"])
+                    yield post_model.PostModel(raw, self)
 
-    async def get_posts(self, limit: int = 20, offset: int = 0) -> list[dict[str, Any]]:
-        """Gets user's posts with pagination"""
-        max_pagination_limit = 20  # maximum number of results per request
-        page = offset // max_pagination_limit + 1
+    async def get_post(self, identifier: str) -> PostModel | None:
+        """One post by its slug (the end of its URL) or uid."""
+        result = await self.get_authed().call(APIRoutes().post(str(identifier)))
+        item = result.get("post")
+        return post_model.PostModel(item, self) if isinstance(item, dict) else None
 
-        link = APIRoutes().timeline(self.username, limit=limit, page=page)
-        results = await self.get_requester().json_request(link)
-        return results.get("timeline", [])
+    # --- messages --------------------------------------------------------------------
 
     async def get_messages(
-        self, limit: int = 50, offset: int = 0
-    ) -> list[dict[str, Any]]:
-        """Gets private messages between authenticated user and this user"""
-        if not self.can_message:
-            return []
+        self,
+        limit: int | None = None,
+        on_progress: ScrapeProgressCallback | None = None,
+        job_id: str | None = None,
+    ) -> list[MessageModel]:
+        async with aclosing(
+            self.iter_messages(max_items=limit, on_progress=on_progress, job_id=job_id)
+        ) as values:
+            messages = [message async for message in values]
+        self.scrape_manager.scraped.Messages = {m.id: m for m in messages}
+        return messages
 
-        link = APIRoutes().messages(self.uid, limit=limit, offset=offset)
-        results = await self.get_requester().json_request(link)
-        return results.get("messages", [])
+    async def iter_messages(
+        self,
+        on_progress: ScrapeProgressCallback | None = None,
+        job_id: str | None = None,
+        *,
+        max_items: int | None = None,
+        cache: bool = False,
+    ) -> AsyncGenerator[MessageModel, None]:
+        """The conversation with this user, newest first.
+
+        Older pages follow the response's ``mid_token``; the last page has none.
+        """
+        if self.is_authed_user():
+            return
+        authed = self.get_authed()
+
+        async def fetch(token: str | None) -> tuple[list[MessageModel], str | None]:
+            result = await authed.call(APIRoutes().conversation(self.uid, token))
+            raw = result.get("messages") or []
+            messages = [message_model.MessageModel(item, self) for item in raw]
+            return messages, (result.get("mid_token") or None) if raw else None
+
+        progress = ScrapeProgress(
+            self, "Messages", job_id=job_id, total_items=max_items, on_progress=on_progress
+        )
+        async with aclosing(paginate(fetch, max_items=max_items, progress=progress)) as values:
+            async for message in values:
+                yield message
+
+    # --- stories and highlights ------------------------------------------------------
+
+    async def get_stories(
+        self,
+        on_progress: ScrapeProgressCallback | None = None,
+        job_id: str | None = None,
+    ) -> list[StoryModel]:
+        async with aclosing(
+            self.iter_stories(on_progress=on_progress, job_id=job_id)
+        ) as values:
+            stories = [story async for story in values]
+        self.scrape_manager.scraped.Stories = {story.id: story for story in stories}
+        return stories
+
+    async def iter_stories(
+        self,
+        on_progress: ScrapeProgressCallback | None = None,
+        job_id: str | None = None,
+        *,
+        max_items: int | None = None,
+        cache: bool = False,
+    ) -> AsyncGenerator[StoryModel, None]:
+        """The creator's live stories (POST /stories {slug}), oldest first."""
+        result = await self.get_authed().call(APIRoutes().stories(), {"slug": self.username})
+        progress = ScrapeProgress(
+            self, "Stories", job_id=job_id, total_items=max_items, on_progress=on_progress
+        )
+        count = 0
+        for group in result.get("list") or []:
+            for raw in group if isinstance(group, list) else [group]:
+                owner = raw.get("owner") or {}
+                if owner.get("uid") not in (None, self.uid):
+                    continue
+                if max_items is not None and count >= max_items:
+                    break
+                count += 1
+                yield story_model.StoryModel(raw, self)
+        await progress.page(1, count, False)
+
+    async def get_highlights(self) -> list[HighlightModel]:
+        """The creator's highlights, each with its stories."""
+
+        async def page(number: int) -> tuple[list[HighlightModel], dict[str, Any]]:
+            body = {"slug": self.username, "page": number, "limit": HIGHLIGHT_PAGE}
+            result = await self.get_authed().call(APIRoutes().highlights(), body)
+            items = [story_model.HighlightModel(raw, self) for raw in result.get("list") or []]
+            return items, result.get("pagination") or result.get("page_meta") or {}
+
+        async with aclosing(numbered_pages(page)) as values:
+            return [highlight async for highlight in values]
+
+    async def iter_highlight_stories(
+        self,
+        on_progress: ScrapeProgressCallback | None = None,
+        job_id: str | None = None,
+        *,
+        max_items: int | None = None,
+        cache: bool = False,
+    ) -> AsyncGenerator[StoryModel, None]:
+        """Every story kept in a highlight, once each (a story can sit in several)."""
+        seen: set[str] = set()
+        count = 0
+        for highlight in await self.get_highlights():
+            for story in highlight.stories:
+                if story.uid in seen:
+                    continue
+                if max_items is not None and count >= max_items:
+                    return
+                seen.add(story.uid)
+                count += 1
+                yield story
+        progress = ScrapeProgress(
+            self, "Highlights", job_id=job_id, total_items=max_items, on_progress=on_progress
+        )
+        await progress.page(1, count, False)
+

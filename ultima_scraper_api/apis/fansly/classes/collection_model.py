@@ -30,11 +30,11 @@ class CollectionModel(SiteContent):
         self.rawText: str = self.text
         self.created_at: datetime = from_timestamp(album["createdAt"])  # type: ignore[assignment]
         self.item_count: int = album.get("itemCount", 0)
-        self.price: int | None = None
         self.album_content: list[dict[str, Any]] = content.get("albumContent") or []
         # Each album item is a media offer whose mediaOfferId is an accountMedia id.
-        self.media, self.previews = resolve_account_media(
-            [item["mediaOfferId"] for item in self.album_content],
-            content.get("aggregationData") or {},
+        self._attach_media(
+            resolve_account_media(
+                [item["mediaOfferId"] for item in self.album_content],
+                content.get("aggregationData") or {},
+            )
         )
-        self.preview: list[int] = self.previews

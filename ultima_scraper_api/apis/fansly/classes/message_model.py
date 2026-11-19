@@ -34,13 +34,9 @@ class MessageModel(SiteContent):
         self.reply_to: str | None = option.get("inReplyTo")
         self.total_tip_amount: int = option.get("totalTipAmount", 0)
         self.attachments: list[dict[str, Any]] = option.get("attachments") or []
-        # Price is per media on Fansly (accountMedia.price); messages carry none.
-        self.price: int | None = None
         self.is_from_queue: bool = False
         self.queue_id: int | None = None
-        self.media, self.previews = resolve_attachments(
-            self.attachments, aggregation or {}
-        )
+        self._attach_media(resolve_attachments(self.attachments, aggregation or {}))
 
     def get_receiver(self):
         return self.user.get_authed().user if self.author is self.user else self.user

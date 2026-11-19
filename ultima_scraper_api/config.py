@@ -133,10 +133,26 @@ class LoyalFansAPIConfig(GlobalAPI):
     cache: LoyalFansCache = LoyalFansCache()
 
 
+class PrivacyAPIConfig(GlobalAPI):
+    class PrivacyCache(GlobalCache):
+        pass
+
+    cache: PrivacyCache = PrivacyCache()
+
+
+class DarkFansAPIConfig(GlobalAPI):
+    class DarkFansCache(GlobalCache):
+        pass
+
+    cache: DarkFansCache = DarkFansCache()
+
+
 class Sites(BaseModel):
     onlyfans: OnlyFansAPIConfig = OnlyFansAPIConfig()
     fansly: FanslyAPIConfig = FanslyAPIConfig()
     loyalfans: LoyalFansAPIConfig = LoyalFansAPIConfig()
+    privacy: PrivacyAPIConfig = PrivacyAPIConfig()
+    darkfans: DarkFansAPIConfig = DarkFansAPIConfig()
 
     def get_settings(self, site_name: str):
         if site_name.lower() not in type(self).model_fields:

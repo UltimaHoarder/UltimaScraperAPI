@@ -53,6 +53,7 @@ CALL_KWARGS: dict[str, tuple[str, ...]] = {
     "iter_paid_content": ("performer_id", "limit", "cache"),
     "iter_chats": ("query", "limit"),
     "get_user": ("refresh",),
+    "get_lists": ("refresh", "limit", "offset"),
 }
 
 

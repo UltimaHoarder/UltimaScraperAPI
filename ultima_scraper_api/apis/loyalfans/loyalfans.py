@@ -6,6 +6,7 @@ from ultima_scraper_api.apis.api_streamliner import StreamlinedAPI
 from ultima_scraper_api.apis.loyalfans.classes.extras import AuthDetails
 from ultima_scraper_api.apis.loyalfans.classes.message_model import MessageModel
 from ultima_scraper_api.apis.loyalfans.classes.post_model import PostModel
+from ultima_scraper_api.apis.loyalfans.classes.story_model import StoryModel
 from ultima_scraper_api.apis.loyalfans.urls import APIRoutes
 from ultima_scraper_api.config import UltimaScraperAPIConfig
 from ultima_scraper_api.managers.websocket_manager import WebSocketManager
@@ -77,9 +78,10 @@ def extract_auth_details_from_curl(credentials: str) -> AuthDetails:
 class LoyalFansAPI(StreamlinedAPI):
     def __init__(
         self,
-        config: UltimaScraperAPIConfig = UltimaScraperAPIConfig(),
+        config: UltimaScraperAPIConfig | None = None,
         websocket_manager: WebSocketManager | None = None,
     ) -> None:
+        config = config or UltimaScraperAPIConfig()
         self.site_name: Literal["LoyalFans"] = "LoyalFans"
         StreamlinedAPI.__init__(self, self, config)
         self.auths: dict[int, "LoyalFansAuthModel"] = {}
@@ -111,12 +113,13 @@ class LoyalFansAPI(StreamlinedAPI):
 
     async def login(
         self,
-        auth_json: dict[str, Any] = {},
+        auth_json: dict[str, Any] | None = None,
         curl_string: str | None = None,
         guest: bool = False,
     ):
+        auth_json = auth_json or {}
         authed = None
-        if auth_json:
+        if auth_json.get("id"):
             authed = self.find_auth(auth_json["id"])
         if not authed:
             if curl_string:
@@ -136,12 +139,13 @@ class LoyalFansAPI(StreamlinedAPI):
     @asynccontextmanager
     async def login_context(
         self,
-        auth_json: dict[str, Any] = {},
+        auth_json: dict[str, Any] | None = None,
         curl_string: str | None = None,
         guest: bool = False,
     ):
+        auth_json = auth_json or {}
         authed = None
-        if auth_json:
+        if auth_json.get("id"):
             authed = self.find_auth(auth_json["id"])
         if not authed:
             temp_auth_details = self.create_auth_details(auth_json)
@@ -159,7 +163,7 @@ class LoyalFansAPI(StreamlinedAPI):
             if not auth.is_authed():
                 await self.remove_auth(auth)
 
-    def create_auth_details(self, auth_json: dict[str, Any] = {}):
+    def create_auth_details(self, auth_json: dict[str, Any] | None = None):
         """Create auth details from JSON configuration.
 
         Args:
@@ -168,14 +172,16 @@ class LoyalFansAPI(StreamlinedAPI):
         Returns:
             AuthDetails: Authentication details object
         """
-        return AuthDetails(**auth_json)
+        return AuthDetails(**(auth_json or {}))
 
     def convert_api_type_to_key(
         self,
         value: PostModel | MessageModel | Any,
         make_plural: bool = True,
     ):
-        if isinstance(value, PostModel):
+        if isinstance(value, StoryModel):
+            final_value = self.ContentTypeTransformer("Story")
+        elif isinstance(value, PostModel):
             final_value = self.ContentTypeTransformer("Post")
         elif isinstance(value, MessageModel):
             final_value = self.ContentTypeTransformer("Message")
@@ -194,6 +200,8 @@ class LoyalFansAPI(StreamlinedAPI):
 
         def plural(self):
             match self.value:
+                case "Story":
+                    final_value = "Stories"
                 case "Post":
                     final_value = "Posts"
                 case "Message":
@@ -204,6 +212,8 @@ class LoyalFansAPI(StreamlinedAPI):
 
         def singular(self):
             match self.value:
+                case "Stories":
+                    final_value = "Story"
                 case "Posts":
                     final_value = "Post"
                 case "Messages":
@@ -214,6 +224,8 @@ class LoyalFansAPI(StreamlinedAPI):
 
     class CategorizedContent:
         def __init__(self) -> None:
+            self.Stories: dict[int, StoryModel] = {}
+            self.Chats: dict[int, Any] = {}
             self.Messages: dict[int, MessageModel] = {}
             self.Posts: dict[int, PostModel] = {}
 

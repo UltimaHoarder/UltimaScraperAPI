@@ -1,126 +1,270 @@
+from __future__ import annotations
+
+from collections.abc import AsyncGenerator
+from contextlib import aclosing
 from typing import TYPE_CHECKING, Any
 
 from ultima_scraper_api.apis.auth_streamliner import StreamlinedAuth
-from ultima_scraper_api.apis.loyalfans.urls import APIRoutes
+from ultima_scraper_api.apis.loyalfans import numbered_pages
+from ultima_scraper_api.apis.loyalfans.classes.chat_model import ChatModel
+from ultima_scraper_api.apis.loyalfans.classes.extras import call_api
+from ultima_scraper_api.apis.loyalfans.classes.subscription_model import (
+    SubscriptionModel,
+)
 from ultima_scraper_api.apis.loyalfans.classes.user_model import UserModel
+from ultima_scraper_api.apis.loyalfans.urls import APIRoutes
+from ultima_scraper_api.apis.pagination import paginate
+from ultima_scraper_api.helpers.site_ids import native_id_to_db_id
 
 if TYPE_CHECKING:
     from ultima_scraper_api.apis.loyalfans.authenticator import (
         LoyalFansAuthenticator,
     )
 
+    # Named in StreamlinedAuth's string type arguments below.
+    from ultima_scraper_api.apis.loyalfans.classes.extras import (  # noqa: F401
+        AuthDetails,
+    )
+    from ultima_scraper_api.apis.loyalfans.loyalfans import LoyalFansAPI  # noqa: F401
+
+# Page sizes the web client uses.
+LIST_PAGE = 12
+CHAT_PAGE = 20
+
 
 class LoyalFansAuthModel(
     StreamlinedAuth["LoyalFansAuthenticator", "LoyalFansAPI", "AuthDetails"]
 ):
-    def __init__(
-        self,
-        authenticator: "LoyalFansAuthenticator",
-    ) -> None:
+    def __init__(self, authenticator: LoyalFansAuthenticator) -> None:
         self.api = authenticator.api
         self.users: dict[int, UserModel] = {}
         super().__init__(authenticator)
         self.user = authenticator.create_user(self)
         self.id = self.user.id
         self.username = self.user.username
+        self.subscriptions: list[SubscriptionModel] = []
+        self.chats: list[ChatModel] | None = None
+        self.lists: list[dict[str, Any]] = []
+        self.extras: dict[str, Any] = {}
+        self.blacklist: list[str] = []
         self.guest = self.authenticator.guest
         self.update()
 
+    # --- requests --------------------------------------------------------------------
+
+    async def call(self, link: str, body: dict[str, Any] | None = None) -> dict[str, Any]:
+        """GET ``link`` (or POST ``body`` as JSON); renews an expired token once.
+
+        Returns the JSON, or {"error": {code, message}} for a failed call.
+        """
+        requester = self.get_requester()
+        status, result = await call_api(requester, link, body)
+        if status == 401 and await self.authenticator.refresh_token(result):
+            status, result = await call_api(requester, link, body)
+        if status == 200 and result.get("success", True) is not False:
+            return result
+        message = result.get("message") or result.get("error") or "request failed"
+        return {"error": {"code": status, "message": str(message)}}
+
+    # --- users -----------------------------------------------------------------------
+
     def find_user(self, identifier: int | str):
         if isinstance(identifier, int):
-            user = self.users.get(identifier)
-        elif str(identifier).isdigit():
-            user = self.users.get(int(identifier))
-            if user is None:
-                for u in self.users.values():
-                    if u.username.lower() == str(identifier).lower():
-                        user = u
-                        break
-        else:
-            for user in self.users.values():
-                if user.uid == identifier or (
-                    user.username.lower() == identifier.lower()
-                ):
-                    break
-            else:
-                user = None
-        return user
+            return self.users.get(identifier)
+        text = str(identifier)
+        if text.isdigit() and int(text) in self.users:
+            return self.users[int(text)]
+        lowered = text.lower()
+        for user in self.users.values():
+            if user.uid == text or user.username.lower() == lowered:
+                return user
+        return None
 
-    def resolve_user(self, user_dict: dict[str, Any]):
-        user = None
-        if "id" in user_dict:
-            user = self.find_user(user_dict["id"])
-        if not user:
-            user = UserModel(user_dict, self)
+    def resolve_user(self, user_dict: dict[str, Any]) -> UserModel:
+        """The cached user for this user object (merged), or a new one."""
+        raw = user_dict.get("user") if isinstance(user_dict.get("user"), dict) else user_dict
+        uid = raw.get("uid") if isinstance(raw, dict) else None
+        user = self.users.get(native_id_to_db_id(str(uid))) if uid else None
+        if user is None:
+            return UserModel(user_dict, self)
+        user.merge(user_dict)
         return user
 
     def add_user(self, user: UserModel):
         self.users[user.id] = user
 
+    def get_pool(self):
+        return self.api.pool
+
     def update(self):
         if self.user:
-            identifier = self.user.id
-            username = self.user.username
-            self.id = identifier
-            self.username = username
-            # # This affects scripts that use the username to select profiles
-            auth_details = self.get_auth_details()
-            auth_details.id = identifier
-            # auth_details.username = username
+            self.id = self.user.id
+            self.username = self.user.username
+            self.get_auth_details().id = self.id
+
+    async def get_authed_user(self):
+        return self.user
+
+    async def get_me(self):
+        """The signed-in account again (GET /auth/user/me)."""
+        result = await self.call(APIRoutes().me())
+        me = result.get("response")
+        if not isinstance(me, dict) or not me:
+            return None
+        self.user.merge(me)
+        self.update()
+        return self.user
+
+    async def get_id(self):
+        return self.user.id
+
+    async def get_username(self):
+        return self.user.get_username()
+
+    async def match_identifiers(self, identifiers: list[int | str]):
+        return any(
+            value in identifiers for value in (self.id, self.user.uid, self.username)
+        )
 
     async def get_user(self, identifier: int | str, refresh: bool = False):
-        # The profile endpoint takes a slug. An int is an archive key (a hash
-        # of the uid), which only a loaded user can turn back into a slug.
+        """A full profile by username (slug); ids resolve through users already seen.
+
+        The profile route takes a slug, and an archive id is a hash of the uid,
+        so an id or uid only works for a user met before (subscriptions,
+        chats, posts). A user only seen as a post owner or list member is
+        fetched once to fill in the profile.
+        """
         known = self.find_user(identifier)
+        if known is not None and known.profile_loaded and not refresh:
+            return known
         if known is not None:
             identifier = known.username
-        elif isinstance(identifier, int):
-            raise ValueError(
-                f"LoyalFans user {identifier} is not loaded; look it up by username"
+        elif isinstance(identifier, int) or str(identifier).isdigit():
+            return None
+        result = await self.call(APIRoutes().profile(str(identifier)))
+        data = result.get("data")
+        if not isinstance(data, dict) or not isinstance(data.get("user"), dict):
+            return None
+        return self.resolve_user(data)
+
+    # --- lists and subscriptions -----------------------------------------------------
+
+    async def get_lists(
+        self, refresh: bool = True, limit: int | None = None, offset: int = 0
+    ) -> list[dict[str, Any]]:
+        """The account's user lists with their counts (system and custom)."""
+        if refresh or not self.lists:
+
+            async def page(number: int) -> tuple[list[Any], dict[str, Any]]:
+                result = await self.call(
+                    APIRoutes().user_lists(),
+                    {"page": number, "search_term": "", "limit": 16},
+                )
+                return result.get("user_lists") or [], result.get("page_meta") or {}
+
+            async with aclosing(numbered_pages(page)) as values:
+                self.lists = [value async for value in values]
+        lists = self.lists[offset:]
+        return lists[:limit] if limit is not None else lists
+
+    async def iter_list_users(
+        self, list_id: int | str, *, max_items: int | None = None
+    ) -> AsyncGenerator[UserModel, None]:
+        """Members of one list; ``list_id`` is an id or a system list's name."""
+
+        async def page(number: int) -> tuple[list[Any], dict[str, Any]]:
+            result = await self.call(
+                APIRoutes().user_list_users(),
+                {"id": list_id, "page": number, "limit": LIST_PAGE},
             )
-        link = APIRoutes().profile(str(identifier))
-        response = await self.auth_session.json_request(link)
-        user = UserModel(response["data"], self)
-        return user
+            return result.get("users") or [], result.get("page_meta") or {}
 
-    async def get_subscription_count(self) -> dict[str, Any]:
+        async with aclosing(numbered_pages(page, max_items=max_items)) as values:
+            async for raw in values:
+                yield self.resolve_user(raw)
 
-        url = APIRoutes().user_lists()
-        payload: dict[str, Any] = {"page": 1, "search_term": "", "limit": 16}
-        result = await self.auth_session.json_request(
-            url, method="POST", payload=payload
-        )
-        return result
-
-    async def get_subscriptions(self, limit: int | None = None) -> list[dict[str, Any]]:
-        max_pagination_limit = 100  # maximum number of results per request
+    async def get_subscriptions(
+        self,
+        identifiers: list[int | str] | None = None,
+        refresh: bool = True,
+        limit: int | None = None,
+        sub_type: str = "all",
+        filter_by: str = "",
+        job_id: str | None = None,
+    ) -> list[SubscriptionModel]:
+        """Paid subscriptions, plus followed (free) creators unless ``sub_type``
+        is "active"/"expired", which look at paid ones only."""
         if self.guest:
             return []
-        subscriptions_count = await self.get_subscription_count()
-        subscription_type_count: int = subscriptions_count["user_lists"][1][
-            "user_count"
-        ]
-        limit = limit if limit else subscription_type_count
-        limit = 1
-        payload: dict[str, Any] = {
-            "id": "subscribed",
-            "page": 1,
-            "limit": max_pagination_limit,
-        }
-        url = APIRoutes().user_list_users()
-        urls, payloads = APIRoutes().create_payloads(
-            url,
-            payload,
-            limit,
-            pagination_limit=max_pagination_limit,
-        )
-        subscription_responses = await self.auth_session.bulk_json_requests(
-            urls, payloads=payloads, method="POST"
-        )
-        subscriptions: list[dict[str, Any]] = []
-        for subscription in subscription_responses:
-            for user in subscription["users"]:
-                subscription_status = user["subscription_status"]
-                subscriptions.append(subscription_status)
-
+        if not refresh and self.subscriptions:
+            return self.subscriptions
+        kinds = ["subscribed"] if sub_type in ("active", "expired") else ["subscribed", "following"]
+        subscriptions: list[SubscriptionModel] = []
+        seen: set[int] = set()
+        for kind in kinds:
+            async with aclosing(self.iter_list_users(kind)) as users:
+                async for user in users:
+                    if user.id in seen:
+                        continue
+                    seen.add(user.id)
+                    subscriptions.append(SubscriptionModel(user.__raw__, user, self, kind))
+        if identifiers:
+            wanted = {str(x).lower() for x in identifiers}
+            subscriptions = [
+                s
+                for s in subscriptions
+                if {str(s.user.id), s.user.uid.lower(), s.user.username.lower()} & wanted
+            ]
+        if sub_type == "active":
+            subscriptions = [s for s in subscriptions if s.is_active()]
+        elif sub_type == "expired":
+            subscriptions = [s for s in subscriptions if not s.is_active()]
+        if limit is not None:
+            subscriptions = subscriptions[:limit]
+        self.subscriptions = subscriptions
         return subscriptions
+
+    async def get_scrapable_users(self):
+        return [subscription.user for subscription in self.subscriptions]
+
+    # --- chats -----------------------------------------------------------------------
+
+    async def get_chats(self, limit: int | None = None) -> list[ChatModel]:
+        async with aclosing(self.iter_chats(limit=limit)) as values:
+            chats = [chat async for chat in values]
+        self.chats = chats
+        return chats
+
+    async def iter_chats(
+        self,
+        limit: int | None = None,
+        *,
+        query: str | None = None,
+        cache: bool = False,
+    ) -> AsyncGenerator[ChatModel, None]:
+        """Conversations newest first; ``query`` keeps partners whose name matches.
+
+        The conversations route has no search parameter, so ``query`` filters
+        locally. Pages continue with the previous page's ``page_token``.
+        """
+        wanted = (query or "").lower()
+
+        async def fetch(token: str | None) -> tuple[list[ChatModel], str | None]:
+            body: dict[str, Any] = {"limit": CHAT_PAGE, "all": True}
+            if token:
+                body["page_token"] = token
+            result = await self.call(APIRoutes().conversations(), body)
+            raw = result.get("conversations") or []
+            chats = [ChatModel(item, self.resolve_user(item["partner"])) for item in raw]
+            return chats, (result.get("page_token") or None) if raw else None
+
+        count = 0
+        async with aclosing(paginate(fetch)) as values:
+            async for chat in values:
+                user = chat.user
+                if wanted and wanted not in f"{user.username} {user.name}".lower():
+                    continue
+                yield chat
+                count += 1
+                if limit is not None and count >= limit:
+                    return

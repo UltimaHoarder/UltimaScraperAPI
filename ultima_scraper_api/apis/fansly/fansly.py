@@ -58,9 +58,8 @@ class FanslyAPI(StreamlinedAPI):
         ]
 
     async def login(self, auth_json: dict[str, Any] = {}, guest: bool = False):
-        authed = None
-        if auth_json:
-            authed = self.find_auth(auth_json["id"])
+        # An import signs in before it knows the account, so has no id yet.
+        authed = self.find_auth(auth_json["id"]) if auth_json.get("id") else None
         if not authed:
             temp_auth_details = self.create_auth_details(auth_json)
             authenticator = self.authenticator(self, temp_auth_details)
@@ -75,9 +74,8 @@ class FanslyAPI(StreamlinedAPI):
 
     @asynccontextmanager
     async def login_context(self, auth_json: dict[str, Any] = {}, guest: bool = False):
-        authed = None
-        if auth_json:
-            authed = self.find_auth(auth_json["id"])
+        # An import signs in before it knows the account, so has no id yet.
+        authed = self.find_auth(auth_json["id"]) if auth_json.get("id") else None
         if not authed:
             temp_auth_details = self.create_auth_details(auth_json)
             authenticator = self.authenticator(self, temp_auth_details, guest)

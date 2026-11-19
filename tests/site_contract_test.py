@@ -11,6 +11,8 @@ import pytest
 
 from ultima_scraper_api import SITE_APIS, SUPPORTED_SITES, get_site_title, select_api
 from ultima_scraper_api.apis import site_contract as contract
+from ultima_scraper_api.apis.darkfans.classes.auth_model import DarkFansAuthModel
+from ultima_scraper_api.apis.darkfans.classes.user_model import UserModel as DarkFansUser
 from ultima_scraper_api.apis.fansly.classes.auth_model import FanslyAuthModel
 from ultima_scraper_api.apis.fansly.classes.message_model import (
     MessageModel as FanslyMessage,
@@ -25,12 +27,16 @@ from ultima_scraper_api.apis.onlyfans.classes.auth_model import OnlyFansAuthMode
 from ultima_scraper_api.apis.onlyfans.classes.user_model import (
     UserModel as OnlyFansUser,
 )
+from ultima_scraper_api.apis.privacy.classes.auth_model import PrivacyAuthModel
+from ultima_scraper_api.apis.privacy.classes.user_model import UserModel as PrivacyUser
 from ultima_scraper_api.config import Sites
 
 SITES = {
     "OnlyFans": (OnlyFansAuthModel, OnlyFansUser),
     "Fansly": (FanslyAuthModel, FanslyUser),
     "LoyalFans": (LoyalFansAuthModel, LoyalFansUser),
+    "Privacy": (PrivacyAuthModel, PrivacyUser),
+    "DarkFans": (DarkFansAuthModel, DarkFansUser),
 }
 
 EXPECTED_AUTH = {
@@ -48,11 +54,30 @@ EXPECTED_AUTH = {
         "user_lookup": "get_user",
         "subscriptions": "get_subscriptions",
         "paid_content": "get_paid_content",
-        "chats": "get_chats",
+        "chats": "iter_chats",
         "transactions": "get_transactions",
         "lists": "get_lists",
     },
-    "LoyalFans": {"user_lookup": "get_user", "subscriptions": "get_subscriptions"},
+    "LoyalFans": {
+        "me": "get_me",
+        "user_lookup": "get_user",
+        "subscriptions": "get_subscriptions",
+        "chats": "iter_chats",
+        "lists": "get_lists",
+    },
+    "Privacy": {
+        "me": "get_me",
+        "user_lookup": "get_user",
+        "subscriptions": "get_subscriptions",
+        "chats": "iter_chats",
+    },
+    "DarkFans": {
+        "me": "get_me",
+        "user_lookup": "get_user",
+        "subscriptions": "get_subscriptions",
+        "chats": "iter_chats",
+        "lists": "get_lists",
+    },
 }
 EXPECTED_USER = {
     "OnlyFans": {
@@ -65,13 +90,33 @@ EXPECTED_USER = {
         "socials": "get_socials",
     },
     "Fansly": {
-        "posts": "get_posts",
-        "messages": "get_messages",
-        "stories": "get_stories",
+        "posts": "iter_posts",
+        "messages": "iter_messages",
+        "stories": "iter_stories",
         "post_by_id": "get_post",
         "message_by_id": "get_message_by_id",
+        "socials": "get_socials",
     },
-    "LoyalFans": {"posts": "get_posts", "messages": "get_messages"},
+    "LoyalFans": {
+        "posts": "iter_posts",
+        "messages": "iter_messages",
+        "stories": "iter_stories",
+        "highlights": "iter_highlight_stories",
+        "post_by_id": "get_post",
+        "socials": "get_socials",
+    },
+    "Privacy": {
+        "posts": "iter_posts",
+        "messages": "iter_messages",
+        "post_by_id": "get_post",
+    },
+    "DarkFans": {
+        "posts": "iter_posts",
+        "messages": "iter_messages",
+        "stories": "iter_stories",
+        "highlights": "iter_highlight_stories",
+        "post_by_id": "get_post",
+    },
 }
 
 
@@ -92,8 +137,7 @@ def test_methods_accept_the_backends_arguments(site):
 def test_required_capabilities():
     assert contract.missing_required(OnlyFansAuthModel, auth=True) == []
     assert contract.missing_required(FanslyAuthModel, auth=True) == []
-    # Phase 3 adds LoyalFans' get_me.
-    assert contract.missing_required(LoyalFansAuthModel, auth=True) == ["me"]
+    assert contract.missing_required(LoyalFansAuthModel, auth=True) == []
 
 
 def test_signature_problems_spot_a_list_returning_iterator():
@@ -182,7 +226,8 @@ def test_content_problems_name_what_the_backend_would_lose():
 
 
 def test_registry_covers_the_supported_sites():
-    assert sorted(title for title, _ in SITE_APIS.values()) == sorted(SUPPORTED_SITES)
+    # Every site the backend runs has an API; an API may exist before the backend runs it.
+    assert set(SUPPORTED_SITES) <= {title for title, _ in SITE_APIS.values()}
     for key, (title, api_class) in SITE_APIS.items():
         assert get_site_title(key.upper()) == title
         assert isinstance(select_api(title), api_class)

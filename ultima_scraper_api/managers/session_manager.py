@@ -322,20 +322,14 @@ class AuthedSession:
     def get_proxy_manager(self):
         return self.session_manager.proxy_manager
 
-    def get_cookies(self):
-        from ultima_scraper_api.apis.fansly.authenticator import FanslyAuthenticator
-        from ultima_scraper_api.apis.loyalfans.authenticator import (
-            LoyalFansAuthenticator,
-        )
-
-        if isinstance(self.auth, FanslyAuthenticator):
-            final_cookies: dict[str, Any] = {}
-        elif isinstance(self.auth, LoyalFansAuthenticator):
-            final_cookies: dict[str, Any] = {}
-
-        else:
-            final_cookies = self.auth.auth_details.cookie.format()
-        return final_cookies
+    def get_cookies(self) -> dict[str, Any]:
+        # Only OnlyFans carries a cookie jar. DarkFans' ``cookie`` is the
+        # sign-in as a plain string; its authenticator sends those cookies on
+        # each request itself, so they stay out of the session's jar.
+        cookie = getattr(self.auth.auth_details, "cookie", None)
+        if cookie is None or isinstance(cookie, str):
+            return {}
+        return cookie.format()
 
     def get_current_proxy_info(self) -> ProxyInfo | None:
         if self.current_proxy is not None:

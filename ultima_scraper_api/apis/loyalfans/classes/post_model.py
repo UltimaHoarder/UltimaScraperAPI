@@ -1,158 +1,64 @@
-from datetime import datetime
-from typing import TYPE_CHECKING, Any, TypedDict
+from __future__ import annotations
 
-from ultima_scraper_api.apis.loyalfans.urls import APIRoutes
-from ultima_scraper_api.apis.onlyfans import SiteContent
-from ultima_scraper_api.helpers.site_ids import native_id_to_db_id
+from contextlib import aclosing
+from datetime import datetime
+from typing import TYPE_CHECKING, Any
+
+from ultima_scraper_api.apis.loyalfans import SiteContent, parse_time, post_media
+from ultima_scraper_api.apis.loyalfans.urls import APIRoutes, Routes
+from ultima_scraper_api.apis.pagination import paginate
 
 if TYPE_CHECKING:
     from ultima_scraper_api.apis.loyalfans.classes.user_model import UserModel
 
 
-class VideoObject(TypedDict):
-    poster: str
-    uid: str
-    duration: int
-    mime: str
-    views: int
-    preview_option: str
-    orientation: str
-    size: dict[str, int]
-    is_vr: bool
-    vr_format: str | None
-    vr_type: str | None
-    video_vr: Any
-    trailer_is_vr: bool
-    trailer_vr_format: str | None
-    trailer_vr_type: str | None
-
-
-class ReactionSummary(TypedDict):
-    type: str
-    count: int
-
-
-class Reactions(TypedDict):
-    total: int
-    summary: list[ReactionSummary]
-    reactions: list[Any]
-    users_uids: list[str]
-
-
 class PostModel(SiteContent):
-    def __init__(self, option: dict[str, Any], user: "UserModel") -> None:
-        self.uid: str = option["uid"]
-        SiteContent.__init__(
-            self, option | {"id": native_id_to_db_id(self.uid)}, user
-        )
-        self.slug: str = option["slug"]
-        self.short_url: str = option["short_url"]
-        self.reactions: Reactions = option["reactions"]
-        self.title: str = option.get("title", "")
-        self.content: str = option.get("content", "")
-        self.content_length: int = option.get("content_length", 0)
-        self.hashtags: list[str] = option.get("hashtags", [])
-        self.user_mentions: list[str] = option.get("user_mentions", [])
-        self.original_content: str = option.get("original_content", "")
-        self.birthday: bool = option.get("birthday", False)
-        self.pinned: bool = option.get("pinned", False)
-        self.created_at: datetime = datetime.fromisoformat(option["created_at"]["date"])
-        self.updated_at: datetime = datetime.fromisoformat(option["updated_at"]["date"])
-        self.expiring: Any = option.get("expiring")
-        self.pinned_at: Any = option.get("pinned_at")
-        self.comments_count: int = option["comments"]["total"]
-        self.comments_disabled: bool = option["comments"]["disabled"]
-        self.is_gif: bool = option.get("gif", False)
-        self.is_photo: bool = option.get("photo", False)
-        self.is_audio: bool = option.get("audio", False)
-        self.is_video: bool = option.get("video", False)
-        self.is_live: bool = option.get("is_live", False)
-        self.been_live: bool = option.get("been_live", False)
-        self.video_object: VideoObject | None = option.get("video_object")
-        self.total_tips: int = option.get("total_tips", 0)
-        self.privacy: dict[str, Any] = option["privacy"]
-        self.price: float = option.get("price", 0.0)
-        self.old_price: float | None = option.get("old_price")
-        self.discount_expire_at: Any = option.get("discount_expire_at")
-        self.discount_percent: int = option.get("discount_percent", 0)
-        self.bookmarked: bool = option.get("bookmarked", False)
-        self.post_type_label: str = option.get("post_type_label", "")
-        self.is_bought: bool = option.get("is_bought", False)
-        self.can_comment: bool = option.get("can_comment", False)
-        self.can_like: bool = option.get("can_like", False)
-        self.can_react: bool = option.get("can_react", True)
-        self.can_delete: bool = option.get("can_delete", False)
-        self.can_edit: bool = option.get("can_edit", False)
-        self.can_report: bool = option.get("can_report", True)
-        self.can_see: bool = option.get("can_see", False)
-        self.can_buy: bool = option.get("can_buy", True)
-        self.can_tip: bool = option.get("can_tip", True)
-        self.image_placeholder: list[str] = option.get("image_placeholder", [])
-        self.reacted: Any = option.get("reacted")
-        self.blocked: bool = option.get("blocked", False)
-        self.labels: list[str] = option.get("labels", [])
+    """A timeline post (social/timeline, social/post) or a video store item."""
 
-        # Store raw response
+    def __init__(self, option: dict[str, Any], user: UserModel) -> None:
+        SiteContent.__init__(self, str(option["uid"]), user)
         self.__raw__ = option
+        self.slug: str = option.get("slug") or ""
+        self.short_url: str | None = option.get("short_url")
+        self.title: str = option.get("title") or ""
+        self.text: str = option.get("original_content") or option.get("content") or ""
+        self.created_at: datetime | None = parse_time(option.get("created_at"))
+        self.updated_at: datetime | None = parse_time(option.get("updated_at"))
+        self.is_pinned: bool = bool(option.get("pinned"))
+        self.price = float(option.get("price") or 0)
+        self.old_price: float | None = option.get("old_price")
+        self.purchased: bool = bool(option.get("is_bought"))
+        self.can_see: bool = bool(option.get("can_see"))
+        self.post_type: str = option.get("post_type_label") or ""
+        self.labels: list[Any] = option.get("labels") or []
+        self.privacy: dict[str, Any] = option.get("privacy") or {}
+        comments = option.get("comments")
+        comments = comments if isinstance(comments, dict) else {}
+        self.comments_count: int = int(comments.get("total") or 0)
+        self.comments_disabled: bool = bool(comments.get("disabled"))
+        self.media = post_media(option, self.created_at)
+        self.comments: list[dict[str, Any]] = []
 
-    def get_author(self) -> "UserModel":
-        """Returns the post author"""
-        return self.author
+    def is_bought(self) -> bool:
+        return self.purchased or self.can_see
 
-    async def buy_ppv(self) -> dict[str, Any]:
-        """Buy this post if it's PPV"""
-        if not self.can_buy or not self.price:
-            return {"error": "Post cannot be purchased"}
-
-        link = APIRoutes().post_purchase(self.uid)
-        result = (
-            await self.get_author().get_requester().json_request(link, method="POST")
-        )
-        return result
+    def get_link(self) -> str:
+        return Routes().post(self.author.username, self.slug)
 
     async def get_comments(self) -> list[dict[str, Any]]:
-        """Get post comments"""
-        if self.comments_disabled:
-            return []
+        """All top-level comments (POST /api/v1/comments, by ``page_token``)."""
+        if self.comments_disabled or not self.comments_count:
+            return self.comments
+        authed = self.author.get_authed()
 
-        link = APIRoutes().post_comments(self.uid)
-        results = await self.get_author().get_requester().json_request(link)
-        return results.get("comments", [])
+        async def fetch(token: str | None) -> tuple[list[dict[str, Any]], str | None]:
+            body: dict[str, Any] = {"uid": self.uid}
+            if token:
+                body["page_token"] = token
+            result = await authed.call(APIRoutes().comments(), body)
+            comments = result.get("comments") or []
+            return comments, (result.get("page_token") or None) if comments else None
 
-    async def react(self, reaction_type: str) -> dict[str, Any]:
-        """Add a reaction to the post"""
-        if not self.can_react:
-            return {"error": "Cannot react to post"}
-
-        link = APIRoutes().post_react(self.uid)
-        payload = {"type": reaction_type}
-        result = (
-            await self.get_author()
-            .get_requester()
-            .json_request(link, method="POST", payload=payload)
-        )
-        return result
-
-    async def remove_reaction(self) -> dict[str, Any]:
-        """Remove reaction from post"""
-        link = APIRoutes().post_react(self.uid)
-        result = (
-            await self.get_author().get_requester().json_request(link, method="DELETE")
-        )
-        return result
-
-    async def bookmark(self) -> dict[str, Any]:
-        """Bookmark this post"""
-        link = APIRoutes().post_bookmark(self.uid)
-        result = (
-            await self.get_author().get_requester().json_request(link, method="POST")
-        )
-        return result
-
-    async def remove_bookmark(self) -> dict[str, Any]:
-        """Remove bookmark from post"""
-        link = APIRoutes().post_bookmark(self.uid)
-        result = (
-            await self.get_author().get_requester().json_request(link, method="DELETE")
-        )
-        return result
+        async with aclosing(paginate(fetch)) as values:
+            self.comments = [comment async for comment in values]
+        return self.comments

@@ -25,8 +25,7 @@ class StoryModel(SiteContent):
         self.created_at: datetime = from_timestamp(option["createdAt"])  # type: ignore[assignment]
         self.updated_at: datetime | None = from_timestamp(option.get("updatedAt"))
         self.expires_at: datetime | None = from_timestamp(option.get("expiresAt"))
-        self.price: int | None = None
         attachments = [
             {"contentType": option.get("contentType"), "contentId": option.get("contentId")}
         ]
-        self.media, self.previews = resolve_attachments(attachments, aggregation or {})
+        self._attach_media(resolve_attachments(attachments, aggregation or {}))

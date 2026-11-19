@@ -45,6 +45,22 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 os_name = platform.system()
 
+# Fastevo play tokens (DarkFans) are PASETO v4.local; a DRM media carrying one
+# in ``signature`` is a Fastevo video rather than an OnlyFans CloudFront one.
+FASTEVO_TOKEN_PREFIX = "v4.local."
+
+
+def mp4decrypt_key_arguments(key: str) -> list[str]:
+    """``--key`` arguments for a DRM key.
+
+    A key is ``KID:KEY``, or several separated by spaces when a video's tracks
+    are encrypted with different keys; mp4decrypt picks each track's by KID.
+    """
+    arguments: list[str] = []
+    for pair in key.split():
+        arguments += ["--key", pair]
+    return arguments
+
 # API Endpoint Notes:
 # Replace authed with your ClientSession
 # Replace APIRoutes().drm_resolver with "https://onlyfans.com/api2/v2/users/media/{MEDIA_ID}/drm/{RESPONSE_TYPE}/{CONTENT_ID}?type=widevine"
@@ -366,6 +382,9 @@ class DRMMedia:
         return directory
 
     def get_cookies(self):
+        if self.is_fastevo:
+            # Fastevo's track links carry their own access token.
+            return ""
         cookie_str = (
             f"CloudFront-Key-Pair-Id={self.key_pair_id}; "
             f"CloudFront-Policy={self.policy}; "
@@ -461,7 +480,19 @@ class DRMMedia:
         )
         return media_url
 
+    @property
+    def is_fastevo(self) -> bool:
+        return str(self.signature or "").startswith(FASTEVO_TOKEN_PREFIX)
+
     def resolve_filename(self) -> str | None:
+        if self.is_fastevo:
+            # Fastevo serves https://<host>/<video id>/processed/...; every
+            # track is fullTrack.mp4, so the video is named by its id.
+            for url in (self.manifest_url, self.video_url, self.audio_url):
+                parts = [part for part in urlparse(url or "").path.split("/") if part]
+                if len(parts) > 1 and parts[1] == "processed":
+                    return f"{parts[0]}.mp4"
+            return None
         url = self.video_url or self.audio_url
         return os.path.basename(urlparse(url).path) if url else None
 
@@ -519,27 +550,14 @@ class OnlyDRM:
         self.client_key = client_key_path.read_bytes()
         self.private_key = private_key_path.read_bytes()
 
-        # Find or use provided Bento4 tools
-        self.mp4decrypt_filepath = (
-            self._find_bento4_tool("mp4decrypt")
-            if mp4decrypt_path is None
-            else mp4decrypt_path
+        self._setup_media_tools(
+            authed,
+            mp4decrypt_path=mp4decrypt_path,
+            mp4dump_path=mp4dump_path,
+            media_formatter=media_formatter,
+            auto_start_workers=auto_start_workers,
+            max_workers=max_workers,
         )
-        self.mp4dump_filepath = (
-            self._find_bento4_tool("mp4dump") if mp4dump_path is None else mp4dump_path
-        )
-
-        # Validate required tools exist
-        if self.mp4decrypt_filepath is None:
-            raise FileNotFoundError(
-                "mp4decrypt not found in PATH. Please install Bento4 tools: "
-                "https://www.bento4.com/downloads/"
-            )
-        if self.mp4dump_filepath is None:
-            raise FileNotFoundError(
-                "mp4dump not found in PATH. Please install Bento4 tools: "
-                "https://www.bento4.com/downloads/"
-            )
 
         # Initialize Widevine device and CDM
         # Plain media models/formatters also import this module. Load the
@@ -557,20 +575,43 @@ class OnlyDRM:
         self.cdm = Cdm.from_device(self.device)  # type: ignore
         self.session_id = self.cdm.open()
 
-        # Store references
+    def _setup_media_tools(
+        self,
+        authed: "auth_types",
+        *,
+        mp4decrypt_path: Path | None = None,
+        mp4dump_path: Path | None = None,
+        media_formatter: MediaFormatter | None = None,
+        auto_start_workers: bool = True,
+        max_workers: int | None = None,
+    ) -> None:
+        """Bento4 tools and the merge formatter, which every DRM scheme needs."""
+        self.mp4decrypt_filepath = (
+            self._find_bento4_tool("mp4decrypt")
+            if mp4decrypt_path is None
+            else mp4decrypt_path
+        )
+        self.mp4dump_filepath = (
+            self._find_bento4_tool("mp4dump") if mp4dump_path is None else mp4dump_path
+        )
+        if self.mp4decrypt_filepath is None:
+            raise FileNotFoundError(
+                "mp4decrypt not found in PATH. Please install Bento4 tools: "
+                "https://www.bento4.com/downloads/"
+            )
+        if self.mp4dump_filepath is None:
+            raise FileNotFoundError(
+                "mp4dump not found in PATH. Please install Bento4 tools: "
+                "https://www.bento4.com/downloads/"
+            )
         self.os_name = os_name
         self.authed = authed
-
-        # Initialize or use provided MediaFormatter
         self.media_formatter = media_formatter or MediaFormatter(
             max_workers=max_workers
         )
-
-        # Auto-start workers if requested
         if auto_start_workers and not self.media_formatter.workers:
             worker_count = self.media_formatter.max_workers
             self.media_formatter.start_workers(worker_count)
-
 
     def _find_bento4_tool(self, tool_name: str) -> Path | None:
         """
@@ -821,8 +862,7 @@ class OnlyDRM:
                     str(self.mp4decrypt_filepath),
                     str(filepath),
                     str(temporary),
-                    "--key",
-                    key,
+                    *mp4decrypt_key_arguments(key),
                 ],
                 output_bytes=self.media_formatter.output_bytes,
             )
@@ -847,8 +887,7 @@ class OnlyDRM:
                     str(self.mp4decrypt_filepath),
                     str(filepath),
                     str(temporary),
-                    "--key",
-                    key,
+                    *mp4decrypt_key_arguments(key),
                 ],
             )
             if result.returncode:

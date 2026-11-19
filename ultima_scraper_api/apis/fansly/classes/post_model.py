@@ -37,10 +37,7 @@ class PostModel(SiteContent):
         self.linkedUsers: list[dict[str, Any]] = option.get("accountMentions") or []
         self.total_tip_amount: int = option.get("totalTipAmount", 0)
         self.attachments: list[dict[str, Any]] = option.get("attachments") or []
-        # Price is per media on Fansly (accountMedia.price); posts carry none.
-        self.price: int | None = None
-        self.media, self.previews = resolve_attachments(self.attachments, aggregation)
-        self.preview: list[int] = self.previews
+        self._attach_media(resolve_attachments(self.attachments, aggregation))
         self.comments: list[CommentModel] = []
 
     async def get_comments(self):

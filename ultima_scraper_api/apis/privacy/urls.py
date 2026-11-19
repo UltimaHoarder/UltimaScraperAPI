@@ -24,6 +24,15 @@ VIDEO_URL = f"{SCHEME}video.{DOMAIN}"
 CHAT_WEBSOCKET_URL = f"wss://service-websocket.{DOMAIN}/chat/socket.io/"
 
 
+def media_request_headers(url: str) -> dict[str, str]:
+    """Headers a direct media file needs: image.privacy.com.br refuses a
+    request that doesn't come from the site ("Access Denied", 403)."""
+    host = (urlsplit(url).hostname or "").lower()
+    if host == DOMAIN or host.endswith(f".{DOMAIN}"):
+        return {"Referer": f"{STANDARD_URL}/", "Origin": STANDARD_URL}
+    return {}
+
+
 class Routes:
     # These use the standard url
     def profile(self, profile_name: str) -> str:
@@ -60,6 +69,14 @@ class APIRoutes:
     def post(self, post_id: str) -> str:
         """{item: post}."""
         return f"{STANDARD_API_URL}/timelinequeries/post/{post_id}"
+
+    def post_comments(self, post_id: str, skip: int = 0) -> str:
+        """[comment], from the timeline component's code."""
+        return f"{STANDARD_API_URL}/timelinequeries/post/{post_id}/comments/{skip}"
+
+    def me_context(self) -> str:
+        """The signed-in account: {profileName, nickname, avatarUrl, userType, ...}."""
+        return f"{STANDARD_API_URL}/profile/users/me/context"
 
     def subscriptions(
         self, page: int = 1, filter: str = "all", sort: str = "closest"

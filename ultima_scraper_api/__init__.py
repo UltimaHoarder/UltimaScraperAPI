@@ -6,22 +6,28 @@ from typing import Any, Literal, get_args
 
 from pydantic import BaseModel, Field
 
+import ultima_scraper_api.apis.darkfans.classes as darkfans_classes
 import ultima_scraper_api.apis.fansly.classes as fansly_classes
 import ultima_scraper_api.apis.loyalfans.classes as loyalfans_classes
 import ultima_scraper_api.apis.onlyfans.classes as onlyfans_classes
+import ultima_scraper_api.apis.privacy.classes as privacy_classes
+from ultima_scraper_api.apis.darkfans.authenticator import DarkFansAuthenticator
+from ultima_scraper_api.apis.darkfans.darkfans import DarkFansAPI
 from ultima_scraper_api.apis.fansly.authenticator import FanslyAuthenticator
 from ultima_scraper_api.apis.fansly.fansly import FanslyAPI
 from ultima_scraper_api.apis.loyalfans.authenticator import LoyalFansAuthenticator
 from ultima_scraper_api.apis.loyalfans.loyalfans import LoyalFansAPI
 from ultima_scraper_api.apis.onlyfans.authenticator import OnlyFansAuthenticator
 from ultima_scraper_api.apis.onlyfans.onlyfans import OnlyFansAPI
+from ultima_scraper_api.apis.privacy.authenticator import PrivacyAuthenticator
+from ultima_scraper_api.apis.privacy.privacy import PrivacyAPI
 from ultima_scraper_api.config import UltimaScraperAPIConfig
 
 logger = logging.getLogger(__name__)
 
-SUPPORTED_SITES_LITERALS = Literal["OnlyFans", "Fansly", "LoyalFans"]
+SUPPORTED_SITES_LITERALS = Literal["OnlyFans", "Fansly", "LoyalFans", "Privacy", "DarkFans"]
 SUPPORTED_SITES = list(get_args(SUPPORTED_SITES_LITERALS))
-ENABLED_SITES_LITERALS = Literal["OnlyFans", "Fansly"]
+ENABLED_SITES_LITERALS = Literal["OnlyFans", "Fansly", "Privacy", "DarkFans"]
 CONTENT_VALUES = Literal["Free", "Paid", "All"]
 
 
@@ -30,31 +36,50 @@ def get_enabled_sites() -> list[str]:
     return [site for site in get_args(ENABLED_SITES_LITERALS)]
 
 
-api_types = OnlyFansAPI | FanslyAPI | LoyalFansAPI
+api_types = OnlyFansAPI | FanslyAPI | LoyalFansAPI | PrivacyAPI | DarkFansAPI
 authenticator_types = (
-    OnlyFansAuthenticator | FanslyAuthenticator | LoyalFansAuthenticator
+    OnlyFansAuthenticator
+    | FanslyAuthenticator
+    | LoyalFansAuthenticator
+    | PrivacyAuthenticator
+    | DarkFansAuthenticator
 )
 auth_types = (
     onlyfans_classes.auth_model.OnlyFansAuthModel
     | fansly_classes.auth_model.FanslyAuthModel
     | loyalfans_classes.auth_model.LoyalFansAuthModel
+    | privacy_classes.auth_model.PrivacyAuthModel
+    | darkfans_classes.auth_model.DarkFansAuthModel
 )
 user_types = (
     onlyfans_classes.user_model.UserModel
     | fansly_classes.user_model.UserModel
     | loyalfans_classes.user_model.UserModel
+    | privacy_classes.user_model.UserModel
+    | darkfans_classes.user_model.UserModel
 )
 story_types = (
-    onlyfans_classes.story_model.StoryModel | fansly_classes.story_model.StoryModel
+    onlyfans_classes.story_model.StoryModel
+    | fansly_classes.story_model.StoryModel
+    | darkfans_classes.story_model.StoryModel
 )
-post_types = onlyfans_classes.post_model.PostModel | fansly_classes.post_model.PostModel
+post_types = (
+    onlyfans_classes.post_model.PostModel
+    | fansly_classes.post_model.PostModel
+    | privacy_classes.post_model.PostModel
+    | darkfans_classes.post_model.PostModel
+)
 message_types = (
     onlyfans_classes.message_model.MessageModel
     | fansly_classes.message_model.MessageModel
+    | privacy_classes.message_model.MessageModel
+    | darkfans_classes.message_model.MessageModel
 )
 subscription_types = (
     onlyfans_classes.subscription_model.SubscriptionModel
     | fansly_classes.subscription_model.SubscriptionModel
+    | privacy_classes.subscription_model.SubscriptionModel
+    | darkfans_classes.subscription_model.SubscriptionModel
 )
 
 content_types = story_types | post_types | message_types
@@ -154,11 +179,16 @@ def map_api_media_types(types: list[str]) -> set[str]:
     return {m.value for t in types if (m := MediaType.from_api_type(t))}
 
 
-# Lower-case key -> (title, API class). Adding a site starts here.
+# Lower-case key -> (title, API class). Adding a site starts here; a site
+# reaches the backend once it is also in SUPPORTED_SITES_LITERALS (which gives
+# it an archive schema) and ApiInstances, and is offered once it is in
+# ENABLED_SITES_LITERALS.
 SITE_APIS: dict[str, tuple[str, type[api_types]]] = {
     "onlyfans": ("OnlyFans", OnlyFansAPI),
     "fansly": ("Fansly", FanslyAPI),
     "loyalfans": ("LoyalFans", LoyalFansAPI),
+    "privacy": ("Privacy", PrivacyAPI),
+    "darkfans": ("DarkFans", DarkFansAPI),
 }
 
 
@@ -201,6 +231,8 @@ class ApiInstances:
     OnlyFans: OnlyFansAPI
     Fansly: FanslyAPI
     LoyalFans: LoyalFansAPI
+    Privacy: PrivacyAPI
+    DarkFans: DarkFansAPI
 
 
 class UltimaScraperAPI:
@@ -224,6 +256,8 @@ class UltimaScraperAPI:
             OnlyFans=OnlyFansAPI(self.config, self.websocket_manager),
             Fansly=FanslyAPI(self.config, self.websocket_manager),
             LoyalFans=LoyalFansAPI(self.config, self.websocket_manager),
+            Privacy=PrivacyAPI(self.config, self.websocket_manager),
+            DarkFans=DarkFansAPI(self.config, self.websocket_manager),
         )
 
     async def init(self, ignore_sites: list[str] | None = None) -> None:

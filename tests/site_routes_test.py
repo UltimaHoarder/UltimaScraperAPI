@@ -36,24 +36,34 @@ def test_onlyfans_iter_links_pages_and_trims_the_last_page():
     assert routes.create_links(url, 0) == []
 
 
-def test_loyalfans_messages_carry_paging_in_the_url():
+def test_loyalfans_routes_match_the_web_client():
     routes = LoyalFansRoutes()
-    assert routes.messages("abc", limit=5, offset=10).endswith(
-        "/api/v2/messages/abc?limit=5&offset=10"
+    api = "https://www.loyalfans.com/api"
+    assert routes.timeline("some one", limit=20, page=2) == (
+        f"{api}/v2/social/timeline/some%20one?limit=20&page=2&ngsw-bypass=true"
     )
-    urls, payloads = routes.create_payloads("u", {"id": "subscribed"}, 25, 10)
-    assert urls == ["u", "u", "u"]
-    assert [p["page"] for p in payloads] == [1, 2, 3]
-    assert all(p["id"] == "subscribed" and p["limit"] == 10 for p in payloads)
+    assert routes.conversation("uid-1") == (
+        f"{api}/v1/messages/with/uid-1?timezone=UTC&ngsw-bypass=true"
+    )
+    assert routes.conversation("uid-1", "a/b") == (
+        f"{api}/v1/messages/with/uid-1?timezone=UTC&mid=a%2Fb&ngsw-bypass=true"
+    )
+    assert routes.stories() == f"{api}/v2/stories?ngsw-bypass=true"
 
 
-def test_darkfans_routes_omit_unset_filters():
+def test_darkfans_routes_match_the_web_client():
     routes = DarkFansRoutes()
-    assert routes.posts("u-1", page=2, per_page=5) == (
-        "https://darkfans.com/api/v1/user/u-1/posts?page=2&perPage=5"
+    api = "https://darkfans.com/api/v1"
+    assert routes.posts("u-1", page=2, per_page=5) == f"{api}/user/u-1/posts?page=2&perPage=5"
+    assert routes.posts("u-1", post_type="ppv").endswith("/posts?page=1&perPage=15&type=ppv")
+    # The web client sends the flag as a word (captured: archived=false).
+    assert routes.chats("u-1", archived=False).endswith("/user/u-1/chat?page=1&perPage=15&archived=false")
+    assert routes.chat_messages("me", "c-1", page=3) == (
+        f"{api}/user/me/chat/c-1/messages?page=3&perPage=50"
     )
-    assert routes.chats("u-1", archived=False).endswith("/user/u-1/chat?page=1&perPage=15&archived=0")
-    assert routes.me() == "https://darkfans.com/api/v1/user/info"
+    assert routes.stories("u-1") == f"{api}/user/u-1/stories?withPinned=1&page=1&perPage=15"
+    assert routes.me() == f"{api}/user/info"
+    assert routes.refresh_token() == f"{api}/auth/refresh"
 
 
 def test_privacy_routes_match_the_web_client():

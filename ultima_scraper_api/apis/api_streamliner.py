@@ -43,6 +43,22 @@ class Packages:
                 )
 
                 self.CreateAuth = LoyalFansAuthModel
+            case "privacy":
+                from ultima_scraper_api.apis.privacy.classes.auth_model import (
+                    PrivacyAuthModel,
+                )
+                from ultima_scraper_api.apis.privacy.classes.extras import AuthDetails
+
+                self.AuthDetails = AuthDetails
+                self.CreateAuth = PrivacyAuthModel
+            case "darkfans":
+                from ultima_scraper_api.apis.darkfans.classes.auth_model import (
+                    DarkFansAuthModel,
+                )
+                from ultima_scraper_api.apis.darkfans.classes.extras import AuthDetails
+
+                self.AuthDetails = AuthDetails
+                self.CreateAuth = DarkFansAuthModel
             case _:
                 raise ValueError("Site Doesn't Exist")
 

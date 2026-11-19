@@ -1,118 +1,70 @@
+from __future__ import annotations
+
 from datetime import datetime
 from typing import TYPE_CHECKING, Any
 
-from ultima_scraper_api.apis.loyalfans.urls import APIRoutes
-from ultima_scraper_api.apis.onlyfans import SiteContent
-from ultima_scraper_api.helpers.site_ids import native_id_to_db_id
+from ultima_scraper_api.apis.loyalfans import (
+    MEDIA_KINDS,
+    Media,
+    SiteContent,
+    parse_time,
+)
 
 if TYPE_CHECKING:
     from ultima_scraper_api.apis.loyalfans.classes.user_model import UserModel
 
 
+def message_media(
+    option: dict[str, Any], message_uid: str, created_at: datetime | None
+) -> list[Media]:
+    """A message's ``media`` entries.
+
+    They carry no id of their own, so each is keyed by the message uid and its
+    ``index``. Only locked message media have been seen; the URL keys of an
+    unlocked one are a best guess (the post keys ``video_url`` and
+    ``images.original``, or a plain ``url``) until one is captured.
+    """
+    media: list[Media] = []
+    for position, item in enumerate(option.get("media") or []):
+        index = item.get("index", position)
+        images = item.get("images") if isinstance(item.get("images"), dict) else {}
+        url = item.get("video_url") or item.get("url") or images.get("original")
+        media.append(
+            Media(
+                item,
+                media_uid=str(item.get("uid") or f"{message_uid}:{index}"),
+                kind=MEDIA_KINDS.get(str(item.get("media_type")).lower(), "photo"),
+                url=url,
+                created_at=created_at,
+                duration=item.get("duration"),
+                preview_url=item.get("video_cover") or images.get("medium"),
+                locked=bool(item.get("is_locked")),
+            )
+        )
+    return media
+
+
 class MessageModel(SiteContent):
-    def __init__(self, option: dict[str, Any], user: "UserModel") -> None:
-        self.uid: str = option["uid"]
-        SiteContent.__init__(
-            self, option | {"id": native_id_to_db_id(self.uid)}, user
-        )
+    """A message from /api/v1/messages/with/{partner}. ``user`` is the chat
+    partner; ``own`` messages are the signed-in account's."""
 
-        # Basic message info
-        self.content: str = option.get("content", "")
-        self.created_at: datetime = datetime.fromisoformat(option["created_at"]["date"])
-        self.updated_at: datetime = datetime.fromisoformat(option["updated_at"]["date"])
-
-        # Media attachments
-        self.is_gif: bool = option.get("gif", False)
-        self.is_photo: bool = option.get("photo", False)
-        self.is_audio: bool = option.get("audio", False)
-        self.is_video: bool = option.get("video", False)
-        self.video_object: dict[str, Any] | None = option.get("video_object")
-        self.media_count: int = option.get("media_count", 0)
-        self.media: list[dict[str, Any]] = option.get("media", [])
-
-        # Privacy & permissions
-        self.privacy: dict[str, Any] = option.get("privacy", {})
-        self.price: float = option.get("price", 0.0)
-        self.is_bought: bool = option.get("is_bought", False)
-        self.can_buy: bool = option.get("can_buy", True)
-        self.can_reply: bool = option.get("can_reply", False)
-        self.can_delete: bool = option.get("can_delete", False)
-        self.can_report: bool = option.get("can_report", True)
-        self.can_tip: bool = option.get("can_tip", True)
-        self.blocked: bool = option.get("blocked", False)
-
-        # Reactions
-        self.reactions: dict[str, Any] = option.get(
-            "reactions", {"total": 0, "summary": [], "reactions": [], "users_uids": []}
-        )
-        self.reacted: Any = option.get("reacted")
-
-        # Store raw response
+    def __init__(self, option: dict[str, Any], user: UserModel) -> None:
+        authed = user.get_authed()
+        author = authed.user if option.get("own") else user
+        SiteContent.__init__(self, str(option["uid"]), author)
         self.__raw__ = option
-        user.scrape_manager.scraped.Messages[self.id] = self
+        self.user = user
+        self.fromUser = author
+        self.text: str = option.get("message") or ""
+        self.created_at: datetime | None = parse_time(option.get("created_at"))
+        self.price = float(option.get("price") or 0)
+        self.is_locked: bool = bool(option.get("is_locked"))
+        self.is_expired: bool = bool(option.get("is_expired"))
+        self.has_tips: bool = bool(option.get("has_tips"))
+        self.media = message_media(option, self.uid, self.created_at)
 
-    def get_author(self) -> "UserModel":
-        """Returns the message author"""
-        return self.author
+    def is_bought(self) -> bool:
+        return not self.is_locked
 
-    def get_receiver(self) -> "UserModel":
-        """Returns the message recipient"""
-        receiver = (
-            self.author.get_authed() if self.author.id == self.user.id else self.user
-        )
-        return receiver
-
-    async def buy_ppv(self) -> dict[str, Any]:
-        """Buy this message if it's PPV"""
-        if not self.can_buy or not self.price:
-            return {"error": "Message cannot be purchased"}
-
-        link = APIRoutes().message_purchase(self.uid)
-        result = (
-            await self.get_author().get_requester().json_request(link, method="POST")
-        )
-        return result
-
-    async def react(self, reaction_type: str) -> dict[str, Any]:
-        """Add a reaction to the message"""
-        link = APIRoutes().message_react(self.uid)
-        payload = {"type": reaction_type}
-        result = (
-            await self.get_author()
-            .get_requester()
-            .json_request(link, method="POST", payload=payload)
-        )
-        return result
-
-    async def remove_reaction(self) -> dict[str, Any]:
-        """Remove reaction from message"""
-        link = APIRoutes().message_react(self.uid)
-        result = (
-            await self.get_author().get_requester().json_request(link, method="DELETE")
-        )
-        return result
-
-    async def delete(self) -> dict[str, Any]:
-        """Delete this message"""
-        if not self.can_delete:
-            return {"error": "Cannot delete message"}
-
-        link = APIRoutes().message(self.uid)
-        result = (
-            await self.get_author().get_requester().json_request(link, method="DELETE")
-        )
-        return result
-
-    async def report(self, reason: str) -> dict[str, Any]:
-        """Report this message"""
-        if not self.can_report:
-            return {"error": "Cannot report message"}
-
-        link = APIRoutes().message_report(self.uid)
-        payload = {"reason": reason}
-        result = (
-            await self.get_author()
-            .get_requester()
-            .json_request(link, method="POST", payload=payload)
-        )
-        return result
+    def get_receiver(self):
+        return self.user.get_authed().user if self.author is self.user else self.user

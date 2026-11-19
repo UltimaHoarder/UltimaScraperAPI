@@ -1,6 +1,7 @@
 from __future__ import annotations
 
-from collections.abc import Sequence
+from collections.abc import AsyncGenerator, Sequence
+from contextlib import aclosing
 from typing import TYPE_CHECKING, Any
 
 from ultima_scraper_api.apis.auth_streamliner import StreamlinedAuth
@@ -11,6 +12,7 @@ from ultima_scraper_api.apis.fansly.classes.post_model import PostModel
 from ultima_scraper_api.apis.fansly.classes.subscription_model import SubscriptionModel
 from ultima_scraper_api.apis.fansly.classes.user_model import UserModel
 from ultima_scraper_api.apis.fansly.urls import APIRoutes
+from ultima_scraper_api.apis.pagination import paginate
 
 if TYPE_CHECKING:
     from ultima_scraper_api.apis.fansly.authenticator import FanslyAuthenticator
@@ -182,8 +184,10 @@ class FanslyAuthModel(
         for account_id, raw in latest.items():
             user = users.get(int(account_id))
             if user is None:
-                # Deleted accounts no longer resolve; keep the record.
-                user = UserModel({"id": account_id, "username": "unknown"}, self)
+                # Deleted accounts no longer resolve; keep the record. Like
+                # OnlyFans, a deleted account is named u<id>: the real name
+                # stays an alias, and no two deleted accounts share one.
+                user = UserModel({"id": account_id, "isDeleted": True}, self)
                 user.active = False
             subscriptions.append(SubscriptionModel(raw, user, self))
         if identifiers:
@@ -213,28 +217,44 @@ class FanslyAuthModel(
         search: str = "",
     ) -> list[ChatModel]:
         """Conversations from GET /messaging/groups, newest activity first."""
-        chats: list[ChatModel] = []
-        while limit is None or len(chats) < limit:
-            link = APIRoutes().list_chats(CHAT_PAGE, offset, search)
+        async with aclosing(
+            self.iter_chats(limit=limit, offset=offset, query=search or None)
+        ) as values:
+            chats = [chat async for chat in values]
+        if not search:
+            self.chats = chats
+        return chats
+
+    async def iter_chats(
+        self,
+        limit: int | None = None,
+        offset: int = 0,
+        *,
+        query: str | None = None,
+        cache: bool = False,
+    ) -> AsyncGenerator[ChatModel, None]:
+        """Conversations page by page; ``query`` searches them, ``limit`` caps the total."""
+
+        async def fetch(cursor: int | None) -> tuple[list[ChatModel], int | None]:
+            page_offset = offset if cursor is None else cursor
+            link = APIRoutes().list_chats(CHAT_PAGE, page_offset, query or "")
             response = _response(await self.get_requester().json_request(link)) or {}
             page: list[dict[str, Any]] = response.get("data") or []
             aggregation = response.get("aggregationData") or {}
             accounts = {a["id"]: a for a in aggregation.get("accounts") or []}
             groups = {g["id"]: g for g in aggregation.get("groups") or []}
+            chats: list[ChatModel] = []
             for raw in page:
                 account = accounts.get(raw["partnerAccountId"])
-                if account is None:
-                    continue
-                user = self.resolve_user(account)
-                chats.append(ChatModel(raw, user, groups.get(raw["groupId"])))
-            if len(page) < CHAT_PAGE:
-                break
-            offset += CHAT_PAGE
-        if limit is not None:
-            chats = chats[:limit]
-        if not search:
-            self.chats = chats
-        return chats
+                if account is not None:
+                    user = self.resolve_user(account)
+                    chats.append(ChatModel(raw, user, groups.get(raw["groupId"])))
+            more = len(page) == CHAT_PAGE
+            return chats, (page_offset + CHAT_PAGE if more else None)
+
+        async with aclosing(paginate(fetch, max_items=limit)) as values:
+            async for chat in values:
+                yield chat
 
     async def find_chat_group_id(self, user: UserModel) -> int | None:
         """The DM group with ``user``, from cached chats or a username search."""
@@ -269,11 +289,15 @@ class FanslyAuthModel(
             orders = [o for o in orders if str(o.get("accountId")) == str(performer_id)]
         return orders[:limit] if limit is not None else orders
 
-    async def get_lists(self) -> list[dict[str, Any]]:
-        """The authed user's account lists (GET /lists/account)."""
-        result = await self.get_requester().json_request(APIRoutes().lists())
-        self.lists = _response(result) or []
-        return self.lists
+    async def get_lists(
+        self, refresh: bool = True, limit: int | None = None, offset: int = 0
+    ) -> list[dict[str, Any]]:
+        """The authed user's account lists (GET /lists/account, one response)."""
+        if refresh or not self.lists:
+            result = await self.get_requester().json_request(APIRoutes().lists())
+            self.lists = _response(result) or []
+        lists = self.lists[offset:]
+        return lists[:limit] if limit is not None else lists
 
     async def get_lists_users(
         self, identifier: int | str, limit: int = 100

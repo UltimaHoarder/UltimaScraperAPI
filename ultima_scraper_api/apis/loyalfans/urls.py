@@ -1,13 +1,12 @@
 """LoyalFans URLs.
 
-Checked against the web client build of 2026-11-16 (UltimaRE capture). Routes
-marked "not in the current web client" are kept as the code used them, but the
-site's own app no longer calls them; their replacements take request bodies
-that have not been captured yet.
+Checked against the signed-in web client on 2026-11-17 (UltimaRE capture).
+Many reads are POSTs with a JSON body; the body each route takes is noted.
+Every API call carries ``Authorization: Bearer <session token>`` and
+``X-Api-Version`` (see the authenticator).
 """
 
-import math
-from typing import Any
+from urllib.parse import quote, urlencode
 
 SCHEME = "https://"
 DOMAIN = "www.loyalfans.com"
@@ -15,6 +14,15 @@ STANDARD_URL = f"{SCHEME}{DOMAIN}"
 API_URL = f"{STANDARD_URL}/api"
 API_V1_URL = f"{API_URL}/v1"
 API_V2_URL = f"{API_URL}/v2"
+# The web client's build sends this with every API call.
+API_VERSION = "3.4.4"
+
+
+def _query(**params: object) -> str:
+    """Query string with the web client's ``ngsw-bypass`` and no unset values."""
+    values = {key: value for key, value in params.items() if value is not None}
+    values["ngsw-bypass"] = "true"
+    return urlencode(values)
 
 
 class Routes:
@@ -25,75 +33,72 @@ class Routes:
     def profile_by_uid(self, uid: str) -> str:
         return f"{STANDARD_URL}/user/{uid}"
 
+    def post(self, username: str, slug: str) -> str:
+        return f"{STANDARD_URL}/{username}/post/{slug}"
+
 
 class APIRoutes:
-    # These use the API url
+    # --- account ---------------------------------------------------------------------
+
     def me(self) -> str:
-        return f"{API_V1_URL}/auth/user/me?ngsw-bypass=true"
+        return f"{API_V1_URL}/auth/user/me?{_query()}"
 
-    def profile(self, username: str, profile_type: str = "star") -> str:
-        return f"{API_V2_URL}/profile/{profile_type}/{username}?ngsw-bypass=true"
-
-    def timeline(self, username: str, limit: int = 10, page: int = 1) -> str:
-        return (
-            f"{API_V2_URL}/social/timeline/{username}"
-            f"?limit={limit}&page={page}&ngsw-bypass=true"
-        )
+    def refresh_token(self) -> str:
+        """POST {} with the expired token: {success, token}."""
+        return f"{API_V1_URL}/auth/refresh-token?{_query()}"
 
     def user_lists(self) -> str:
-        """POST {page, search_term, limit}: the account's lists with their counts."""
-        return f"{API_V2_URL}/user-lists?ngsw-bypass=true"
+        """POST {page, search_term, limit}: {user_lists, page_meta}."""
+        return f"{API_V2_URL}/user-lists?{_query()}"
 
     def user_list_users(self) -> str:
-        """POST {id, page, limit, ...}: members of one list (subscriptions live here)."""
-        return f"{API_V2_URL}/user-lists/users?ngsw-bypass=true"
+        """POST {id, page, limit}: {list, users, page_meta}; ``id`` is a list id
+        or a system list's name ("following", "subscribed", "friends", ...)."""
+        return f"{API_V2_URL}/user-lists/users?{_query()}"
 
-    def messages(self, uid: str, limit: int = 10, offset: int = 0) -> str:
-        # Not in the current web client, which reads /api/v1/messages/with/{uid}.
-        return f"{API_V2_URL}/messages/{uid}?limit={limit}&offset={offset}"
+    def purchases(self) -> str:
+        """POST {group_by: "date"|"creator", page}: {items, page_meta}."""
+        return f"{API_V2_URL}/purchases?{_query()}"
 
-    def message(self, uid: str) -> str:
-        # Not in the current web client (it uses /api/v2/messages/get-message/{a}/{b}).
-        return f"{API_V2_URL}/messages/{uid}"
+    # --- profiles and posts ----------------------------------------------------------
 
-    def message_purchase(self, uid: str) -> str:
-        # Not in the current web client (it posts to /api/v2/messages/buy).
-        return f"{API_V2_URL}/messages/{uid}/purchase"
+    def profile(self, username: str, profile_type: str = "star") -> str:
+        return f"{API_V2_URL}/profile/{profile_type}/{quote(username)}?{_query()}"
 
-    def message_react(self, uid: str) -> str:
-        # Not in the current web client (it posts to /api/v2/messages/react).
-        return f"{API_V2_URL}/messages/{uid}/react"
+    def timeline(self, username: str, limit: int = 10, page: int = 1) -> str:
+        """{timeline, page_meta: {current_page, last_page, total}}, newest first."""
+        query = _query(limit=limit, page=page)
+        return f"{API_V2_URL}/social/timeline/{quote(username)}?{query}"
 
-    def message_report(self, uid: str) -> str:
-        # Not in the current web client (it posts to /api/v1/report/message).
-        return f"{API_V2_URL}/messages/{uid}/report"
+    def post(self, identifier: str) -> str:
+        """One post by its slug or uid: {post}."""
+        return f"{API_V1_URL}/social/post/{quote(identifier)}?{_query()}"
 
-    def post_purchase(self, uid: str) -> str:
-        # Not in the current web client.
-        return f"{API_V2_URL}/posts/{uid}/purchase"
+    def comments(self) -> str:
+        """POST {uid: <post uid>, page_token?}: {comments, page_token}."""
+        return f"{API_V1_URL}/comments?{_query()}"
 
-    def post_comments(self, uid: str) -> str:
-        # Not in the current web client (it posts to /api/v1/comments).
-        return f"{API_V2_URL}/posts/{uid}/comments"
+    def videos_store(self) -> str:
+        """POST {slug, type: "video", limit, page}: {list, page_meta}."""
+        return f"{API_V2_URL}/videos-store?{_query()}"
 
-    def post_react(self, uid: str) -> str:
-        # Not in the current web client (it posts to /api/v2/reaction).
-        return f"{API_V2_URL}/posts/{uid}/react"
+    def stories(self) -> str:
+        """POST {slug} for one creator, {page, limit} for the followed feed:
+        {list: [[story, ...] per creator], pagination}."""
+        return f"{API_V2_URL}/stories?{_query()}"
 
-    def post_bookmark(self, uid: str) -> str:
-        # Not in the current web client (it posts to /api/v2/bookmarks/bookmark).
-        return f"{API_V2_URL}/posts/{uid}/bookmark"
+    def highlights(self) -> str:
+        """POST {slug, page, limit}: {list: [{uid, title, cover, stories}]}."""
+        return f"{API_V2_URL}/stories/highlights?{_query()}"
 
-    def create_payloads(
-        self,
-        url: str,
-        payload: dict[str, Any],
-        max_items: int,
-        pagination_limit: int = 10,
-    ) -> tuple[list[str], list[dict[str, Any]]]:
-        """Page payloads ({..., limit, page}) for POST-paginated routes."""
-        payloads: list[dict[str, Any]] = []
-        if max_items:
-            for page in range(math.ceil(max_items / pagination_limit)):
-                payloads.append({**payload, "limit": pagination_limit, "page": page + 1})
-        return [url] * len(payloads), payloads
+    # --- messages --------------------------------------------------------------------
+
+    def conversations(self) -> str:
+        """POST {limit, all: true, page_token?}: {conversations, page_token}."""
+        return f"{API_V2_URL}/messages?{_query()}"
+
+    def conversation(self, partner: str, mid: str | None = None) -> str:
+        """One conversation, newest first; ``mid`` is the previous page's
+        ``mid_token`` (absent on the last page)."""
+        query = _query(timezone="UTC", mid=mid)
+        return f"{API_V1_URL}/messages/with/{quote(partner)}?{query}"
