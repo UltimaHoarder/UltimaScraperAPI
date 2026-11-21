@@ -21,7 +21,32 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
-## [3.0.0b5] - Unreleased
+## [3.0.0b6] - 2026-11-21
+
+### Added
+- Privacy and DarkFans APIs: sign-in, profiles, posts, messages, stories and subscriptions. Both join the supported and enabled sites.
+- Privacy videos download from HLS playlists. DarkFans videos play through Fastevo ClearKey DRM, decrypted with Shaka Packager. The player's keys are read from Fastevo's web player at run time, never stored here.
+- `site_contract.py`: what the backend reads from a site API, checked against every site by the tests.
+- `pagination.py`: a shared pager for the `iter_*` methods (offset, page, id or timestamp cursors).
+- One `SITE_APIS` registry behind `select_api` and `get_site_title`.
+- `OnlyFansAuthModel.get_me` fetches the account's own profile again, so a top-up shows in its credit balance.
+- `mp4decrypt` takes several KID:KEY pairs.
+
+### Changed
+- Fansly rebuilt against the live web client: request signing, endpoints, media resolution, paging, and a `ChatModel`. Methods that could only ever reach onlyfans.com are gone.
+- Every site builds its URLs from a `urls.py` `APIRoutes`; site APIs expose `api_routes`. OnlyFans' `extras.endpoint_links` is removed.
+- A deleted Fansly account is named `u<id>`, as on OnlyFans.
+- `Sites.get_settings` raises on an unknown site instead of returning LoyalFans' settings.
+- License metadata is the SPDX expression `AGPL-3.0-or-later`. Docs build with Zensical.
+
+### Fixed
+- A route limited by a POST 429 clears again.
+- OnlyFans `like()`, `list_comments()` and `favorite()` no longer request "messagess" URLs; `get_login_issues` works again.
+- LoyalFans `get_messages` no longer always raises.
+
+---
+
+## [3.0.0b5] - 2026-11-05
 
 ### Added
 - Configurable guest lookup and route timeouts, per proxy, proxy group or network.
